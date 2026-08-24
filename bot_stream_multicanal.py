@@ -13,7 +13,6 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = "channels.json"
 
-# Cargar y guardar canales dinámicamente
 def load_channels():
     if os.path.exists(CHANNELS_FILE):
         try:
@@ -42,6 +41,11 @@ ADMIN_USER_ID = None
 # ==============================================================================
 active_streams = {}
 
+def clean_arg(val):
+    if not val:
+        return ""
+    return val.strip().strip("<>").strip('"').strip("'").strip()
+
 def extract_referer(url):
     try:
         parsed = urlparse(url)
@@ -54,6 +58,9 @@ def extract_referer(url):
 def start_single_stream(stream_id, source_url, stream_key, label=None):
     if stream_id in active_streams:
         stop_single_stream(stream_id)
+
+    source_url = clean_arg(source_url)
+    stream_key = clean_arg(stream_key)
 
     destination = RTMP_SERVER + stream_key
     referer = extract_referer(source_url)
@@ -93,6 +100,12 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
     ]
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    # Comprobar si arranca o falla de inmediato
+    time.sleep(1.5)
+    if proc.poll() is not None:
+        return False, "FFmpeg cerró inmediatamente (posible error 403 de IP o enlace caído)."
+
     active_streams[stream_id] = {
         "process": proc,
         "url": source_url,
@@ -100,7 +113,7 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
         "name": label if label else f"Canal {stream_id}",
         "start_time": time.time()
     }
-    return True
+    return True, "OK"
 
 def stop_single_stream(stream_id):
     if stream_id in active_streams:
@@ -152,9 +165,8 @@ def handle_message(msg):
             "• `/set1 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave del Canal 1\n"
             "• `/set2 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave del Canal 2\n"
             "• `/set3 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave del Canal 3\n"
-            "• `/set <ID> <NUEVA_KEY>` $\\rightarrow$ Crear/modificar cualquier canal\n"
             "• `/canales` $\\rightarrow$ Ver tus canales y claves guardadas\n\n"
-            "📡 *Transmitir al instante en cualquier canal nuevo:*\n"
+            "📡 *Transmitir al instante en cualquier canal:*\n"
             "• `/stream <URL_M3U8> <STREAM_KEY>`\n\n"
             "🛑 *Detener transmisiones:*\n"
             "• `/stop1` | `/stop2` | `/stop3`\n"
@@ -176,15 +188,15 @@ def handle_message(msg):
         if text.startswith("/set1") or text.startswith("/set2") or text.startswith("/set3"):
             cid = text[4:5]
             if len(parts) < 2:
-                send_msg(chat_id, f"⚠️ *Uso:* `/set{cid} <NUEVA_STREAM_KEY>`")
+                send_msg(chat_id, f"⚠️ *Uso:* `/set{cid} NUEVA_STREAM_KEY` (sin signos `<>`)")
                 return
-            new_key = parts[1]
+            new_key = clean_arg(parts[1])
         else:
             if len(parts) < 3:
-                send_msg(chat_id, "⚠️ *Uso:* `/set <NUMERO_CANAL> <STREAM_KEY>`")
+                send_msg(chat_id, "⚠️ *Uso:* `/set NUMERO_CANAL STREAM_KEY` (sin signos `<>`)")
                 return
-            cid = parts[1]
-            new_key = parts[2]
+            cid = clean_arg(parts[1])
+            new_key = clean_arg(parts[2])
 
         CHANNELS[cid] = new_key
         save_channels(CHANNELS)
@@ -196,33 +208,39 @@ def handle_message(msg):
         if not cid.isalnum():
             return
         if len(parts) < 2:
-            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} <URL_DEL_M3U8>`")
+            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} URL_DEL_M3U8` (sin signos `<>`)")
             return
         
-        m3u8_url = parts[1]
-        stream_key = CHANNELS.get(cid)
+        m3u8_url = clean_arg(parts[1])
+        stream_key = clean_arg(CHANNELS.get(cid))
         if not stream_key:
             send_msg(chat_id, f"❌ El Canal {cid} no tiene ninguna clave configurada.\nConfigúrala primero con: `/set{cid} <STREAM_KEY>`")
             return
 
         send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
-        start_single_stream(cid, m3u8_url, stream_key, f"Canal {cid}")
-        send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`")
+        ok, err = start_single_stream(cid, m3u8_url, stream_key, f"Canal {cid}")
+        if ok:
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`")
+        else:
+            send_msg(chat_id, f"❌ *Error al iniciar:* {err}")
 
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 3:
-            send_msg(chat_id, "⚠️ *Uso:* `/stream <URL_DEL_M3U8> <STREAM_KEY>`")
+            send_msg(chat_id, "⚠️ *Uso:* `/stream URL_DEL_M3U8 STREAM_KEY` (sin signos `<>`)")
             return
-        m3u8_url = parts[1]
-        custom_key = parts[2]
+        m3u8_url = clean_arg(parts[1])
+        custom_key = clean_arg(parts[2])
         custom_id = f"custom_{len(active_streams) + 1}"
         send_msg(chat_id, "⏳ *Iniciando transmisión personalizada...*")
-        start_single_stream(custom_id, m3u8_url, custom_key, f"Personalizado ({custom_id})")
-        send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Key: `{custom_key[:8]}...`")
+        ok, err = start_single_stream(custom_id, m3u8_url, custom_key, f"Personalizado ({custom_id})")
+        if ok:
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`")
+        else:
+            send_msg(chat_id, f"❌ *Error al iniciar:* {err}")
 
     elif text.startswith("/stop") and text != "/stopall":
-        cid = text[5:].strip()
+        cid = clean_arg(text[5:])
         if not cid:
             send_msg(chat_id, "⚠️ *Uso:* `/stop1`, `/stop2` o `/stopall`")
             return
