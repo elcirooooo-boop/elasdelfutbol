@@ -68,7 +68,6 @@ def resolve_live_stream_url(target):
         except Exception as e:
             print(f"Error resolviendo canal libre {target}: {e}")
 
-    # Si es una URL directa
     referer = "https://google.com/"
     if "tvlibre.pe" in target or "futbollibre" in target:
         referer = "https://futbollibre.ch/"
@@ -163,7 +162,7 @@ def get_live_agenda_messages():
         return [f"⚠️ Error obteniendo la agenda: {e}"]
 
 # ==============================================================================
-# 2. GESTOR DE MULTI-TRANSMISIÓN
+# 2. GESTOR DE MULTI-TRANSMISIÓN DEFINITIVO (480p 25fps ULTRA-FLUIDO)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -178,13 +177,14 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     stream_key = clean_arg(stream_key)
     destination = RTMP_SERVER + stream_key
 
-    # Resolver enlace y cabeceras
     source_url, headers = resolve_live_stream_url(raw_url)
 
+    # PERFIL ULTRA-FLUIDO DE RENDIMIENTO MÁXIMO (480p 25fps / 2.0s GOP / CERO CONGELAMIENTO)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
         "-reconnect", "1",
+        "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
@@ -192,18 +192,18 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-headers", headers,
         "-i", source_url,
         "-max_muxing_queue_size", "4096",
-        "-vf", "scale=960:540",
-        "-r", "30",
+        "-vf", "scale=854:480,fps=25",
+        "-r", "25",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
         "-threads", "0",
-        "-b:v", "1000k",
-        "-maxrate", "1200k",
-        "-bufsize", "2000k",
+        "-b:v", "850k",
+        "-maxrate", "1000k",
+        "-bufsize", "1800k",
         "-pix_fmt", "yuv420p",
-        "-g", "60",
-        "-keyint_min", "60",
+        "-g", "50",
+        "-keyint_min", "50",
         "-sc_threshold", "0",
         "-c:a", "aac",
         "-b:a", "96k",
@@ -366,7 +366,7 @@ def handle_message(msg):
         send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid} ({raw_url})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Canal: `{raw_url}`\n⚡ Perfil: Ultra-Fluido 0% Lag")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Canal: `{raw_url}`\n⚡ Perfil: 480p/25fps Ultra-Fluido")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -381,7 +381,7 @@ def handle_message(msg):
         send_msg(chat_id, f"⏳ *Iniciando transmisión de {raw_url}...*")
         ok, res = start_single_stream(custom_id, raw_url, custom_key, f"Personalizado ({raw_url})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Señal: `{raw_url}`\n⚡ Perfil: Ultra-Fluido 0% Lag")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Señal: `{raw_url}`\n⚡ Perfil: 480p/25fps Ultra-Fluido")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -413,7 +413,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Auto-Resolución de Canales Libres listo...")
+    print("🤖 Bot Multi-Canal Blindado 480p/25fps listo...")
     offset = 0
     while True:
         try:
