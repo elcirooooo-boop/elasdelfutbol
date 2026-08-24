@@ -8,9 +8,10 @@ import asyncio
 from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT
+# 1. CONFIGURACIÓN DEL BOT Y PROXY
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
+HTTP_PROXY = os.environ.get("HTTP_PROXY", None) # Variable opcional para Proxy Residencial
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = "channels.json"
 
@@ -39,14 +40,21 @@ ADMIN_USER_ID = None
 active_streams = {}
 
 # ==============================================================================
-# 2. AUTO-EXTRACTOR DE ENLACES M3U8 CON NAVEGADOR HEADLESS EN LA NUBE
+# 2. AUTO-EXTRACTOR DE ENLACES M3U8 CON NAVEGADOR HEADLESS
 # ==============================================================================
 async def extract_m3u8_from_page(web_url, timeout=25):
     found_urls = []
     try:
         from playwright.async_api import async_playwright
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"])
+            launch_options = {
+                "headless": True,
+                "args": ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+            }
+            if HTTP_PROXY:
+                launch_options["proxy"] = {"server": HTTP_PROXY}
+
+            browser = await p.chromium.launch(**launch_options)
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             )
@@ -84,11 +92,9 @@ async def extract_m3u8_from_page(web_url, timeout=25):
 
 def resolve_stream_url(input_url):
     clean = clean_arg(input_url)
-    # Si ya es un enlace directo m3u8
     if ".m3u8" in clean.lower():
         return clean
     
-    # Si es una página web de partido, el bot la visita en la nube para generar el token con la IP de Railway
     print(f"Extrayendo señal en la nube desde: {clean}...")
     try:
         loop = asyncio.new_event_loop()
@@ -142,7 +148,14 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "5",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
-        "-headers", headers,
+        "-headers", headers
+    ]
+
+    # Inyectar proxy si está configurado en Railway
+    if HTTP_PROXY:
+        cmd.extend(["-http_proxy", HTTP_PROXY])
+
+    cmd.extend([
         "-i", source_url,
         "-vf", "scale=1280:720",
         "-r", "30",
@@ -162,7 +175,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
-    ]
+    ])
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(2)
@@ -217,27 +230,24 @@ def handle_message(msg):
         return
 
     if text.startswith("/start") or text.startswith("/ayuda"):
+        proxy_status = "🛡️ Activado" if HTTP_PROXY else "⚪ Sin Proxy (Directo)"
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN INTELIGENTE EN LA NUBE*\n\n"
-            "📺 *Transmitir en canales guardados:*\n"
+            f"⚽ *BOT DE TRANSMISIÓN EN LA NUBE*\n"
+            f"🌐 *Estado de Red:* `{proxy_status}`\n\n"
+            "📺 *Transmitir en canales:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
             "• `/c3 <URL>` $\\rightarrow$ Transmitir en Canal 3\n\n"
-            "🌐 *¿Qué URL puedes enviar?*\n"
-            "1. El enlace web del partido (ej. `https://istreameast.cx/...`)\n"
-            "2. O el enlace `.m3u8` directo\n\n"
-            "🔑 *Cambiar la clave (Stream Key) de un canal:*\n"
-            "• `/set1 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave del Canal 1\n"
-            "• `/set2 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave del Canal 2\n"
-            "• `/set3 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave del Canal 3\n"
-            "• `/canales` $\\rightarrow$ Ver canales y claves guardadas\n\n"
+            "🔑 *Cambiar claves (Stream Keys):*\n"
+            "• `/set1 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave Canal 1\n"
+            "• `/set2 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave Canal 2\n"
+            "• `/canales` $\\rightarrow$ Ver claves guardadas\n\n"
             "📡 *Transmitir al instante en cualquier canal:*\n"
             "• `/stream <URL> <STREAM_KEY>`\n\n"
             "🛑 *Detener transmisiones:*\n"
-            "• `/stop1` | `/stop2` | `/stop3`\n"
-            "• `/stopall` $\\rightarrow$ Detener TODOS los partidos\n\n"
+            "• `/stop1` | `/stop2` | `/stopall`\n\n"
             "📊 *Estado en vivo:*\n"
-            "• `/status` $\\rightarrow$ Ver partidos en vivo"
+            "• `/status` $\\rightarrow$ Ver qué partidos están emitiéndose"
         )
         send_msg(chat_id, help_text)
 
@@ -273,7 +283,7 @@ def handle_message(msg):
         if not cid.isalnum():
             return
         if len(parts) < 2:
-            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} <URL_DEL_PARTIDO_O_M3U8>`")
+            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} <URL>`")
             return
         
         raw_url = clean_arg(parts[1])
@@ -332,7 +342,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Auto-Extractor iniciado en la nube...")
+    print("🤖 Bot Multi-Canal con soporte Proxy Residencial iniciado...")
     offset = 0
     while True:
         try:
