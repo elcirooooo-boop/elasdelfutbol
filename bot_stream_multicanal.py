@@ -16,7 +16,8 @@ CHANNELS_FILE = "channels.json"
 
 IPTV_USER = "BE15ERDV"
 IPTV_PASS = "PXELERB9"
-IPTV_SERVER = "http://evestv.leptis.live"
+IPTV_SERVER = "http://evestv.ptjfj.com"  # Servidor principal directo y más estable
+IPTV_SERVER_ALT = "http://evestv.leptis.live"
 AGENDA_API = "https://futbollibretv.org.pe/diaries.json"
 
 def load_channels():
@@ -43,29 +44,29 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# MAPEO 100% EN ESPAÑOL (LATINOAMÉRICA / SUR / ARGENTINA / MÉXICO / COLOMBIA)
+# MAPEO DE CANALES 100% EN ESPAÑOL (SUR / LATAM / ARGENTINA / COLOMBIA)
 CHANNEL_MAP = [
-    ("espn 2 | op2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"), # ESPN 2 Colombia
-    ("espn 2 | op3", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/5976.ts"),  # ESPN 2 Perú
-    ("espn 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"),       # ESPN 2 Sur (Mariano Closs)
-    ("espn ar", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"),      # ESPN Argentina
-    ("espn premium", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"),   # ESPN Premium
-    ("espn 3", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"),       # ESPN 3 Sur
-    ("espn 4", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),     # ESPN 4
-    ("espn extra", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"),   # ESPN Extra Sur
-    ("espn deportes", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),# ESPN Deportes
-    ("espn", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"),         # ESPN 1 Sur
-    ("tyc", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"),          # TyC Sports
-    ("tnt sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts"),    # TNT Sports
-    ("dsports 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),    # DSports 2
-    ("dsports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),      # DSports 1
-    ("directv 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),
-    ("directv", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),
-    ("laliga", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
-    ("dazn", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
-    ("universo", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),
-    ("sky", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
-    ("fox sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/50614.ts"),
+    ("espn 2 | op2", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"), # ESPN 2 Colombia
+    ("espn 2 | op3", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5976.ts"),  # ESPN 2 Perú
+    ("espn 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"),           # ESPN 2 Sur HD
+    ("espn ar", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"),      # ESPN Argentina
+    ("espn premium", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"),   # ESPN Premium
+    ("espn 3", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"),       # ESPN 3 Sur
+    ("espn 4", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),     # ESPN 4
+    ("espn extra", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"),   # ESPN Extra Sur
+    ("espn deportes", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),# ESPN Deportes
+    ("espn", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"),         # ESPN 1 Sur
+    ("tyc", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"),          # TyC Sports
+    ("tnt sports", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts"),    # TNT Sports
+    ("dsports 2", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),    # DSports 2
+    ("dsports", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),      # DSports 1
+    ("directv 2", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),
+    ("directv", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),
+    ("laliga", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
+    ("dazn", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
+    ("universo", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),
+    ("sky", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
+    ("fox sports", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/50614.ts"),
 ]
 
 def map_channel_to_iptv(ch_name):
@@ -77,18 +78,18 @@ def map_channel_to_iptv(ch_name):
 
 # CANALES DEPORTIVOS EN ESPAÑOL LATAM VERIFICADOS 100% ACTIVOS (200 OK)
 TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN 1 Sur HD (Español Latam)", "id": "30326", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"},
     {"name": "ESPN 2 Sur HD (Español - Mariano Closs)", "id": "30327", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"},
-    {"name": "ESPN 2 Colombia HD (Español)", "id": "33893", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"},
-    {"name": "ESPN 3 Sur HD (Español)", "id": "30328", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"},
-    {"name": "ESPN Extra Sur HD (Español)", "id": "30329", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"},
-    {"name": "ESPN Premium HD (Fútbol Argentino)", "id": "4883", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"},
-    {"name": "ESPN México HD (Español)", "id": "34050", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
-    {"name": "ESPN 4 HD (Español)", "id": "1201550", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"},
-    {"name": "TyC Sports HD (Argentina)", "id": "30365", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
-    {"name": "Directv Sports 1 (DSPORTS)", "id": "33933", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"},
-    {"name": "Directv Sports 2 (DSPORTS 2)", "id": "33932", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"},
-    {"name": "LaLiga TV (FHD)", "id": "33866", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"},
+    {"name": "ESPN 2 Colombia HD (Español)", "id": "33893", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"},
+    {"name": "ESPN 1 Sur HD (Español Latam)", "id": "30326", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"},
+    {"name": "ESPN 3 Sur HD (Español)", "id": "30328", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"},
+    {"name": "ESPN Extra Sur HD (Español)", "id": "30329", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"},
+    {"name": "ESPN Premium HD (Fútbol Argentino)", "id": "4883", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"},
+    {"name": "ESPN México HD (Español)", "id": "34050", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
+    {"name": "ESPN 4 HD (Español)", "id": "1201550", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"},
+    {"name": "TyC Sports HD (Argentina)", "id": "30365", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
+    {"name": "Directv Sports 1 (DSPORTS)", "id": "33933", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"},
+    {"name": "Directv Sports 2 (DSPORTS 2)", "id": "33932", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"},
+    {"name": "LaLiga TV (FHD)", "id": "33866", "url": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"},
 ]
 
 cached_streams = []
@@ -98,7 +99,7 @@ def get_iptv_streams():
     if cached_streams:
         return cached_streams
     try:
-        api_url = f"{IPTV_SERVER}/player_api.php?username={IPTV_USER}&password={IPTV_PASS}&action=get_live_streams"
+        api_url = f"{IPTV_SERVER_ALT}/player_api.php?username={IPTV_USER}&password={IPTV_PASS}&action=get_live_streams"
         r = requests.get(api_url, timeout=15, headers={"User-Agent": "IPTVSmartersPro"})
         if r.status_code == 200:
             cached_streams = r.json()
@@ -116,7 +117,7 @@ def search_iptv_channels(query, max_results=8):
         sid = ch.get("stream_id")
         clean_name = re.sub(r'[^\x00-\x7F]+', ' ', name).strip()
         if query_clean in clean_name.lower():
-            link = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{sid}.ts"
+            link = f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/{sid}.ts"
             results.append((clean_name, sid, link))
             if len(results) >= max_results:
                 break
@@ -428,7 +429,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Canales ESPN Latinoamericanos listo...")
+    print("🤖 Bot Multi-Canal con Servidor ptjfj directo listo...")
     offset = 0
     while True:
         try:
