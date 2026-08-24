@@ -42,16 +42,14 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# CANALES VERIFICADOS 100% ACTIVOS (CÓDIGO 200 OK)
+# CANALES VERIFICADOS 100% ACTIVOS (200 OK)
 TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN 1 HD (Principal)", "id": "32114", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"},
-    {"name": "ESPN 2 HD (En Vivo)", "id": "32164", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"},
+    {"name": "ESPN 1 HD", "id": "32114", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"},
+    {"name": "ESPN 2 HD", "id": "32164", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"},
     {"name": "ESPN 2 HD (Respaldo)", "id": "239665", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/239665.ts"},
     {"name": "ESPN HD (Latam)", "id": "34050", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
     {"name": "ESPN 3 HD", "id": "34049", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34049.ts"},
     {"name": "ESPN 4 HD", "id": "1201550", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"},
-    {"name": "ESPN News HD", "id": "32112", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32112.ts"},
-    {"name": "ESPN U HD", "id": "32138", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32138.ts"},
     {"name": "TyC Sports HD", "id": "30365", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
     {"name": "Directv Sports 1 (DSPORTS)", "id": "33933", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"},
     {"name": "Directv Sports 2 (DSPORTS 2)", "id": "33932", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"},
@@ -98,29 +96,13 @@ def clean_arg(val):
         return ""
     return val.strip().strip("<>").strip('"').strip("'").strip()
 
-def extract_referer(url):
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme and parsed.netloc:
-            return f"{parsed.scheme}://{parsed.netloc}/"
-    except Exception:
-        pass
-    return "https://google.com/"
-
 def start_single_stream(stream_id, raw_url, stream_key, label=None):
     if stream_id in active_streams:
         stop_single_stream(stream_id)
 
     source_url = clean_arg(raw_url)
     stream_key = clean_arg(stream_key)
-
     destination = RTMP_SERVER + stream_key
-    referer = extract_referer(source_url)
-    
-    headers = (
-        f"Referer: {referer}\r\n"
-        f"Origin: {referer.rstrip('/')}\r\n"
-    )
 
     # MOTOR BLINDADO ANTI-CONGELAMIENTO (0% BUFFERING)
     cmd = [
@@ -132,7 +114,6 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-reconnect_delay_max", "2",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
-        "-headers", headers,
         "-i", source_url,
         "-max_muxing_queue_size", "4096",
         "-vf", "scale=1280:720",
@@ -166,7 +147,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     time.sleep(1.5)
     if proc.poll() is not None:
         out_f.close()
-        err_snippet = "No se pudo conectar a la señal."
+        err_snippet = "No se pudo conectar a la fuente."
         try:
             with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
@@ -191,10 +172,11 @@ def stop_single_stream(stream_id):
         info = active_streams[stream_id]
         proc = info["process"]
         try:
-            proc.terminate()
-            proc.wait(timeout=2)
-        except Exception:
+            # Forzar cierre inmediato del socket TCP para liberar el slot IPTV al instante
             proc.kill()
+            proc.wait(timeout=1)
+        except Exception:
+            pass
         try:
             if "log_file" in info and not info["log_file"].closed:
                 info["log_file"].close()
