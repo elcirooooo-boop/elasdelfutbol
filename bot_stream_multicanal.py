@@ -44,7 +44,6 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# CANALES DE AUTO-RESOLUCIÓN EN VIVO (100% LIBRES / CERO 401 / RELATO EN ESPAÑOL)
 AUTO_CHANNELS = {
     "espn2": "https://futbollibre.ch/1.php?stream=espn2",
     "espn": "https://futbollibre.ch/1.php?stream=espn",
@@ -77,7 +76,6 @@ def resolve_live_stream_url(target):
     headers = f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
     return target, headers
 
-# MAPEO DE CANALES PARA LA AGENDA
 CHANNEL_MAP = [
     ("espn 2 | op2", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"),
     ("espn 2 | op3", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5976.ts"),
@@ -109,7 +107,7 @@ def map_channel_to_iptv(ch_name):
     return None
 
 TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN 2 Sur HD (Español Latam)", "id": "espn2", "cmd": "espn2"},
+    {"name": "ESPN 2 Sur HD (Mariano Closs)", "id": "espn2", "cmd": "espn2"},
     {"name": "ESPN 1 Sur HD (Español Latam)", "id": "espn", "cmd": "espn"},
     {"name": "ESPN 3 Sur HD (Español Latam)", "id": "espn3", "cmd": "espn3"},
     {"name": "TyC Sports HD (Argentina)", "id": "tyc", "cmd": "tyc"},
@@ -162,7 +160,7 @@ def get_live_agenda_messages():
         return [f"⚠️ Error obteniendo la agenda: {e}"]
 
 # ==============================================================================
-# 2. GESTOR DE MULTI-TRANSMISIÓN DEFINITIVO (480p 25fps ULTRA-FLUIDO)
+# 2. GESTOR DE MULTI-TRANSMISIÓN DEFINITIVO (1.00x TIEMPO REAL EXACTO)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -179,10 +177,11 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
 
     source_url, headers = resolve_live_stream_url(raw_url)
 
-    # PERFIL ULTRA-FLUIDO DE RENDIMIENTO MÁXIMO (480p 25fps / 2.0s GOP / CERO CONGELAMIENTO)
+    # PERFIL DEFINITIVO CON RELOJ REGULADOR 1.00x EN TIEMPO REAL
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
+        "-re",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
@@ -209,7 +208,6 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-b:a", "96k",
         "-ar", "44100",
         "-bsf:a", "aac_adtstoasc",
-        "-max_interleave_delta", "0",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
@@ -366,7 +364,7 @@ def handle_message(msg):
         send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid} ({raw_url})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Canal: `{raw_url}`\n⚡ Perfil: 480p/25fps Ultra-Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Canal: `{raw_url}`\n⏱️ Sincronización: 1.00x Tiempo Real")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -381,7 +379,7 @@ def handle_message(msg):
         send_msg(chat_id, f"⏳ *Iniciando transmisión de {raw_url}...*")
         ok, res = start_single_stream(custom_id, raw_url, custom_key, f"Personalizado ({raw_url})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Señal: `{raw_url}`\n⚡ Perfil: 480p/25fps Ultra-Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Señal: `{raw_url}`\n⏱️ Sincronización: 1.00x Tiempo Real")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -413,7 +411,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal Blindado 480p/25fps listo...")
+    print("🤖 Bot Multi-Canal Sincronizado a 1.00x listo...")
     offset = 0
     while True:
         try:
