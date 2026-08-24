@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 # ==============================================================================
 # 1. CONFIGURACIÓN DEL BOT
 # ==============================================================================
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "PEGA_AQUI_TU_BOT_TOKEN_DE_BOTFATHER")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = "channels.json"
 
@@ -22,9 +22,9 @@ def load_channels():
         except Exception:
             pass
     return {
-        "1": "4394528713:myDTS60UhFs8Q1cpXDDyaQ",
-        "2": "4400198885:PcUiiv-__sV28_Hnyq83Ew",
-        "3": "3936015063:nG8N_no46UfNuA6jXewiag"
+        "1": os.environ.get("STREAM_KEY_1", "4394528713:myDTS60UhFs8Q1cpXDDyaQ"),
+        "2": os.environ.get("STREAM_KEY_2", "4400198885:PcUiiv-__sV28_Hnyq83Ew"),
+        "3": os.environ.get("STREAM_KEY_3", "3936015063:nG8N_no46UfNuA6jXewiag")
     }
 
 def save_channels(channels_dict):
@@ -143,7 +143,7 @@ def handle_message(msg):
     # Comando de ayuda
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN MULTI-CANAL INTELIGENTE*\n\n"
+            "⚽ *BOT DE TRANSMISIÓN MULTI-CANAL (@Elasdelfutbolbot)*\n\n"
             "📺 *Transmitir en canales guardados:*\n"
             "• `/c1 <URL_M3U8>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL_M3U8>` $\\rightarrow$ Transmitir en Canal 2\n"
@@ -164,7 +164,6 @@ def handle_message(msg):
         )
         send_msg(chat_id, help_text)
 
-    # Ver lista de canales guardados
     elif text.startswith("/canales"):
         txt = "📋 *CANALES CONFIGURADOS ACTUALMENTE:*\n\n"
         for cid, k in sorted(CHANNELS.items()):
@@ -172,7 +171,6 @@ def handle_message(msg):
         txt += "\n💡 Para cambiar una clave escribe: `/set1 <nueva_clave>`"
         send_msg(chat_id, txt)
 
-    # Modificar claves de canales (/set1, /set2, /set3, o /set <id> <key>)
     elif text.startswith("/set"):
         parts = text.split()
         if text.startswith("/set1") or text.startswith("/set2") or text.startswith("/set3"):
@@ -192,10 +190,9 @@ def handle_message(msg):
         save_channels(CHANNELS)
         send_msg(chat_id, f"✅ *¡Clave del Canal {cid} actualizada con éxito!*\n🔑 Nueva Stream Key: `{new_key}`")
 
-    # Transmitir en un canal guardado (/c1, /c2, /c3, o /c<id>)
     elif text.startswith("/c"):
         parts = text.split()
-        cid = parts[0][2:] # extraer el id despues de /c
+        cid = parts[0][2:]
         if not cid.isalnum():
             return
         if len(parts) < 2:
@@ -212,7 +209,6 @@ def handle_message(msg):
         start_single_stream(cid, m3u8_url, stream_key, f"Canal {cid}")
         send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`")
 
-    # Transmisión directa al vuelo sin guardar (/stream <url> <key>)
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 3:
@@ -225,7 +221,6 @@ def handle_message(msg):
         start_single_stream(custom_id, m3u8_url, custom_key, f"Personalizado ({custom_id})")
         send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Key: `{custom_key[:8]}...`")
 
-    # Detener canales específicos (/stop1, /stop2, etc.)
     elif text.startswith("/stop") and text != "/stopall":
         cid = text[5:].strip()
         if not cid:
@@ -240,7 +235,6 @@ def handle_message(msg):
         count = stop_all_streams()
         send_msg(chat_id, f"🛑 *Se han detenido todas las transmisiones ({count} partidos cerrados).*")
 
-    # Ver estado
     elif text.startswith("/status"):
         if not active_streams:
             send_msg(chat_id, "🔴 *No hay ninguna transmisión activa actualmente.*")
@@ -255,11 +249,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    if not BOT_TOKEN or BOT_TOKEN == "PEGA_AQUI_TU_BOT_TOKEN_DE_BOTFATHER":
-        print("❌ Error: Falta configurar el BOT_TOKEN en las variables de entorno o en el código.")
-        return
-
-    print("🤖 Bot Multi-Canal Dinámico iniciado...")
+    print("🤖 Bot @Elasdelfutbolbot iniciado y listo para recibir comandos...")
     offset = 0
     while True:
         try:
