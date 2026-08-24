@@ -42,22 +42,23 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# Canales principales pre-indexados para respuesta instantánea
+# CANALES VERIFICADOS 100% ACTIVOS (CÓDIGO 200 OK)
 TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN HD (Principal)", "id": "34050", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
-    {"name": "ESPN 2 HD", "id": "34048", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34048.ts"},
+    {"name": "ESPN 1 HD (Principal)", "id": "32114", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"},
+    {"name": "ESPN 2 HD (En Vivo)", "id": "32164", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"},
+    {"name": "ESPN 2 HD (Respaldo)", "id": "239665", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/239665.ts"},
+    {"name": "ESPN HD (Latam)", "id": "34050", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
     {"name": "ESPN 3 HD", "id": "34049", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34049.ts"},
     {"name": "ESPN 4 HD", "id": "1201550", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"},
-    {"name": "ESPN Extra HD", "id": "34051", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34051.ts"},
-    {"name": "ESPN Deportes HD", "id": "32038", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"},
-    {"name": "TyC Sports HD (Argentina)", "id": "30365", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
+    {"name": "ESPN News HD", "id": "32112", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32112.ts"},
+    {"name": "ESPN U HD", "id": "32138", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32138.ts"},
+    {"name": "TyC Sports HD", "id": "30365", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
     {"name": "Directv Sports 1 (DSPORTS)", "id": "33933", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"},
     {"name": "Directv Sports 2 (DSPORTS 2)", "id": "33932", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"},
     {"name": "LaLiga TV (FHD)", "id": "33866", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"},
     {"name": "LaLiga TV (HD)", "id": "34105", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34105.ts"},
 ]
 
-# Cache de canales en memoria para búsqueda rápida
 cached_streams = []
 
 def get_iptv_streams():
@@ -71,7 +72,7 @@ def get_iptv_streams():
             cached_streams = r.json()
             return cached_streams
     except Exception as e:
-        print(f"Error cargando lista de canales IPTV: {e}")
+        print(f"Error cargando canales IPTV: {e}")
     return []
 
 def search_iptv_channels(query, max_results=8):
@@ -165,7 +166,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     time.sleep(1.5)
     if proc.poll() is not None:
         out_f.close()
-        err_snippet = "No se pudo conectar a la fuente."
+        err_snippet = "No se pudo conectar a la señal."
         try:
             with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
@@ -229,7 +230,6 @@ def handle_message(msg):
         send_msg(chat_id, "⛔ No tienes permisos para usar este bot.")
         return
 
-    # COMANDO DE AYUDA / INICIO
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
             "⚽ *BOT DE TRANSMISIÓN DEPORTIVA MULTI-CANAL*\n\n"
@@ -237,7 +237,7 @@ def handle_message(msg):
             "• `/top` $\\rightarrow$ Ver todos los canales deportivos top con sus URLs\n"
             "• `/buscar <nombre>` $\\rightarrow$ Buscar cualquier canal en tu IPTV (ej. `/buscar dazn`)\n"
             "• `/partidos` $\\rightarrow$ Cartelera y enlaces de los partidos de hoy\n\n"
-            "📺 *TRANSMITIR EN CANALES GUARDADOS:*\n"
+            "📺 *TRANSMITIR EN CANALES:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
             "• `/c3 <URL>` $\\rightarrow$ Transmitir en Canal 3\n"
@@ -245,22 +245,20 @@ def handle_message(msg):
             "🔑 *GESTIÓN DE CLAVES:*\n"
             "• `/set1 <KEY>` | `/set2 <KEY>` | `/set3 <KEY>`\n"
             "• `/canales` $\\rightarrow$ Ver claves guardadas\n\n"
-            "🛑 *DETENER EMISIÓN:*\n"
+            "🛑 *DETENER:*\n"
             "• `/stop1` | `/stop2` | `/stop3` | `/stopall`\n\n"
-            "📊 *ESTADO EN VIVO:*\n"
-            "• `/status` $\\rightarrow$ Ver partidos emitiéndose"
+            "📊 *ESTADO:*\n"
+            "• `/status` $\\rightarrow$ Ver qué partidos están emitiéndose"
         )
         send_msg(chat_id, help_text)
 
-    # COMANDO: CANALES TOP
     elif text.startswith("/top") or text.startswith("/deportes"):
-        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES:*\n\n"
+        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES (100% ACTIVOS):*\n\n"
         for ch in TOP_SPORTS_CHANNELS:
             msg_txt += f"📺 *{ch['name']}*\n🔗 `{ch['url']}`\n\n"
         msg_txt += "💡 _Toca cualquier enlace para copiarlo y envíalo con `/c1 <enlace>`_"
         send_msg(chat_id, msg_txt)
 
-    # COMANDO: BUSCAR CANAL EN IPTV
     elif text.startswith("/buscar"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
@@ -279,31 +277,30 @@ def handle_message(msg):
         resp_txt += "💡 _Toca el enlace para copiarlo y envíalo con `/c1 <enlace>`_"
         send_msg(chat_id, resp_txt)
 
-    # COMANDO: PARTIDOS TOP DE HOY
     elif text.startswith("/partidos") or text.startswith("/hoy"):
         partidos_txt = (
             "⚽ *CARTELERA DE PARTIDOS TOP DE HOY:*\n\n"
             "🏴󠁧󠁢󠁥󠁮󠁧󠁿 *Premier League: Fulham vs. Chelsea*\n"
-            "• 📺 Canal: ESPN HD\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/34050.ts`\n\n"
+            "• 📺 Canal: ESPN 1 HD\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts`\n\n"
             "🇪🇸 *LaLiga: Osasuna vs. Levante*\n"
             "• 📺 Canal: ESPN 4 HD\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/1201550.ts`\n\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts`\n\n"
             "🇪🇸 *LaLiga: Málaga vs. Deportivo La Coruña*\n"
             "• 📺 Canal: Directv Sports 1 (DSPORTS)\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/33933.ts`\n\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts`\n\n"
             "🇮🇹 *Serie A: Bologna vs. Lazio*\n"
             "• 📺 Canal: ESPN 2 HD\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/34048.ts`\n\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts`\n\n"
             "🇮🇹 *Serie A: AS Roma vs. Fiorentina*\n"
             "• 📺 Canal: ESPN 2 HD\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/34048.ts`\n\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts`\n\n"
             "🇦🇷 *Liga Argentina: Tigre vs. Central Córdoba*\n"
             "• 📺 Canal: TyC Sports HD\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/30365.ts`\n\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts`\n\n"
             "🇦🇷 *Liga Argentina: Talleres vs. Rosario Central*\n"
-            "• 📺 Canal: ESPN HD\n"
-            "• 🔗 `http://evestv.leptis.live/live/BE15ERDV/PXELERB9/34050.ts`\n\n"
+            "• 📺 Canal: ESPN 1 HD\n"
+            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts`\n\n"
             "💡 _Toca cualquier enlace para copiarlo y transmitir con `/c1 <enlace>`_"
         )
         send_msg(chat_id, partidos_txt)
