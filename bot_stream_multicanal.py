@@ -67,7 +67,8 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
-    # Configuración de alto rendimiento para IPTV en Railway (Sin -re para evitar congelamientos)
+    # MODO STREAM COPY (0% USO DE CPU EN RAILWAY - VELOCIDAD PURA)
+    # Pasa el video H.264 nativo directo al canal sin comprimir de nuevo
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -77,17 +78,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-headers", headers,
         "-i", source_url,
-        "-vf", "scale=1280:720",
-        "-r", "30",
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-        "-threads", "4",
-        "-b:v", "1500k",
-        "-maxrate", "1800k",
-        "-bufsize", "3000k",
-        "-pix_fmt", "yuv420p",
-        "-g", "60",
+        "-c:v", "copy",
         "-c:a", "aac",
         "-b:a", "128k",
         "-ar", "44100",
@@ -149,7 +140,7 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN MULTI-CANAL (Optimizado)*\n\n"
+            "⚽ *BOT DE TRANSMISIÓN (Modo Stream Copy 0% CPU)*\n\n"
             "📺 *Transmitir canal:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
@@ -159,7 +150,7 @@ def handle_message(msg):
             "🛑 *Detener:*\n"
             "• `/stop1` | `/stop2` | `/stopall`\n\n"
             "📊 *Estado:*\n"
-            "• `/status` $\\rightarrow$ Ver qué partidos están emitiéndose"
+            "• `/status` $\\rightarrow$ Ver partidos en directo"
         )
         send_msg(chat_id, help_text)
 
@@ -204,10 +195,10 @@ def handle_message(msg):
             send_msg(chat_id, f"❌ El Canal {cid} no tiene ninguna clave configurada.\nConfigúrala primero con: `/set{cid} <STREAM_KEY>`")
             return
 
-        send_msg(chat_id, f"⏳ *Iniciando transmisión ultra-fluida en Canal {cid}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión en modo Stream Copy en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid}")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: 720p 30fps Ultra-Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Rendimiento: Directo 0% CPU")
         else:
             send_msg(chat_id, f"❌ *Error:* {res}")
 
@@ -219,10 +210,10 @@ def handle_message(msg):
         raw_url = clean_arg(parts[1])
         custom_key = clean_arg(parts[2])
         custom_id = f"custom_{len(active_streams) + 1}"
-        send_msg(chat_id, "⏳ *Iniciando transmisión ultra-fluida...*")
+        send_msg(chat_id, "⏳ *Iniciando transmisión en modo Stream Copy...*")
         ok, res = start_single_stream(custom_id, raw_url, custom_key, f"Personalizado ({custom_id})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: 720p 30fps Ultra-Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Rendimiento: Directo 0% CPU")
         else:
             send_msg(chat_id, f"❌ *Error:* {res}")
 
