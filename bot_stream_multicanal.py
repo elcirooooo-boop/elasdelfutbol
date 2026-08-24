@@ -66,13 +66,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
-    # ==============================================================================
-    # PERFIL DEFINITIVO ANTI-CONGELAMIENTO 24/7 (0% MICRO-CORTES)
-    # - CBR estricto de 1200k (bitrate constante predecible)
-    # - Keyframes cada 60 fotogramas (2.0s exactos requeridos por Telegram)
-    # - Auto-reconexión instantánea si la fuente IPTV parpadea
-    # - Normalización completa de marcas de tiempo
-    # ==============================================================================
+    # PERFIL ANTI-FREEZE 24/7 (1.200k CBR + 2s GOP + Auto-recovery)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -91,8 +85,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-tune", "zerolatency",
         "-threads", "0",
         "-b:v", "1200k",
-        "-minrate", "1000k",
-        "-maxrate", "1300k",
+        "-maxrate", "1400k",
         "-bufsize", "2400k",
         "-pix_fmt", "yuv420p",
         "-g", "60",
@@ -108,13 +101,26 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         destination
     ]
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(2)
+    log_file = f"/tmp/stream_{stream_id}.log" if os.name != 'nt' else f"stream_{stream_id}.log"
+    out_f = open(log_file, "w", encoding="utf-8", errors="ignore")
+    proc = subprocess.Popen(cmd, stdout=out_f, stderr=out_f)
+    
+    time.sleep(1.5)
     if proc.poll() is not None:
-        return False, "FFmpeg no pudo conectar a la señal."
+        out_f.close()
+        err_snippet = "No se pudo conectar a la fuente."
+        try:
+            with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
+                if lines:
+                    err_snippet = lines[-1].strip()
+        except Exception:
+            pass
+        return False, f"Error: {err_snippet}"
 
     active_streams[stream_id] = {
         "process": proc,
+        "log_file": out_f,
         "url": source_url,
         "key": stream_key,
         "name": label if label else f"Canal {stream_id}",
@@ -124,12 +130,18 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
 
 def stop_single_stream(stream_id):
     if stream_id in active_streams:
-        proc = active_streams[stream_id]["process"]
+        info = active_streams[stream_id]
+        proc = info["process"]
         try:
             proc.terminate()
-            proc.wait(timeout=3)
+            proc.wait(timeout=2)
         except Exception:
             proc.kill()
+        try:
+            if "log_file" in info and not info["log_file"].closed:
+                info["log_file"].close()
+        except Exception:
+            pass
         del active_streams[stream_id]
         return True
     return False
@@ -219,7 +231,7 @@ def handle_message(msg):
         if ok:
             send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: Anti-Freeze 24/7")
         else:
-            send_msg(chat_id, f"❌ *Error:* {res}")
+            send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
     elif text.startswith("/stream"):
         parts = text.split()
@@ -234,7 +246,7 @@ def handle_message(msg):
         if ok:
             send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: Anti-Freeze 24/7")
         else:
-            send_msg(chat_id, f"❌ *Error:* {res}")
+            send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
     elif text.startswith("/stop") and text != "/stopall":
         cid = clean_arg(text[5:])
