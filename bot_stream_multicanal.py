@@ -4,14 +4,13 @@ import requests
 import json
 import os
 import sys
-import asyncio
 from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT Y PROXY
+# 1. CONFIGURACIÓN DEL BOT
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
-HTTP_PROXY = os.environ.get("HTTP_PROXY", None) # Variable opcional para Proxy Residencial
+HTTP_PROXY = os.environ.get("HTTP_PROXY", None)
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = "channels.json"
 
@@ -39,79 +38,6 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# ==============================================================================
-# 2. AUTO-EXTRACTOR DE ENLACES M3U8 CON NAVEGADOR HEADLESS
-# ==============================================================================
-async def extract_m3u8_from_page(web_url, timeout=25):
-    found_urls = []
-    try:
-        from playwright.async_api import async_playwright
-        async with async_playwright() as p:
-            launch_options = {
-                "headless": True,
-                "args": ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
-            }
-            if HTTP_PROXY:
-                launch_options["proxy"] = {"server": HTTP_PROXY}
-
-            browser = await p.chromium.launch(**launch_options)
-            context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-            )
-            page = await context.new_page()
-
-            def on_request(request):
-                url = request.url
-                if any(ext in url.lower() for ext in [".m3u8", "mono.m3u8", "index.m3u8", "tracks-v1a1"]):
-                    if not any(ign in url.lower() for ign in ["google", "analytics", "doubleclick", "adroll", "clarity"]):
-                        found_urls.append(url)
-
-            page.on("request", on_request)
-
-            try:
-                await page.goto(web_url, timeout=timeout * 1000, wait_until="domcontentloaded")
-                await asyncio.sleep(4)
-                try:
-                    await page.evaluate("""() => {
-                        const els = document.querySelectorAll('button, .play, .vjs-big-play-button, video, iframe');
-                        els.forEach(el => { try { el.click(); } catch(e){} });
-                    }""")
-                except Exception:
-                    pass
-                await asyncio.sleep(6)
-            except Exception as e:
-                print(f"Playwright navigation log: {e}")
-            finally:
-                await browser.close()
-    except Exception as e:
-        print(f"Playwright error: {e}")
-
-    if found_urls:
-        return found_urls[-1]
-    return None
-
-def resolve_stream_url(input_url):
-    clean = clean_arg(input_url)
-    if ".m3u8" in clean.lower():
-        return clean
-    
-    print(f"Extrayendo señal en la nube desde: {clean}...")
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        extracted = loop.run_until_complete(extract_m3u8_from_page(clean))
-        loop.close()
-        if extracted:
-            print(f"¡Señal extraída con éxito!: {extracted}")
-            return extracted
-    except Exception as e:
-        print(f"Error en extracción: {e}")
-    
-    return clean
-
-# ==============================================================================
-# 3. GESTOR DE MULTI-TRANSMISIÓN
-# ==============================================================================
 def clean_arg(val):
     if not val:
         return ""
@@ -130,13 +56,14 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     if stream_id in active_streams:
         stop_single_stream(stream_id)
 
+    source_url = clean_arg(raw_url)
     stream_key = clean_arg(stream_key)
-    source_url = resolve_stream_url(raw_url)
 
     destination = RTMP_SERVER + stream_key
     referer = extract_referer(source_url)
+    
     headers = (
-        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n"
+        "User-Agent: IPTVSmartersPro\r\n"
         f"Referer: {referer}\r\n"
         f"Origin: {referer.rstrip('/')}\r\n"
     )
@@ -146,12 +73,11 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "5",
+        "-reconnect_delay_max", "3",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-headers", headers
     ]
 
-    # Inyectar proxy si está configurado en Railway
     if HTTP_PROXY:
         cmd.extend(["-http_proxy", HTTP_PROXY])
 
@@ -162,13 +88,14 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
-        "-b:v", "1800k",
-        "-maxrate", "2000k",
-        "-bufsize", "3600k",
+        "-threads", "4",
+        "-b:v", "1200k",
+        "-maxrate", "1400k",
+        "-bufsize", "2400k",
         "-pix_fmt", "yuv420p",
         "-g", "60",
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", "96k",
         "-ar", "44100",
         "-bsf:a", "aac_adtstoasc",
         "-max_interleave_delta", "0",
@@ -178,9 +105,9 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     ])
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(2)
+    time.sleep(1.8)
     if proc.poll() is not None:
-        return False, "FFmpeg cerró inmediatamente (enlace no disponible o bloqueo del servidor)."
+        return False, "FFmpeg no pudo conectar a la señal."
 
     active_streams[stream_id] = {
         "process": proc,
@@ -209,9 +136,6 @@ def stop_all_streams():
         stop_single_stream(sid)
     return len(ids)
 
-# ==============================================================================
-# 4. INTERFAZ DE BOT DE TELEGRAM
-# ==============================================================================
 def send_msg(chat_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -230,23 +154,17 @@ def handle_message(msg):
         return
 
     if text.startswith("/start") or text.startswith("/ayuda"):
-        proxy_status = "🛡️ Activado" if HTTP_PROXY else "⚪ Sin Proxy (Directo)"
         help_text = (
-            f"⚽ *BOT DE TRANSMISIÓN EN LA NUBE*\n"
-            f"🌐 *Estado de Red:* `{proxy_status}`\n\n"
-            "📺 *Transmitir en canales:*\n"
+            "⚽ *BOT DE TRANSMISIÓN MULTI-CANAL*\n\n"
+            "📺 *Transmitir canal:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
-            "• `/c3 <URL>` $\\rightarrow$ Transmitir en Canal 3\n\n"
-            "🔑 *Cambiar claves (Stream Keys):*\n"
-            "• `/set1 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave Canal 1\n"
-            "• `/set2 <NUEVA_KEY>` $\\rightarrow$ Cambiar clave Canal 2\n"
-            "• `/canales` $\\rightarrow$ Ver claves guardadas\n\n"
-            "📡 *Transmitir al instante en cualquier canal:*\n"
-            "• `/stream <URL> <STREAM_KEY>`\n\n"
-            "🛑 *Detener transmisiones:*\n"
+            "• `/stream <URL> <STREAM_KEY>` $\\rightarrow$ Personalizado\n\n"
+            "🔑 *Claves:*\n"
+            "• `/set1 <KEY>` | `/set2 <KEY>` | `/canales`\n\n"
+            "🛑 *Detener:*\n"
             "• `/stop1` | `/stop2` | `/stopall`\n\n"
-            "📊 *Estado en vivo:*\n"
+            "📊 *Estado:*\n"
             "• `/status` $\\rightarrow$ Ver qué partidos están emitiéndose"
         )
         send_msg(chat_id, help_text)
@@ -292,10 +210,10 @@ def handle_message(msg):
             send_msg(chat_id, f"❌ El Canal {cid} no tiene ninguna clave configurada.\nConfigúrala primero con: `/set{cid} <STREAM_KEY>`")
             return
 
-        send_msg(chat_id, f"⏳ *Procesando señal en la nube para Canal {cid}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid}")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n🔗 Señal: `{res[:35]}...`")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Estado: 100% Fluido")
         else:
             send_msg(chat_id, f"❌ *Error:* {res}")
 
@@ -307,10 +225,10 @@ def handle_message(msg):
         raw_url = clean_arg(parts[1])
         custom_key = clean_arg(parts[2])
         custom_id = f"custom_{len(active_streams) + 1}"
-        send_msg(chat_id, "⏳ *Procesando señal personalizada en la nube...*")
+        send_msg(chat_id, "⏳ *Iniciando transmisión personalizada...*")
         ok, res = start_single_stream(custom_id, raw_url, custom_key, f"Personalizado ({custom_id})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n🔗 Señal: `{res[:35]}...`")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Estado: 100% Fluido")
         else:
             send_msg(chat_id, f"❌ *Error:* {res}")
 
@@ -333,7 +251,7 @@ def handle_message(msg):
             send_msg(chat_id, "🔴 *No hay ninguna transmisión activa actualmente.*")
             return
 
-        status_text = "🟢 *PARTIDOS TRANSMITIÉNDOSE EN DIRECTO:*\n\n"
+        status_text = "🟢 *CANALES EN DIRECTO:*\\n\\n"
         for sid, info in active_streams.items():
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
@@ -342,7 +260,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con soporte Proxy Residencial iniciado...")
+    print("🤖 Bot Multi-Canal listo para recibir comandos...")
     offset = 0
     while True:
         try:

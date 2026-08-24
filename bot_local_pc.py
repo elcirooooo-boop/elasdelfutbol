@@ -6,9 +6,6 @@ import os
 import sys
 from urllib.parse import urlparse
 
-# ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT LOCAL
-# ==============================================================================
 BOT_TOKEN = "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs"
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = os.path.join(os.path.dirname(__file__), "channels_local.json")
@@ -60,14 +57,14 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
 
     destination = RTMP_SERVER + stream_key
     referer = extract_referer(source_url)
+    
+    # Cabecera IPTVSmartersPro para autorizar 100% servidores Xtream Codes / IPTV
     headers = (
-        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n"
+        "User-Agent: IPTVSmartersPro\r\n"
         f"Referer: {referer}\r\n"
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
-    # PERFIL ULTRA-LIVIANO ANTI-LAG (1200k bitrate, 720p/30fps, 4 threads)
-    # Consume solo 1.3 Mbps de subida, imposible que se sature tu internet
     cmd = [
         "ffmpeg",
         "-re",
@@ -99,9 +96,9 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
     ]
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1.5)
+    time.sleep(1.8)
     if proc.poll() is not None:
-        return False, "FFmpeg no pudo conectar con el servidor."
+        return False, "FFmpeg no pudo conectar a la señal."
 
     active_streams[stream_id] = {
         "process": proc,
@@ -149,19 +146,17 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "💻 *BOT DE TRANSMISIÓN (Perfil Ultra-Fluido 1200k)*\n"
-            "⚡ *Optimizado para cero tirones y mínimo consumo de red*\n\n"
-            "📺 *Transmitir:*\n"
-            "• `/c1 <URL_M3U8>` $\\rightarrow$ Transmitir en Canal 1\n"
-            "• `/c2 <URL_M3U8>` $\\rightarrow$ Transmitir en Canal 2\n"
-            "• `/c3 <URL_M3U8>` $\\rightarrow$ Transmitir en Canal 3\n"
-            "• `/stream <URL_M3U8> <STREAM_KEY>` $\\rightarrow$ Personalizado\n\n"
+            "💻 *BOT DE TRANSMISIÓN (IPTV / Xtream Codes Optimizado)*\n\n"
+            "📺 *Transmitir canal:*\n"
+            "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
+            "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
+            "• `/stream <URL> <STREAM_KEY>` $\\rightarrow$ Personalizado\n\n"
             "🔑 *Claves:*\n"
             "• `/set1 <KEY>` | `/set2 <KEY>` | `/canales`\n\n"
             "🛑 *Detener:*\n"
             "• `/stop1` | `/stop2` | `/stopall`\n\n"
             "📊 *Estado:*\n"
-            "• `/status` $\\rightarrow$ Ver qué partidos están emitiéndose"
+            "• `/status` $\\rightarrow$ Ver partidos emitiéndose"
         )
         send_msg(chat_id, help_text)
 
@@ -197,7 +192,7 @@ def handle_message(msg):
         if not cid.isalnum():
             return
         if len(parts) < 2:
-            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} URL_DEL_M3U8`")
+            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} URL_DEL_CANAL`")
             return
         
         m3u8_url = clean_arg(parts[1])
@@ -206,27 +201,27 @@ def handle_message(msg):
             send_msg(chat_id, f"❌ El Canal {cid} no tiene clave.\nConfigúrala con: `/set{cid} <STREAM_KEY>`")
             return
 
-        send_msg(chat_id, f"⏳ *Iniciando transmisión ultra-fluida en Canal {cid}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
         ok, res = start_single_stream(cid, m3u8_url, stream_key, f"Canal {cid}")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: 1200k Ultra-Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Estado: 100% Fluido")
         else:
-            send_msg(chat_id, f"❌ *Error:* {res}")
+            send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 3:
-            send_msg(chat_id, "⚠️ *Uso:* `/stream URL_DEL_M3U8 STREAM_KEY`")
+            send_msg(chat_id, "⚠️ *Uso:* `/stream URL_DEL_CANAL STREAM_KEY`")
             return
         m3u8_url = clean_arg(parts[1])
         custom_key = clean_arg(parts[2])
         custom_id = f"custom_{len(active_streams) + 1}"
-        send_msg(chat_id, "⏳ *Iniciando transmisión ultra-fluida...*")
+        send_msg(chat_id, "⏳ *Iniciando transmisión personalizada...*")
         ok, res = start_single_stream(custom_id, m3u8_url, custom_key, f"Personalizado ({custom_id})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: 1200k Ultra-Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Estado: 100% Fluido")
         else:
-            send_msg(chat_id, f"❌ *Error:* {res}")
+            send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
     elif text.startswith("/stop") and text != "/stopall":
         cid = clean_arg(text[5:])
@@ -240,14 +235,14 @@ def handle_message(msg):
 
     elif text.startswith("/stopall"):
         count = stop_all_streams()
-        send_msg(chat_id, f"🛑 *Se han detenido todas las transmisiones ({count} partidos).*")
+        send_msg(chat_id, f"🛑 *Se han detenido todas las transmisiones ({count} canales cerrados).*")
 
     elif text.startswith("/status"):
         if not active_streams:
             send_msg(chat_id, "🔴 *No hay ninguna transmisión activa actualmente.*")
             return
 
-        status_text = "🟢 *PARTIDOS EN DIRECTO (Desde tu PC):*\n\n"
+        status_text = "🟢 *CANALES EN DIRECTO EN TELEGRAM:*\n\n"
         for sid, info in active_streams.items():
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
@@ -257,8 +252,7 @@ def handle_message(msg):
 
 def main():
     print("=" * 65)
-    print("     BOT @Elasdelfutbolbot EJECUTÁNDOSE EN TU COMPUTADORA      ")
-    print("   [ Perfil Ultra-Ligero 1200k | Cero Congelamientos ]        ")
+    print("     BOT @Elasdelfutbolbot CONECTADO CON SERVIDOR IPTV        ")
     print("=" * 65)
     print("\nEl bot está escuchando tus comandos en Telegram...")
     
