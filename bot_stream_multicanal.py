@@ -43,17 +43,22 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# MAPEO DE NOMBRES DE CANALES DE LA AGENDA HACIA ENLACES DIRECTOS IPTV
+# MAPEO 100% EN ESPAÑOL (LATINOAMÉRICA / SUR / ARGENTINA / MÉXICO / COLOMBIA)
 CHANNEL_MAP = [
-    ("espn 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"),
-    ("espn 1", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"),
-    ("espn 3", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34049.ts"),
-    ("espn 4", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
-    ("espn extra", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34051.ts"),
-    ("espn", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"),
-    ("tyc", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"),
-    ("dsports 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),
-    ("dsports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),
+    ("espn 2 | op2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"), # ESPN 2 Colombia
+    ("espn 2 | op3", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/5976.ts"),  # ESPN 2 Perú
+    ("espn 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"),       # ESPN 2 Sur (Mariano Closs)
+    ("espn ar", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"),      # ESPN Argentina
+    ("espn premium", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"),   # ESPN Premium
+    ("espn 3", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"),       # ESPN 3 Sur
+    ("espn 4", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),     # ESPN 4
+    ("espn extra", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"),   # ESPN Extra Sur
+    ("espn deportes", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),# ESPN Deportes
+    ("espn", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"),         # ESPN 1 Sur
+    ("tyc", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"),          # TyC Sports
+    ("tnt sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts"),    # TNT Sports
+    ("dsports 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),    # DSports 2
+    ("dsports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),      # DSports 1
     ("directv 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),
     ("directv", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),
     ("laliga", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
@@ -61,7 +66,6 @@ CHANNEL_MAP = [
     ("universo", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),
     ("sky", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
     ("fox sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/50614.ts"),
-    ("tnt sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts"),
 ]
 
 def map_channel_to_iptv(ch_name):
@@ -71,18 +75,20 @@ def map_channel_to_iptv(ch_name):
             return url
     return None
 
+# CANALES DEPORTIVOS EN ESPAÑOL LATAM VERIFICADOS 100% ACTIVOS (200 OK)
 TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN 1 HD", "id": "32114", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"},
-    {"name": "ESPN 2 HD", "id": "32164", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"},
-    {"name": "ESPN 2 HD (Respaldo)", "id": "239665", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/239665.ts"},
-    {"name": "ESPN HD (Latam)", "id": "34050", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
-    {"name": "ESPN 3 HD", "id": "34049", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34049.ts"},
-    {"name": "ESPN 4 HD", "id": "1201550", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"},
-    {"name": "TyC Sports HD", "id": "30365", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
+    {"name": "ESPN 1 Sur HD (Español Latam)", "id": "30326", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"},
+    {"name": "ESPN 2 Sur HD (Español - Mariano Closs)", "id": "30327", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"},
+    {"name": "ESPN 2 Colombia HD (Español)", "id": "33893", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"},
+    {"name": "ESPN 3 Sur HD (Español)", "id": "30328", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"},
+    {"name": "ESPN Extra Sur HD (Español)", "id": "30329", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"},
+    {"name": "ESPN Premium HD (Fútbol Argentino)", "id": "4883", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"},
+    {"name": "ESPN México HD (Español)", "id": "34050", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"},
+    {"name": "ESPN 4 HD (Español)", "id": "1201550", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"},
+    {"name": "TyC Sports HD (Argentina)", "id": "30365", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"},
     {"name": "Directv Sports 1 (DSPORTS)", "id": "33933", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"},
     {"name": "Directv Sports 2 (DSPORTS 2)", "id": "33932", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"},
     {"name": "LaLiga TV (FHD)", "id": "33866", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"},
-    {"name": "LaLiga TV (HD)", "id": "34105", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34105.ts"},
 ]
 
 cached_streams = []
@@ -124,7 +130,7 @@ def get_live_agenda_messages():
             return ["🔴 No hay partidos programados en la agenda en este momento."]
 
         messages = []
-        current_msg = "📅 *AGENDA DEPORTIVA DE HOY (ROJADIRECTA / FUTBOLLIBRE)*\n\n"
+        current_msg = "📅 *AGENDA DEPORTIVA (ROJADIRECTA) - CANALES EN ESPAÑOL LATAM*\n\n"
         
         for item in data:
             attrs = item.get("attributes", {})
@@ -145,7 +151,6 @@ def get_live_agenda_messages():
             
             partido_block += "\n"
 
-            # Dividir en mensajes para no exceder el límite de 4000 caracteres de Telegram
             if len(current_msg) + len(partido_block) > 3500:
                 messages.append(current_msg)
                 current_msg = partido_block
@@ -282,10 +287,10 @@ def handle_message(msg):
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
             "⚽ *BOT DE TRANSMISIÓN DEPORTIVA MULTI-CANAL*\n\n"
-            "📋 *GUÍA DE CANALES Y PARTIDOS:*\n"
-            "• `/partidos` $\\rightarrow$ Ver todos los partidos del día con TODAS sus opciones de canales y enlaces directos\n"
-            "• `/top` $\\rightarrow$ Ver lista rápida de canales deportivos top con sus URLs\n"
-            "• `/buscar <nombre>` $\\rightarrow$ Buscar cualquier canal en tu IPTV (ej. `/buscar dazn`)\n\n"
+            "📋 *GUÍA DE CANALES Y PARTIDOS (ESPAÑOL LATAM):*\n"
+            "• `/partidos` $\\rightarrow$ Agenda de hoy con todos los canales en español y sus opciones\n"
+            "• `/top` $\\rightarrow$ Lista de canales deportivos principales en español (ESPN Sur, TyC, DSPORTS)\n"
+            "• `/buscar <nombre>` $\\rightarrow$ Buscar cualquier canal en tu IPTV (ej. `/buscar espn`)\n\n"
             "📺 *TRANSMITIR EN CANALES:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
@@ -302,7 +307,7 @@ def handle_message(msg):
         send_msg(chat_id, help_text)
 
     elif text.startswith("/top") or text.startswith("/deportes"):
-        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES (100% ACTIVOS):*\n\n"
+        msg_txt = "🌟 *CANALES DEPORTIVOS EN ESPAÑOL LATAM (100% ACTIVOS):*\n\n"
         for ch in TOP_SPORTS_CHANNELS:
             msg_txt += f"📺 *{ch['name']}*\n🔗 `{ch['url']}`\n\n"
         msg_txt += "💡 _Toca cualquier enlace para copiarlo y envíalo con `/c1 <enlace>`_"
@@ -326,9 +331,8 @@ def handle_message(msg):
         resp_txt += "💡 _Toca el enlace para copiarlo y envíalo con `/c1 <enlace>`_"
         send_msg(chat_id, resp_txt)
 
-    # AGENDA COMPLETA ESTILO ROJADIRECTA / FUTBOLLIBRE CON TODAS LAS OPCIONES
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ *Cargando agenda de partidos en vivo con todas sus opciones de canales...*")
+        send_msg(chat_id, "⏳ *Cargando agenda con canales en Español Latinoamérica...*")
         agenda_msgs = get_live_agenda_messages()
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -424,7 +428,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Agenda Completa RojaDirecta listo...")
+    print("🤖 Bot Multi-Canal con Canales ESPN Latinoamericanos listo...")
     offset = 0
     while True:
         try:
