@@ -40,6 +40,8 @@ def save_config(cfg):
 
 CONFIG = load_config()
 ADMIN_USER_ID = None
+
+# active_streams: { stream_id (str): dict }
 active_streams = {}
 
 # CANALES DE AUTO-RESOLUCIÓN EN VIVO (100% LIBRES / EN ESPAÑOL LATAM)
@@ -63,7 +65,6 @@ AUTO_CHANNELS = {
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
-    # Si ingresaron un ID numérico de IPTV (ej. 30327)
     if target_clean.isdigit():
         target = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
         referer = "http://evestv.leptis.live/"
@@ -218,14 +219,24 @@ def clean_arg(val):
         return ""
     return val.strip().strip("<>").strip('"').strip("'").strip()
 
-def start_single_stream(stream_id, raw_url, stream_key, label=None):
-    if stream_id in active_streams:
-        stop_single_stream(stream_id)
+def get_next_stream_id():
+    for i in range(1, 100):
+        sid = str(i)
+        if sid not in active_streams:
+            return sid
+    return str(len(active_streams) + 1)
 
+def start_single_stream(raw_url, stream_key):
     raw_url = clean_arg(raw_url)
     stream_key = clean_arg(stream_key)
     destination = RTMP_SERVER + stream_key
 
+    # Si ya hay una transmisión usando esta misma stream_key, detenerla primero
+    for sid, info in list(active_streams.items()):
+        if info["key"] == stream_key:
+            stop_single_stream(sid)
+
+    stream_id = get_next_stream_id()
     source_url, headers = resolve_live_stream_url(raw_url)
 
     cmd = [
@@ -278,21 +289,34 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
                     err_snippet = lines[-1].strip()
         except Exception:
             pass
-        return False, f"Error: {err_snippet}"
+        return False, stream_id, f"Error: {err_snippet}"
 
     active_streams[stream_id] = {
         "process": proc,
         "log_file": out_f,
+        "raw_name": raw_url,
         "url": source_url,
         "key": stream_key,
-        "name": label if label else f"Emisión ({raw_url})",
         "start_time": time.time()
     }
-    return True, source_url
+    return True, stream_id, raw_url
 
-def stop_single_stream(stream_id):
-    if stream_id in active_streams:
-        info = active_streams[stream_id]
+def stop_single_stream(identifier):
+    ident = str(identifier).strip().lower()
+    
+    target_sid = None
+    # 1. Buscar por stream_id exacto (ej. "1", "2")
+    if ident in active_streams:
+        target_sid = ident
+    else:
+        # 2. Buscar por nombre de canal o clave
+        for sid, info in active_streams.items():
+            if info["raw_name"].lower() == ident or info["key"].lower() == ident or ident in info["key"].lower():
+                target_sid = sid
+                break
+
+    if target_sid and target_sid in active_streams:
+        info = active_streams[target_sid]
         proc = info["process"]
         try:
             proc.kill()
@@ -304,18 +328,20 @@ def stop_single_stream(stream_id):
                 info["log_file"].close()
         except Exception:
             pass
-        del active_streams[stream_id]
-        return True
-    return False
+        del active_streams[target_sid]
+        return True, target_sid, info["raw_name"]
+    return False, None, None
 
 def stop_all_streams():
-    ids = list(active_streams.keys())
-    for sid in ids:
-        stop_single_stream(sid)
-    return len(ids)
+    count = 0
+    for sid in list(active_streams.keys()):
+        ok, _, _ = stop_single_stream(sid)
+        if ok:
+            count += 1
+    return count
 
 # ==============================================================================
-# 3. INTERFAZ DE BOT DE TELEGRAM (TODO MEDIANTE /STREAM)
+# 3. INTERFAZ DE BOT DE TELEGRAM
 # ==============================================================================
 def send_msg(chat_id, text):
     try:
@@ -338,23 +364,24 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN DEPORTIVA (VÍA /STREAM)*\n\n"
-            "📺 *TRANSMITIR PARTIDO O CANAL:*\n"
+            "⚽ *BOT DE TRANSMISIÓN DEPORTIVA*\n\n"
+            "📺 *TRANSMITIR:*\n"
             "• `/stream espn2` $\\rightarrow$ Transmitir ESPN 2 Sur\n"
             "• `/stream tyc` $\\rightarrow$ Transmitir TyC Sports\n"
             "• `/stream dsports` $\\rightarrow$ Transmitir Directv Sports\n"
-            "• `/stream <CANAL_O_URL> [STREAM_KEY]` $\\rightarrow$ Con clave personalizada\n\n"
+            "• `/stream <CANAL_O_URL> [STREAM_KEY]`\n\n"
             "📋 *GUÍA DE PARTIDOS Y CANALES:*\n"
-            "• `/partidos` $\\rightarrow$ Ver todos los partidos de hoy con comandos `/stream` listos para copiar\n"
-            "• `/top` $\\rightarrow$ Lista de canales deportivos principales con comandos listos\n"
-            "• `/buscar <nombre>` $\\rightarrow$ Buscar cualquier canal en tu IPTV (ej. `/buscar dazn`)\n\n"
-            "🔑 *CLAVE DE TRANSMISIÓN (STREAM KEY):*\n"
-            f"• 📡 Clave guardada actual: `{curr_key[:10]}...`\n"
-            "• `/key <NUEVA_KEY>` $\\rightarrow$ Cambiar tu Stream Key por defecto\n\n"
-            "🛑 *DETENER EMISIÓN:*\n"
-            "• `/stop` o `/stopall` $\\rightarrow$ Detener la transmisión activa\n\n"
+            "• `/partidos` $\\rightarrow$ Ver todos los partidos de hoy con comandos `/stream` listos\n"
+            "• `/top` $\\rightarrow$ Lista de canales deportivos principales\n"
+            "• `/buscar <nombre>` $\\rightarrow$ Buscar en tu IPTV (ej. `/buscar dazn`)\n\n"
+            "🛑 *DETENER TRANSMISIONES:*\n"
+            "• `/stop` $\\rightarrow$ Detener la transmisión activa (o elegir cuál)\n"
+            "• `/stop 1` | `/stop 2` $\\rightarrow$ Detener una transmisión específica por su número\n"
+            "• `/stop espn2` $\\rightarrow$ Detener por nombre del canal\n"
+            "• `/stopall` $\\rightarrow$ Detener TODAS las transmisiones a la vez\n\n"
             "📊 *ESTADO EN VIVO:*\n"
-            "• `/status` $\\rightarrow$ Ver qué partido está transmitiéndose"
+            "• `/status` $\\rightarrow$ Ver qué transmisiones están activas y sus botones de stop\n\n"
+            "🔑 *CLAVE STREAM:* `/key <NUEVA_KEY>`"
         )
         send_msg(chat_id, help_text)
 
@@ -366,7 +393,7 @@ def handle_message(msg):
         send_msg(chat_id, msg_txt)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ *Cargando agenda de partidos de hoy con comandos /stream listos...*")
+        send_msg(chat_id, "⏳ *Cargando agenda de partidos con comandos /stream...*")
         agenda_msgs = get_live_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -402,42 +429,82 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ *Uso:* `/stream <CANAL_O_URL>` o `/stream <CANAL> <STREAM_KEY>`\nEjemplo: `/stream espn2`")
+            send_msg(chat_id, "⚠️ *Uso:* `/stream <CANAL>` o `/stream <CANAL> <STREAM_KEY>`\nEjemplo: `/stream espn2`")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        custom_id = f"stream_{len(active_streams) + 1}"
         send_msg(chat_id, f"⏳ *Iniciando transmisión de {raw_url}...*")
-        ok, res = start_single_stream(custom_id, raw_url, stream_key, f"Emisión ({raw_url})")
+        ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\n📡 Señal: `{raw_url}`\n🔑 Key: `{stream_key[:8]}...`\n⏱️ Sincronización: 1.00x Tiempo Real")
+            send_msg(chat_id, (
+                f"✅ *¡Transmisión ACTIVA!* 🚀\n\n"
+                f"📺 *Transmisión #{sid}:* `{raw_url}`\n"
+                f"🔑 *Key:* `{stream_key[:8]}...`\n"
+                f"⏱️ *Sincronización:* 1.00x Tiempo Real\n\n"
+                f"🛑 *Para detener solo esta transmisión:* `/stop {sid}`\n"
+                f"🛑 *Para detener todas:* `/stopall`"
+            ))
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
-    elif text.startswith("/stop") or text.startswith("/stopall"):
+    elif text.startswith("/stopall") or text == "/stop all":
         count = stop_all_streams()
         if count > 0:
             send_msg(chat_id, f"🛑 *Se han detenido todas las transmisiones ({count} partidos cerrados).*")
         else:
             send_msg(chat_id, "ℹ️ No había ninguna transmisión activa.")
 
+    elif text.startswith("/stop"):
+        parts = text.split(maxsplit=1)
+        # Si no especificó argumento
+        if len(parts) == 1:
+            if not active_streams:
+                send_msg(chat_id, "ℹ️ No hay ninguna transmisión activa actualmente.")
+                return
+            if len(active_streams) == 1:
+                sid = list(active_streams.keys())[0]
+                ok, _, ch_name = stop_single_stream(sid)
+                send_msg(chat_id, f"🛑 *Transmisión #{sid} ({ch_name}) detenida correctamente.*")
+                return
+            else:
+                # Si hay más de 1 activa, mostrar lista para elegir cuál detener
+                txt = "⚠️ *Hay varias transmisiones activas. Elige cuál detener:*\n\n"
+                for sid, info in active_streams.items():
+                    txt += f"• Transmisión #{sid} (*{info['raw_name']}*): `/stop {sid}`\n"
+                txt += "\n🛑 *O detener todas a la vez:* `/stopall`"
+                send_msg(chat_id, txt)
+                return
+        
+        target = parts[1].strip()
+        ok, sid, ch_name = stop_single_stream(target)
+        if ok:
+            send_msg(chat_id, f"🛑 *Transmisión #{sid} ({ch_name}) detenida correctamente.*")
+        else:
+            send_msg(chat_id, f"❌ No se encontró ninguna transmisión activa con identificador: `{target}`.\nUsa `/status` para ver las transmisiones activas.")
+
     elif text.startswith("/status"):
         if not active_streams:
             send_msg(chat_id, "🔴 *No hay ninguna transmisión activa actualmente.*")
             return
 
-        status_text = "🟢 *CANALES EN DIRECTO:*\n\n"
-        for sid, info in active_streams.items():
+        status_text = f"🟢 *TRANSMISIONES EN DIRECTO ({len(active_streams)} ACTIVAS):*\n\n"
+        for sid, info in sorted(active_streams.items()):
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
             secs = elapsed % 60
-            status_text += f"📺 *{info['name']}:*\n• ⏱️ Tiempo: `{mins}m {secs}s`\n• 📡 Key: `{info['key'][:8]}...`\n• 🔗 Señal: `{info['url'][:35]}...`\n\n"
+            status_text += (
+                f"📺 *Transmisión #{sid} ({info['raw_name']}):*\n"
+                f"• ⏱️ Tiempo: `{mins}m {secs}s`\n"
+                f"• 📡 Key: `{info['key'][:8]}...`\n"
+                f"• 🛑 *Detener esta:* `/stop {sid}`\n\n"
+            )
+        status_text += "🛑 *Detener todas juntas:* `/stopall`"
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Simplificado (100% mediante /stream) listo...")
+    print("🤖 Bot Multi-Canal con Parada Individual (/stop 1) y Total (/stopall) listo...")
     offset = 0
     while True:
         try:
