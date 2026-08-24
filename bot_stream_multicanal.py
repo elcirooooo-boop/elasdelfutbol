@@ -42,7 +42,6 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# CANALES VERIFICADOS 100% ACTIVOS (200 OK)
 TOP_SPORTS_CHANNELS = [
     {"name": "ESPN 1 HD", "id": "32114", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"},
     {"name": "ESPN 2 HD", "id": "32164", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"},
@@ -89,7 +88,7 @@ def search_iptv_channels(query, max_results=8):
     return results
 
 # ==============================================================================
-# 2. GESTOR DE MULTI-TRANSMISIÓN
+# 2. GESTOR DE MULTI-TRANSMISIÓN DEFINITIVO (SIN -RE / 100% FLUIDO EN VIVO)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -104,11 +103,10 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     stream_key = clean_arg(stream_key)
     destination = RTMP_SERVER + stream_key
 
-    # MOTOR BLINDADO ANTI-CONGELAMIENTO (0% BUFFERING)
+    # PERFIL ULTRA-LIVIANO ANTI-LAG (Sin -re para no frenar la señal en vivo)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
-        "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
@@ -116,16 +114,15 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-avoid_negative_ts", "make_zero",
         "-i", source_url,
         "-max_muxing_queue_size", "4096",
-        "-vf", "scale=1280:720",
+        "-vf", "scale=960:540",
         "-r", "30",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
         "-threads", "0",
-        "-b:v", "1100k",
-        "-minrate", "900k",
+        "-b:v", "1000k",
         "-maxrate", "1200k",
-        "-bufsize", "2200k",
+        "-bufsize", "2000k",
         "-pix_fmt", "yuv420p",
         "-g", "60",
         "-keyint_min", "60",
@@ -172,7 +169,6 @@ def stop_single_stream(stream_id):
         info = active_streams[stream_id]
         proc = info["process"]
         try:
-            # Forzar cierre inmediato del socket TCP para liberar el slot IPTV al instante
             proc.kill()
             proc.wait(timeout=1)
         except Exception:
@@ -331,7 +327,7 @@ def handle_message(msg):
         send_msg(chat_id, f"⏳ *Iniciando transmisión blindada en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid}")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n🛡️ Motor: Blindado 0% Cortes")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: Ultra-Fluido 0% Lag")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -343,10 +339,10 @@ def handle_message(msg):
         raw_url = clean_arg(parts[1])
         custom_key = clean_arg(parts[2])
         custom_id = f"custom_{len(active_streams) + 1}"
-        send_msg(chat_id, "⏳ *Iniciando transmisión blindada...*")
+        send_msg(chat_id, "⏳ *Iniciando transmisión ultra-fluida...*")
         ok, res = start_single_stream(custom_id, raw_url, custom_key, f"Personalizado ({custom_id})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n🛡️ Motor: Blindado 0% Cortes")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: Ultra-Fluido 0% Lag")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -378,7 +374,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal Blindado con Buscador de Canales listo...")
+    print("🤖 Bot Multi-Canal Blindado listo...")
     offset = 0
     while True:
         try:
