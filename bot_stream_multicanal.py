@@ -17,6 +17,7 @@ CHANNELS_FILE = "channels.json"
 IPTV_USER = "BE15ERDV"
 IPTV_PASS = "PXELERB9"
 IPTV_SERVER = "http://evestv.leptis.live"
+AGENDA_API = "https://futbollibretv.org.pe/diaries.json"
 
 def load_channels():
     if os.path.exists(CHANNELS_FILE):
@@ -41,6 +42,34 @@ def save_channels(channels_dict):
 CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
+
+# MAPEO DE NOMBRES DE CANALES DE LA AGENDA HACIA ENLACES DIRECTOS IPTV
+CHANNEL_MAP = [
+    ("espn 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"),
+    ("espn 1", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"),
+    ("espn 3", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34049.ts"),
+    ("espn 4", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
+    ("espn extra", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34051.ts"),
+    ("espn", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/34050.ts"),
+    ("tyc", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"),
+    ("dsports 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),
+    ("dsports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),
+    ("directv 2", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"),
+    ("directv", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"),
+    ("laliga", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
+    ("dazn", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
+    ("universo", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),
+    ("sky", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
+    ("fox sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/50614.ts"),
+    ("tnt sports", f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts"),
+]
+
+def map_channel_to_iptv(ch_name):
+    ch_clean = ch_name.lower().strip()
+    for key, url in CHANNEL_MAP:
+        if key in ch_clean:
+            return url
+    return None
 
 TOP_SPORTS_CHANNELS = [
     {"name": "ESPN 1 HD", "id": "32114", "url": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts"},
@@ -87,8 +116,51 @@ def search_iptv_channels(query, max_results=8):
                 break
     return results
 
+def get_live_agenda_messages():
+    try:
+        r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        data = r.json().get("data", [])
+        if not data:
+            return ["🔴 No hay partidos programados en la agenda en este momento."]
+
+        messages = []
+        current_msg = "📅 *AGENDA DEPORTIVA DE HOY (ROJADIRECTA / FUTBOLLIBRE)*\n\n"
+        
+        for item in data:
+            attrs = item.get("attributes", {})
+            desc = attrs.get("diary_description", "").strip()
+            desc = desc.replace("\n", " ").replace("\r", "")
+            hour = attrs.get("diary_hour", "")[:5]
+            embeds = attrs.get("embeds", {}).get("data", [])
+
+            partido_block = f"⚽ *{desc}* (`{hour}`)\n"
+            
+            for em in embeds:
+                em_name = em.get("attributes", {}).get("embed_name", "").strip()
+                iptv_url = map_channel_to_iptv(em_name)
+                if iptv_url:
+                    partido_block += f"  ▶ *{em_name}:*\n  `{iptv_url}`\n"
+                else:
+                    partido_block += f"  ▶ *{em_name}*\n"
+            
+            partido_block += "\n"
+
+            # Dividir en mensajes para no exceder el límite de 4000 caracteres de Telegram
+            if len(current_msg) + len(partido_block) > 3500:
+                messages.append(current_msg)
+                current_msg = partido_block
+            else:
+                current_msg += partido_block
+
+        if current_msg.strip():
+            messages.append(current_msg)
+
+        return messages
+    except Exception as e:
+        return [f"⚠️ Error obteniendo la agenda: {e}"]
+
 # ==============================================================================
-# 2. GESTOR DE MULTI-TRANSMISIÓN DEFINITIVO (SIN -RE / 100% FLUIDO EN VIVO)
+# 2. GESTOR DE MULTI-TRANSMISIÓN
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -103,7 +175,6 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     stream_key = clean_arg(stream_key)
     destination = RTMP_SERVER + stream_key
 
-    # PERFIL ULTRA-LIVIANO ANTI-LAG (Sin -re para no frenar la señal en vivo)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -212,9 +283,9 @@ def handle_message(msg):
         help_text = (
             "⚽ *BOT DE TRANSMISIÓN DEPORTIVA MULTI-CANAL*\n\n"
             "📋 *GUÍA DE CANALES Y PARTIDOS:*\n"
-            "• `/top` $\\rightarrow$ Ver todos los canales deportivos top con sus URLs\n"
-            "• `/buscar <nombre>` $\\rightarrow$ Buscar cualquier canal en tu IPTV (ej. `/buscar dazn`)\n"
-            "• `/partidos` $\\rightarrow$ Cartelera y enlaces de los partidos de hoy\n\n"
+            "• `/partidos` $\\rightarrow$ Ver todos los partidos del día con TODAS sus opciones de canales y enlaces directos\n"
+            "• `/top` $\\rightarrow$ Ver lista rápida de canales deportivos top con sus URLs\n"
+            "• `/buscar <nombre>` $\\rightarrow$ Buscar cualquier canal en tu IPTV (ej. `/buscar dazn`)\n\n"
             "📺 *TRANSMITIR EN CANALES:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
@@ -255,33 +326,12 @@ def handle_message(msg):
         resp_txt += "💡 _Toca el enlace para copiarlo y envíalo con `/c1 <enlace>`_"
         send_msg(chat_id, resp_txt)
 
-    elif text.startswith("/partidos") or text.startswith("/hoy"):
-        partidos_txt = (
-            "⚽ *CARTELERA DE PARTIDOS TOP DE HOY:*\n\n"
-            "🏴󠁧󠁢󠁥󠁮󠁧󠁿 *Premier League: Fulham vs. Chelsea*\n"
-            "• 📺 Canal: ESPN 1 HD\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts`\n\n"
-            "🇪🇸 *LaLiga: Osasuna vs. Levante*\n"
-            "• 📺 Canal: ESPN 4 HD\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts`\n\n"
-            "🇪🇸 *LaLiga: Málaga vs. Deportivo La Coruña*\n"
-            "• 📺 Canal: Directv Sports 1 (DSPORTS)\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts`\n\n"
-            "🇮🇹 *Serie A: Bologna vs. Lazio*\n"
-            "• 📺 Canal: ESPN 2 HD\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts`\n\n"
-            "🇮🇹 *Serie A: AS Roma vs. Fiorentina*\n"
-            "• 📺 Canal: ESPN 2 HD\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts`\n\n"
-            "🇦🇷 *Liga Argentina: Tigre vs. Central Córdoba*\n"
-            "• 📺 Canal: TyC Sports HD\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts`\n\n"
-            "🇦🇷 *Liga Argentina: Talleres vs. Rosario Central*\n"
-            "• 📺 Canal: ESPN 1 HD\n"
-            f"• 🔗 `{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/32114.ts`\n\n"
-            "💡 _Toca cualquier enlace para copiarlo y transmitir con `/c1 <enlace>`_"
-        )
-        send_msg(chat_id, partidos_txt)
+    # AGENDA COMPLETA ESTILO ROJADIRECTA / FUTBOLLIBRE CON TODAS LAS OPCIONES
+    elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
+        send_msg(chat_id, "⏳ *Cargando agenda de partidos en vivo con todas sus opciones de canales...*")
+        agenda_msgs = get_live_agenda_messages()
+        for m in agenda_msgs:
+            send_msg(chat_id, m)
 
     elif text.startswith("/canales"):
         txt = "📋 *CANALES CONFIGURADOS ACTUALMENTE:*\n\n"
@@ -324,7 +374,7 @@ def handle_message(msg):
             send_msg(chat_id, f"❌ El Canal {cid} no tiene ninguna clave configurada.\nConfigúrala primero con: `/set{cid} <STREAM_KEY>`")
             return
 
-        send_msg(chat_id, f"⏳ *Iniciando transmisión blindada en Canal {cid}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid}")
         if ok:
             send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: Ultra-Fluido 0% Lag")
@@ -374,7 +424,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal Blindado listo...")
+    print("🤖 Bot Multi-Canal con Agenda Completa RojaDirecta listo...")
     offset = 0
     while True:
         try:
