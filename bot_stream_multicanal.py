@@ -66,33 +66,28 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
-    # ==============================================================================
-    # MOTOR BLINDADO ANTI-CONGELAMIENTO (0% BUFFERING / CERO PARONES)
-    # - Buffer de cola 4096 para absorber micro-pausas del proveedor IPTV
-    # - 1000k CBR ultra-estable (250% de margen de potencia en la nube)
-    # - Emisión CFR rígida a 30 FPS sin desincronización
-    # - Fotogramas clave cada 60 cuadros (2.0s exactos de Telegram)
-    # ==============================================================================
+    # MOTOR BLINDADO ANTI-CONGELAMIENTO (Sintaxis exacta de entrada y salida)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
+        "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
-        "-max_muxing_queue_size", "4096",
         "-headers", headers,
         "-i", source_url,
-        "-vf", "scale=1280:720,fps=30",
+        "-max_muxing_queue_size", "4096",
+        "-vf", "scale=1280:720",
         "-r", "30",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
         "-threads", "0",
-        "-b:v", "1000k",
+        "-b:v", "1100k",
         "-minrate", "900k",
-        "-maxrate", "1100k",
+        "-maxrate", "1200k",
         "-bufsize", "2200k",
         "-pix_fmt", "yuv420p",
         "-g", "60",
