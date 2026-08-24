@@ -41,10 +41,8 @@ def save_config(cfg):
 CONFIG = load_config()
 ADMIN_USER_ID = None
 
-# active_streams: { stream_id (str): dict }
 active_streams = {}
 
-# CANALES DE AUTO-RESOLUCIÓN EN VIVO (100% LIBRES / EN ESPAÑOL LATAM)
 AUTO_CHANNELS = {
     "espn2": "https://futbollibre.ch/1.php?stream=espn2",
     "espn": "https://futbollibre.ch/1.php?stream=espn",
@@ -212,7 +210,7 @@ def get_live_agenda_messages(curr_key):
         return [f"⚠️ Error obteniendo la agenda: {e}"]
 
 # ==============================================================================
-# 2. GESTOR DE MULTI-TRANSMISIÓN DEFINITIVO (1.00x TIEMPO REAL EXACTO)
+# 2. MOTOR DE TRANSMISIÓN DIRECTA PASSTHROUGH (0% CPU / CERO LATENCIA / AUTO-HEAL)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -231,7 +229,6 @@ def start_single_stream(raw_url, stream_key):
     stream_key = clean_arg(stream_key)
     destination = RTMP_SERVER + stream_key
 
-    # Si ya hay una transmisión usando esta misma stream_key, detenerla primero
     for sid, info in list(active_streams.items()):
         if info["key"] == stream_key:
             stop_single_stream(sid)
@@ -239,6 +236,7 @@ def start_single_stream(raw_url, stream_key):
     stream_id = get_next_stream_id()
     source_url, headers = resolve_live_stream_url(raw_url)
 
+    # MODO DIRECT PASSTHROUGH (INYECCIÓN DIRECTA SIN COMPRIMIR + AUTO-RECONEXIÓN)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -252,21 +250,9 @@ def start_single_stream(raw_url, stream_key):
         "-headers", headers,
         "-i", source_url,
         "-max_muxing_queue_size", "4096",
-        "-vf", "scale=854:480,fps=25",
-        "-r", "25",
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
-        "-threads", "0",
-        "-b:v", "850k",
-        "-maxrate", "1000k",
-        "-bufsize", "1800k",
-        "-pix_fmt", "yuv420p",
-        "-g", "50",
-        "-keyint_min", "50",
-        "-sc_threshold", "0",
+        "-c:v", "copy",
         "-c:a", "aac",
-        "-b:a", "96k",
+        "-b:a", "128k",
         "-ar", "44100",
         "-bsf:a", "aac_adtstoasc",
         "-flvflags", "no_duration_filesize",
@@ -305,11 +291,9 @@ def stop_single_stream(identifier):
     ident = str(identifier).strip().lower()
     
     target_sid = None
-    # 1. Buscar por stream_id exacto (ej. "1", "2")
     if ident in active_streams:
         target_sid = ident
     else:
-        # 2. Buscar por nombre de canal o clave
         for sid, info in active_streams.items():
             if info["raw_name"].lower() == ident or info["key"].lower() == ident or ident in info["key"].lower():
                 target_sid = sid
@@ -364,36 +348,35 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN DEPORTIVA*\n\n"
+            "⚽ *BOT DE TRANSMISIÓN DIRECTA (100% NUBE)*\n\n"
             "📺 *TRANSMITIR:*\n"
-            "• `/stream espn2` $\\rightarrow$ Transmitir ESPN 2 Sur\n"
+            "• `/stream espn2` $\\rightarrow$ Transmitir ESPN 2 Sur (Directo HD)\n"
             "• `/stream tyc` $\\rightarrow$ Transmitir TyC Sports\n"
             "• `/stream dsports` $\\rightarrow$ Transmitir Directv Sports\n"
             "• `/stream <CANAL_O_URL> [STREAM_KEY]`\n\n"
             "📋 *GUÍA DE PARTIDOS Y CANALES:*\n"
-            "• `/partidos` $\\rightarrow$ Ver todos los partidos de hoy con comandos `/stream` listos\n"
+            "• `/partidos` $\\rightarrow$ Agenda de hoy con comandos directos\n"
             "• `/top` $\\rightarrow$ Lista de canales deportivos principales\n"
             "• `/buscar <nombre>` $\\rightarrow$ Buscar en tu IPTV (ej. `/buscar dazn`)\n\n"
             "🛑 *DETENER TRANSMISIONES:*\n"
-            "• `/stop` $\\rightarrow$ Detener la transmisión activa (o elegir cuál)\n"
-            "• `/stop 1` | `/stop 2` $\\rightarrow$ Detener una transmisión específica por su número\n"
-            "• `/stop espn2` $\\rightarrow$ Detener por nombre del canal\n"
+            "• `/stop` $\\rightarrow$ Detener la transmisión activa\n"
+            "• `/stop 1` | `/stop 2` $\\rightarrow$ Detener una transmisión por número\n"
             "• `/stopall` $\\rightarrow$ Detener TODAS las transmisiones a la vez\n\n"
             "📊 *ESTADO EN VIVO:*\n"
-            "• `/status` $\\rightarrow$ Ver qué transmisiones están activas y sus botones de stop\n\n"
+            "• `/status` $\\rightarrow$ Ver qué transmisiones están activas\n\n"
             "🔑 *CLAVE STREAM:* `/key <NUEVA_KEY>`"
         )
         send_msg(chat_id, help_text)
 
     elif text.startswith("/top") or text.startswith("/deportes"):
-        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES:*\n\n"
+        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES (DIRECTO HD):*\n\n"
         for ch in TOP_SPORTS_CHANNELS:
             msg_txt += f"📺 *{ch['name']}:*\n`/stream {ch['cmd']} {curr_key}`\n\n"
         msg_txt += "💡 _Toca cualquier comando en gris para copiarlo y enviarlo al instante._"
         send_msg(chat_id, msg_txt)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ *Cargando agenda de partidos con comandos /stream...*")
+        send_msg(chat_id, "⏳ *Cargando agenda de partidos con comandos /stream directos...*")
         agenda_msgs = get_live_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -435,16 +418,15 @@ def handle_message(msg):
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ *Iniciando transmisión de {raw_url}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión directa de {raw_url}...*")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ *¡Transmisión ACTIVA!* 🚀\n\n"
+                f"✅ *¡Transmisión DIRECTA ACTIVA!* 🚀\n\n"
                 f"📺 *Transmisión #{sid}:* `{raw_url}`\n"
                 f"🔑 *Key:* `{stream_key[:8]}...`\n"
-                f"⏱️ *Sincronización:* 1.00x Tiempo Real\n\n"
-                f"🛑 *Para detener solo esta transmisión:* `/stop {sid}`\n"
-                f"🛑 *Para detener todas:* `/stopall`"
+                f"⚡ *Modo:* Direct Passthrough (0% CPU / Máxima Calidad HD)\n\n"
+                f"🛑 *Detener esta:* `/stop {sid}` | *Detener todas:* `/stopall`"
             ))
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
@@ -458,7 +440,6 @@ def handle_message(msg):
 
     elif text.startswith("/stop"):
         parts = text.split(maxsplit=1)
-        # Si no especificó argumento
         if len(parts) == 1:
             if not active_streams:
                 send_msg(chat_id, "ℹ️ No hay ninguna transmisión activa actualmente.")
@@ -469,7 +450,6 @@ def handle_message(msg):
                 send_msg(chat_id, f"🛑 *Transmisión #{sid} ({ch_name}) detenida correctamente.*")
                 return
             else:
-                # Si hay más de 1 activa, mostrar lista para elegir cuál detener
                 txt = "⚠️ *Hay varias transmisiones activas. Elige cuál detener:*\n\n"
                 for sid, info in active_streams.items():
                     txt += f"• Transmisión #{sid} (*{info['raw_name']}*): `/stop {sid}`\n"
@@ -504,7 +484,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Parada Individual (/stop 1) y Total (/stopall) listo...")
+    print("🤖 Bot Multi-Canal Direct Passthrough (0% CPU) listo...")
     offset = 0
     while True:
         try:
