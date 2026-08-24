@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 # 1. CONFIGURACIÓN DEL BOT
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
-HTTP_PROXY = os.environ.get("HTTP_PROXY", None)
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = "channels.json"
 
@@ -67,10 +66,12 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
-    # PERFIL DEFINITIVO ANTI-CONGELAMIENTO (Normalización de PTS + Keyframes cada 2s + 25fps fluidos)
+    # PERFIL DEFINITIVO ANTI-LAG / ANTI-FREEZE PARA TELEGRAM LIVE
+    # Regula la entrega segundo a segundo para que Telegram nunca se quede esperando paquetes
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
+        "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
@@ -78,21 +79,21 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
         "-avoid_negative_ts", "make_zero",
         "-headers", headers,
         "-i", source_url,
-        "-vf", "scale=1280:720,fps=25",
-        "-r", "25",
+        "-vf", "scale=1280:720",
+        "-r", "30",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
         "-threads", "0",
-        "-b:v", "1100k",
-        "-maxrate", "1300k",
-        "-bufsize", "2200k",
+        "-b:v", "1400k",
+        "-maxrate", "1600k",
+        "-bufsize", "2800k",
         "-pix_fmt", "yuv420p",
-        "-g", "50",
-        "-keyint_min", "50",
+        "-g", "60",
+        "-keyint_min", "60",
         "-sc_threshold", "0",
         "-c:a", "aac",
-        "-b:a", "96k",
+        "-b:a", "128k",
         "-ar", "44100",
         "-bsf:a", "aac_adtstoasc",
         "-max_interleave_delta", "0",
@@ -152,7 +153,7 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN (Perfil Ultra-Estable 720p)*\n\n"
+            "⚽ *BOT DE TRANSMISIÓN MULTI-CANAL (720p/30fps Anti-Lag)*\n\n"
             "📺 *Transmitir canal:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
@@ -207,10 +208,10 @@ def handle_message(msg):
             send_msg(chat_id, f"❌ El Canal {cid} no tiene ninguna clave configurada.\nConfigúrala primero con: `/set{cid} <STREAM_KEY>`")
             return
 
-        send_msg(chat_id, f"⏳ *Iniciando transmisión ultra-estable en Canal {cid}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión ultra-fluida en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid}")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: 720p 25fps Ultra-Estable")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: 720p/30fps Anti-Lag")
         else:
             send_msg(chat_id, f"❌ *Error:* {res}")
 
@@ -222,10 +223,10 @@ def handle_message(msg):
         raw_url = clean_arg(parts[1])
         custom_key = clean_arg(parts[2])
         custom_id = f"custom_{len(active_streams) + 1}"
-        send_msg(chat_id, "⏳ *Iniciando transmisión ultra-estable...*")
+        send_msg(chat_id, "⏳ *Iniciando transmisión ultra-fluida...*")
         ok, res = start_single_stream(custom_id, raw_url, custom_key, f"Personalizado ({custom_id})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: 720p 25fps Ultra-Estable")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: 720p/30fps Anti-Lag")
         else:
             send_msg(chat_id, f"❌ *Error:* {res}")
 
