@@ -63,15 +63,15 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
-    # Configuración de FFmpeg con -user_agent nativo para IPTV
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
         "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "3",
+        "-reconnect_delay_max", "2",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
+        "-avoid_negative_ts", "make_zero",
         "-headers", headers,
         "-i", source_url,
         "-vf", "scale=1280:720",
@@ -79,14 +79,17 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
-        "-threads", "4",
+        "-threads", "0",
         "-b:v", "1200k",
-        "-maxrate", "1400k",
+        "-minrate", "1000k",
+        "-maxrate", "1300k",
         "-bufsize", "2400k",
         "-pix_fmt", "yuv420p",
         "-g", "60",
+        "-keyint_min", "60",
+        "-sc_threshold", "0",
         "-c:a", "aac",
-        "-b:a", "96k",
+        "-b:a", "128k",
         "-ar", "44100",
         "-bsf:a", "aac_adtstoasc",
         "-max_interleave_delta", "0",
@@ -146,7 +149,7 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "💻 *BOT DE TRANSMISIÓN (IPTV / Xtream Codes Optimizado)*\n\n"
+            "💻 *BOT DE TRANSMISIÓN (Perfil Anti-Freeze 24/7)*\n\n"
             "📺 *Transmitir canal:*\n"
             "• `/c1 <URL>` $\\rightarrow$ Transmitir en Canal 1\n"
             "• `/c2 <URL>` $\\rightarrow$ Transmitir en Canal 2\n"
@@ -156,7 +159,7 @@ def handle_message(msg):
             "🛑 *Detener:*\n"
             "• `/stop1` | `/stop2` | `/stopall`\n\n"
             "📊 *Estado:*\n"
-            "• `/status` $\\rightarrow$ Ver partidos emitiéndose"
+            "• `/status` $\\rightarrow$ Ver partidos en directo"
         )
         send_msg(chat_id, help_text)
 
@@ -201,10 +204,10 @@ def handle_message(msg):
             send_msg(chat_id, f"❌ El Canal {cid} no tiene clave.\nConfigúrala con: `/set{cid} <STREAM_KEY>`")
             return
 
-        send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
+        send_msg(chat_id, f"⏳ *Iniciando transmisión ultra-fluida en Canal {cid}...*")
         ok, res = start_single_stream(cid, m3u8_url, stream_key, f"Canal {cid}")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Estado: 100% Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Key: `{stream_key[:8]}...`\n⚡ Perfil: Anti-Freeze 24/7")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -219,7 +222,7 @@ def handle_message(msg):
         send_msg(chat_id, "⏳ *Iniciando transmisión personalizada...*")
         ok, res = start_single_stream(custom_id, m3u8_url, custom_key, f"Personalizado ({custom_id})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Estado: 100% Fluido")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA!* 🚀\nID: `{custom_id}`\n📡 Key: `{custom_key[:8]}...`\n⚡ Perfil: Anti-Freeze 24/7")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
@@ -252,7 +255,7 @@ def handle_message(msg):
 
 def main():
     print("=" * 65)
-    print("     BOT @Elasdelfutbolbot CONECTADO CON SERVIDOR IPTV        ")
+    print("     BOT @Elasdelfutbolbot - PERFIL DEFINITIVO ANTI-FREEZE    ")
     print("=" * 65)
     print("\nEl bot está escuchando tus comandos en Telegram...")
     
