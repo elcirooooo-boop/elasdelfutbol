@@ -58,15 +58,15 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
     destination = RTMP_SERVER + stream_key
     referer = extract_referer(source_url)
     
-    # Cabecera IPTVSmartersPro para autorizar 100% servidores Xtream Codes / IPTV
     headers = (
-        "User-Agent: IPTVSmartersPro\r\n"
         f"Referer: {referer}\r\n"
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
+    # Configuración de FFmpeg con -user_agent nativo para IPTV
     cmd = [
         "ffmpeg",
+        "-user_agent", "IPTVSmartersPro",
         "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
@@ -96,7 +96,7 @@ def start_single_stream(stream_id, source_url, stream_key, label=None):
     ]
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1.8)
+    time.sleep(2)
     if proc.poll() is not None:
         return False, "FFmpeg no pudo conectar a la señal."
 

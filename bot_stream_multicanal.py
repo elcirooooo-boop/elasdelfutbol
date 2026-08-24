@@ -63,13 +63,13 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     referer = extract_referer(source_url)
     
     headers = (
-        "User-Agent: IPTVSmartersPro\r\n"
         f"Referer: {referer}\r\n"
         f"Origin: {referer.rstrip('/')}\r\n"
     )
 
     cmd = [
         "ffmpeg",
+        "-user_agent", "IPTVSmartersPro",
         "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
@@ -105,7 +105,7 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
     ])
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1.8)
+    time.sleep(2)
     if proc.poll() is not None:
         return False, "FFmpeg no pudo conectar a la señal."
 
@@ -251,7 +251,7 @@ def handle_message(msg):
             send_msg(chat_id, "🔴 *No hay ninguna transmisión activa actualmente.*")
             return
 
-        status_text = "🟢 *CANALES EN DIRECTO:*\\n\\n"
+        status_text = "🟢 *CANALES EN DIRECTO:*\n\n"
         for sid, info in active_streams.items():
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
