@@ -44,28 +44,39 @@ CHANNELS = load_channels()
 ADMIN_USER_ID = None
 active_streams = {}
 
+# CANALES DE AUTO-RESOLUCIÓN EN VIVO (100% LIBRES / CERO 401 / RELATO EN ESPAÑOL)
 AUTO_CHANNELS = {
     "espn2": "https://futbollibre.ch/1.php?stream=espn2",
     "espn": "https://futbollibre.ch/1.php?stream=espn",
     "espn3": "https://futbollibre.ch/1.php?stream=espn3",
+    "espn4": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts",
+    "espnextra": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
+    "espnpremium": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts",
+    "espndeportes": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts",
     "tyc": "https://futbollibre.ch/1.php?stream=tyc",
     "dsports": "https://futbollibre.ch/1.php?stream=directvsports",
     "dsports2": "https://futbollibre.ch/1.php?stream=directvsports2",
     "foxsports": "https://futbollibre.ch/1.php?stream=foxsports",
+    "tntsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts",
+    "laliga": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
+    "universo": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts",
 }
 
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     if target_clean in AUTO_CHANNELS:
         portal_url = AUTO_CHANNELS[target_clean]
-        try:
-            headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}
-            r = requests.get(portal_url, headers=headers, timeout=4)
-            m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-            if m3u8:
-                return m3u8[0], "Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n"
-        except Exception as e:
-            print(f"Error resolviendo canal libre {target}: {e}")
+        if "futbollibre" in portal_url:
+            try:
+                headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}
+                r = requests.get(portal_url, headers=headers, timeout=4)
+                m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+                if m3u8:
+                    return m3u8[0], "Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n"
+            except Exception as e:
+                print(f"Error resolviendo canal libre {target}: {e}")
+        else:
+            return portal_url, "Referer: http://evestv.leptis.live/\r\nOrigin: http://evestv.leptis.live\r\n"
 
     referer = "https://google.com/"
     if "tvlibre.pe" in target or "futbollibre" in target:
@@ -76,45 +87,46 @@ def resolve_live_stream_url(target):
     headers = f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
     return target, headers
 
-CHANNEL_MAP = [
-    ("espn 2 | op2", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33893.ts"),
-    ("espn 2 | op3", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5976.ts"),
+# MAPEO DE NOMBRES DE LA AGENDA A COMANDOS CORTOS
+AGENDA_CMD_MAP = [
     ("espn 2", "espn2"),
     ("espn ar", "espn"),
-    ("espn premium", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts"),
     ("espn 3", "espn3"),
-    ("espn 4", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
-    ("espn extra", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"),
-    ("espn deportes", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),
+    ("espn 4", "espn4"),
+    ("espn extra", "espnextra"),
+    ("espn premium", "espnpremium"),
+    ("espn deportes", "espndeportes"),
     ("espn", "espn"),
     ("tyc", "tyc"),
+    ("tnt", "tntsports"),
     ("dsports 2", "dsports2"),
     ("dsports", "dsports"),
     ("directv 2", "dsports2"),
     ("directv", "dsports"),
-    ("laliga", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
-    ("dazn", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"),
-    ("universo", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts"),
-    ("sky", f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts"),
     ("fox sports", "foxsports"),
+    ("laliga", "laliga"),
+    ("universo", "universo"),
 ]
 
-def map_channel_to_iptv(ch_name):
+def map_channel_short(ch_name):
     ch_clean = ch_name.lower().strip()
-    for key, url in CHANNEL_MAP:
+    for key, cmd in AGENDA_CMD_MAP:
         if key in ch_clean:
-            return url
+            return cmd
     return None
 
 TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN 2 Sur HD (Mariano Closs)", "id": "espn2", "cmd": "espn2"},
-    {"name": "ESPN 1 Sur HD (Español Latam)", "id": "espn", "cmd": "espn"},
-    {"name": "ESPN 3 Sur HD (Español Latam)", "id": "espn3", "cmd": "espn3"},
-    {"name": "TyC Sports HD (Argentina)", "id": "tyc", "cmd": "tyc"},
-    {"name": "Directv Sports 1 (DSPORTS)", "id": "dsports", "cmd": "dsports"},
-    {"name": "Directv Sports 2 (DSPORTS 2)", "id": "dsports2", "cmd": "dsports2"},
-    {"name": "ESPN 2 Sur IPTV", "id": "30327", "cmd": f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"},
-    {"name": "LaLiga TV (FHD)", "id": "33866", "cmd": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"},
+    {"name": "ESPN 2 Sur HD (Mariano Closs)", "cmd": "espn2"},
+    {"name": "ESPN 1 Sur HD (Español Latam)", "cmd": "espn"},
+    {"name": "ESPN 3 Sur HD (Español Latam)", "cmd": "espn3"},
+    {"name": "ESPN 4 HD (Español)", "cmd": "espn4"},
+    {"name": "ESPN Extra Sur HD", "cmd": "espnextra"},
+    {"name": "ESPN Premium (Liga Argentina)", "cmd": "espnpremium"},
+    {"name": "TyC Sports HD (Argentina)", "cmd": "tyc"},
+    {"name": "Directv Sports 1 (DSPORTS)", "cmd": "dsports"},
+    {"name": "Directv Sports 2 (DSPORTS 2)", "cmd": "dsports2"},
+    {"name": "Fox Sports HD", "cmd": "foxsports"},
+    {"name": "LaLiga TV (FHD)", "cmd": "laliga"},
 ]
 
 def get_live_agenda_messages():
@@ -125,7 +137,7 @@ def get_live_agenda_messages():
             return ["🔴 No hay partidos programados en la agenda en este momento."]
 
         messages = []
-        current_msg = "📅 *AGENDA DEPORTIVA (ROJADIRECTA) - CANALES EN ESPAÑOL LATAM*\n\n"
+        current_msg = "📅 *AGENDA DEPORTIVA DE HOY - CANALES DIRECTOS*\n\n"
         
         for item in data:
             attrs = item.get("attributes", {})
@@ -136,13 +148,16 @@ def get_live_agenda_messages():
 
             partido_block = f"⚽ *{desc}* (`{hour}`)\n"
             
+            seen_cmds = set()
             for em in embeds:
                 em_name = em.get("attributes", {}).get("embed_name", "").strip()
-                target_cmd = map_channel_to_iptv(em_name)
-                if target_cmd:
-                    partido_block += f"  ▶ *{em_name}:*\n  `{target_cmd}`\n"
-                else:
-                    partido_block += f"  ▶ *{em_name}*\n"
+                cmd_code = map_channel_short(em_name)
+                
+                if cmd_code and cmd_code not in seen_cmds:
+                    seen_cmds.add(cmd_code)
+                    partido_block += f"  • ▶ *{em_name}:* `/c1 {cmd_code}`\n"
+                elif not cmd_code:
+                    partido_block += f"  • ▶ *{em_name}*\n"
             
             partido_block += "\n"
 
@@ -177,7 +192,6 @@ def start_single_stream(stream_id, raw_url, stream_key, label=None):
 
     source_url, headers = resolve_live_stream_url(raw_url)
 
-    # PERFIL DEFINITIVO CON RELOJ REGULADOR 1.00x EN TIEMPO REAL
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -287,20 +301,20 @@ def handle_message(msg):
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
             "⚽ *BOT DE TRANSMISIÓN DEPORTIVA MULTI-CANAL*\n\n"
-            "📋 *GUÍA DE CANALES Y PARTIDOS (ESPAÑOL LATAM):*\n"
-            "• `/partidos` $\\rightarrow$ Agenda de hoy con todos los canales en español y sus opciones\n"
-            "• `/top` $\\rightarrow$ Lista de canales deportivos principales en español\n\n"
-            "🚀 *ACCESO DIRECTO A CANALES:*\n"
+            "📋 *GUÍA RÁPIDA DE PARTIDOS Y CANALES:*\n"
+            "• `/partidos` $\\rightarrow$ Ver partidos de hoy con comandos listos tipo `/c1 espn2`\n"
+            "• `/top` $\\rightarrow$ Lista de canales deportivos principales con comandos rápidos\n\n"
+            "🚀 *CANALES DIRECTOS (TOCA PARA COPIAR):*\n"
             "• `/c1 espn2` $\\rightarrow$ Transmitir ESPN 2 Sur en Canal 1\n"
             "• `/c1 espn` $\\rightarrow$ Transmitir ESPN 1 Sur en Canal 1\n"
+            "• `/c1 espn3` $\\rightarrow$ Transmitir ESPN 3 Sur en Canal 1\n"
             "• `/c1 tyc` $\\rightarrow$ Transmitir TyC Sports en Canal 1\n"
-            "• `/c1 dsports` $\\rightarrow$ Transmitir Directv Sports en Canal 1\n\n"
-            "📺 *TRANSMITIR CON URL:*\n"
-            "• `/c1 <URL>` | `/c2 <URL>` | `/c3 <URL>`\n"
-            "• `/stream <URL_O_NOMBRE> <STREAM_KEY>` $\\rightarrow$ Personalizado\n\n"
+            "• `/c1 dsports` $\\rightarrow$ Transmitir Directv Sports en Canal 1\n"
+            "• `/c1 dsports2` $\\rightarrow$ Transmitir Directv Sports 2 en Canal 1\n\n"
+            "📺 *TRANSMITIR PERSONALIZADO:*\n"
+            "• `/stream <CANAL> <STREAM_KEY>` (ej. `/stream espn2 3936015063:...`)\n\n"
             "🔑 *GESTIÓN DE CLAVES:*\n"
-            "• `/set1 <KEY>` | `/set2 <KEY>` | `/set3 <KEY>`\n"
-            "• `/canales` $\\rightarrow$ Ver claves guardadas\n\n"
+            "• `/set1 <KEY>` | `/set2 <KEY>` | `/set3 <KEY>` | `/canales`\n\n"
             "🛑 *DETENER:*\n"
             "• `/stop1` | `/stop2` | `/stop3` | `/stopall`\n\n"
             "📊 *ESTADO:*\n"
@@ -309,13 +323,14 @@ def handle_message(msg):
         send_msg(chat_id, help_text)
 
     elif text.startswith("/top") or text.startswith("/deportes"):
-        msg_txt = "🌟 *CANALES DEPORTIVOS EN ESPAÑOL LATAM:*\n\n"
+        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES EN ESPAÑOL:*\n\n"
         for ch in TOP_SPORTS_CHANNELS:
-            msg_txt += f"📺 *{ch['name']}*\n• Comando rápido: `/c1 {ch['cmd']}`\n\n"
+            msg_txt += f"📺 *{ch['name']}:*\n• Canal 1: `/c1 {ch['cmd']}`\n• Personalizado: `/stream {ch['cmd']} <TU_KEY>`\n\n"
+        msg_txt += "💡 _Toca cualquier comando en gris para copiarlo al instante._"
         send_msg(chat_id, msg_txt)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ *Cargando agenda de partidos en vivo con canales en Español...*")
+        send_msg(chat_id, "⏳ *Cargando agenda de partidos con comandos directos...*")
         agenda_msgs = get_live_agenda_messages()
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -352,7 +367,7 @@ def handle_message(msg):
         if not cid.isalnum():
             return
         if len(parts) < 2:
-            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} <URL_O_NOMBRE>` (ejemplo: `/c{cid} espn2`)")
+            send_msg(chat_id, f"⚠️ *Uso:* `/c{cid} <CANAL>` (ejemplo: `/c{cid} espn2`)")
             return
         
         raw_url = clean_arg(parts[1])
@@ -364,14 +379,14 @@ def handle_message(msg):
         send_msg(chat_id, f"⏳ *Iniciando transmisión en Canal {cid}...*")
         ok, res = start_single_stream(cid, raw_url, stream_key, f"Canal {cid} ({raw_url})")
         if ok:
-            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Canal: `{raw_url}`\n⏱️ Sincronización: 1.00x Tiempo Real")
+            send_msg(chat_id, f"✅ *¡Transmisión ACTIVA en Canal {cid}!* 🚀\n📡 Señal: `{raw_url}`\n⏱️ Sincronización: 1.00x Tiempo Real")
         else:
             send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
 
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 3:
-            send_msg(chat_id, "⚠️ *Uso:* `/stream <URL_O_NOMBRE> <STREAM_KEY>`\nEjemplo: `/stream espn2 3936015063:...`")
+            send_msg(chat_id, "⚠️ *Uso:* `/stream <CANAL> <STREAM_KEY>`\nEjemplo: `/stream espn2 3936015063:...`")
             return
         raw_url = clean_arg(parts[1])
         custom_key = clean_arg(parts[2])
@@ -407,11 +422,11 @@ def handle_message(msg):
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
             secs = elapsed % 60
-            status_text += f"📺 *{info['name']}:*\n• ⏱️ Tiempo: `{mins}m {secs}s`\n• 📡 Key: `{info['key'][:8]}...`\n• 🔗 URL: `{info['url'][:35]}...`\n\n"
+            status_text += f"📺 *{info['name']}:*\n• ⏱️ Tiempo: `{mins}m {secs}s`\n• 📡 Key: `{info['key'][:8]}...`\n• 🔗 Señal: `{info['url'][:35]}...`\n\n"
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal Sincronizado a 1.00x listo...")
+    print("🤖 Bot Multi-Canal con Comandos Cortos tipo espn2 listo...")
     offset = 0
     while True:
         try:
