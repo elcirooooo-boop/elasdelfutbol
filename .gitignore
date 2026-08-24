@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Configuración y claves locales
+config_stream.json
+channels.json
+
+# Archivos temporales y de prueba
+stream_prueba.py
+extract.py
+fetch_*.py
+inspect_*.py
+analyze_*.py
+page.html
+embed_*.html
+*.log
