@@ -7,6 +7,7 @@ import sys
 import re
 import html
 import base64
+import threading
 from urllib.parse import urlparse
 
 # ==============================================================================
@@ -43,8 +44,9 @@ def save_config(cfg):
 CONFIG = load_config()
 ADMIN_USER_ID = None
 active_streams = {}
+stream_lock = threading.Lock()
 
-# CANALES CON REDUNDANCIA AUTOMÁTICA
+# CANALES CON REDUNDANCIA MULTI-CAPA Y ALTA ESTABILIDAD
 CHANNEL_FALLBACKS = {
     "dsports2": [
         f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts",
@@ -271,37 +273,6 @@ TOP_SPORTS_CHANNELS = [
     {"name": "LaLiga TV (FHD)", "cmd": "laliga"},
 ]
 
-cached_streams = []
-
-def get_iptv_streams():
-    global cached_streams
-    if cached_streams:
-        return cached_streams
-    try:
-        api_url = f"{IPTV_SERVER_ALT}/player_api.php?username={IPTV_USER}&password={IPTV_PASS}&action=get_live_streams"
-        r = requests.get(api_url, timeout=15, headers={"User-Agent": "IPTVSmartersPro"})
-        if r.status_code == 200:
-            cached_streams = r.json()
-            return cached_streams
-    except Exception as e:
-        print(f"Error cargando canales IPTV: {e}")
-    return []
-
-def search_iptv_channels(query, max_results=8):
-    streams = get_iptv_streams()
-    results = []
-    query_clean = query.lower().strip()
-    for ch in streams:
-        name = ch.get("name", "")
-        sid = ch.get("stream_id")
-        clean_name = re.sub(r'[^\x00-\x7F]+', ' ', name).strip()
-        if query_clean in clean_name.lower():
-            link = f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/{sid}.ts"
-            results.append((clean_name, sid, link))
-            if len(results) >= max_results:
-                break
-    return results
-
 def get_live_agenda_messages(curr_key):
     try:
         r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"})
@@ -355,7 +326,7 @@ def get_live_agenda_messages(curr_key):
         return [f"⚠️ Error obteniendo la agenda de rojadirectatv.ec: {e}"]
 
 # ==============================================================================
-# 2. MOTOR DE TRANSMISIÓN DIRECTA PASSTHROUGH (0% CPU / CERO LATENCIA)
+# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG BLINDADO + WATCHDOG AUTORREPARADOR)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -369,39 +340,30 @@ def get_next_stream_id():
             return sid
     return str(len(active_streams) + 1)
 
-def start_single_stream(raw_url, stream_key):
-    raw_url = clean_arg(raw_url)
-    stream_key = clean_arg(stream_key)
-    destination = RTMP_SERVER + stream_key
-
-    for sid, info in list(active_streams.items()):
-        if info["key"] == stream_key:
-            stop_single_stream(sid)
-
-    stream_id = get_next_stream_id()
-    source_url, headers, is_ok = resolve_live_stream_url(raw_url)
-
-    if not is_ok:
-        if headers == "EVENT_NOT_STARTED":
-            return False, stream_id, (
-                f"⚠️ La señal '{raw_url}' es un canal de evento temporal que aún no ha iniciado en la fuente.\n"
-                f"💡 Te recomendamos usar las señales 24/7 activas (como /stream espn4, /stream espn2, /stream tyc o /stream dsports)."
-            )
-        return False, stream_id, f"Error: {headers}"
-
+def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
-        "-re",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
+        "-rw_timeout", "8000000",                # 8s timeout de socket: evita cuelgues eternos
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
-        "-headers", headers,
+        "-max_interleave_delta", "0"
+    ]
+
+    # Pre-buffering para HLS / tiempo real para TS
+    if not source_url.endswith(".m3u8"):
+        cmd.extend(["-re"])
+
+    if headers:
+        cmd.extend(["-headers", headers])
+
+    cmd.extend([
         "-i", source_url,
-        "-max_muxing_queue_size", "4096",
+        "-max_muxing_queue_size", "8192",
         "-c:v", "copy",
         "-c:a", "aac",
         "-b:a", "128k",
@@ -410,62 +372,93 @@ def start_single_stream(raw_url, stream_key):
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
-    ]
+    ])
 
     log_file = f"/tmp/stream_{stream_id}.log" if os.name != 'nt' else f"stream_{stream_id}.log"
     out_f = open(log_file, "w", encoding="utf-8", errors="ignore")
     proc = subprocess.Popen(cmd, stdout=out_f, stderr=out_f)
-    
-    time.sleep(1.5)
-    if proc.poll() is not None:
-        out_f.close()
-        err_snippet = "No se pudo conectar a la fuente."
-        try:
-            with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
-                lines = f.readlines()
-                if lines:
-                    err_snippet = lines[-1].strip()
-        except Exception:
-            pass
-        return False, stream_id, f"Error: {err_snippet}"
+    return proc, out_f, log_file
 
-    active_streams[stream_id] = {
-        "process": proc,
-        "log_file": out_f,
-        "raw_name": raw_url,
-        "url": source_url,
-        "key": stream_key,
-        "start_time": time.time()
-    }
-    return True, stream_id, raw_url
+def start_single_stream(raw_url, stream_key):
+    raw_url = clean_arg(raw_url)
+    stream_key = clean_arg(stream_key)
+    destination = RTMP_SERVER + stream_key
+
+    with stream_lock:
+        for sid, info in list(active_streams.items()):
+            if info["key"] == stream_key:
+                stop_single_stream(sid)
+
+        stream_id = get_next_stream_id()
+        source_url, headers, is_ok = resolve_live_stream_url(raw_url)
+
+        if not is_ok:
+            if headers == "EVENT_NOT_STARTED":
+                return False, stream_id, (
+                    f"⚠️ La señal '{raw_url}' es un canal de evento temporal que aún no ha iniciado en la fuente.\n"
+                    f"💡 Te recomendamos usar las señales 24/7 activas (como /stream espn4, /stream espn2, /stream tyc o /stream dsports)."
+                )
+            return False, stream_id, f"Error: {headers}"
+
+        proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
+        
+        time.sleep(1.5)
+        if proc.poll() is not None:
+            out_f.close()
+            err_snippet = "No se pudo conectar a la fuente."
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.readlines()
+                    if lines:
+                        err_snippet = lines[-1].strip()
+            except Exception:
+                pass
+            return False, stream_id, f"Error: {err_snippet}"
+
+        active_streams[stream_id] = {
+            "process": proc,
+            "log_file": out_f,
+            "log_path": log_file,
+            "raw_name": raw_url,
+            "url": source_url,
+            "headers": headers,
+            "destination": destination,
+            "key": stream_key,
+            "start_time": time.time(),
+            "auto_restart": True,
+            "restart_count": 0
+        }
+        return True, stream_id, raw_url
 
 def stop_single_stream(identifier):
     ident = str(identifier).strip().lower()
     
-    target_sid = None
-    if ident in active_streams:
-        target_sid = ident
-    else:
-        for sid, info in active_streams.items():
-            if info["raw_name"].lower() == ident or info["key"].lower() == ident or ident in info["key"].lower():
-                target_sid = sid
-                break
+    with stream_lock:
+        target_sid = None
+        if ident in active_streams:
+            target_sid = ident
+        else:
+            for sid, info in active_streams.items():
+                if info["raw_name"].lower() == ident or info["key"].lower() == ident or ident in info["key"].lower():
+                    target_sid = sid
+                    break
 
-    if target_sid and target_sid in active_streams:
-        info = active_streams[target_sid]
-        proc = info["process"]
-        try:
-            proc.kill()
-            proc.wait(timeout=1)
-        except Exception:
-            pass
-        try:
-            if "log_file" in info and not info["log_file"].closed:
-                info["log_file"].close()
-        except Exception:
-            pass
-        del active_streams[target_sid]
-        return True, target_sid, info["raw_name"]
+        if target_sid and target_sid in active_streams:
+            info = active_streams[target_sid]
+            info["auto_restart"] = False  # Desactivar watchdog para este stream
+            proc = info["process"]
+            try:
+                proc.kill()
+                proc.wait(timeout=1)
+            except Exception:
+                pass
+            try:
+                if "log_file" in info and not info["log_file"].closed:
+                    info["log_file"].close()
+            except Exception:
+                pass
+            del active_streams[target_sid]
+            return True, target_sid, info["raw_name"]
     return False, None, None
 
 def stop_all_streams():
@@ -475,6 +468,41 @@ def stop_all_streams():
         if ok:
             count += 1
     return count
+
+# WATCHDOG EN SEGUNDO PLANO (RECUPERACIÓN INMEDIATA SI UN CANAL FLUCTÚA)
+def stream_watchdog():
+    while True:
+        try:
+            time.sleep(3)
+            with stream_lock:
+                for sid, info in list(active_streams.items()):
+                    if not info.get("auto_restart", False):
+                        continue
+                    
+                    proc = info.get("process")
+                    if proc and proc.poll() is not None:
+                        # El proceso FFmpeg cayó por fluctuación de red de la fuente
+                        print(f"⚠️ Watchdog: Canal #{sid} ({info['raw_name']}) cayó. Re-conectando en 1s...")
+                        try:
+                            if "log_file" in info and not info["log_file"].closed:
+                                info["log_file"].close()
+                        except Exception:
+                            pass
+                        
+                        # Re-resolver fuente (con fallback automático)
+                        new_url, new_hdrs, ok = resolve_live_stream_url(info["raw_name"])
+                        if ok:
+                            new_proc, new_out_f, new_log = launch_ffmpeg_process(
+                                new_url, new_hdrs, info["destination"], sid
+                            )
+                            info["process"] = new_proc
+                            info["log_file"] = new_out_f
+                            info["url"] = new_url
+                            info["headers"] = new_hdrs
+                            info["restart_count"] = info.get("restart_count", 0) + 1
+                            print(f"✅ Watchdog: Canal #{sid} reanudado exitosamente (Reconexión #{info['restart_count']}).")
+        except Exception as e:
+            print(f"Error en stream watchdog: {e}")
 
 # ==============================================================================
 # 3. INTERFAZ DE BOT DE TELEGRAM (HTML BLINDADO)
@@ -506,21 +534,19 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (ROJADIRECTATV.EC)</b>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA ANTI-FREEZE (ROJADIRECTATV.EC)</b>\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
             "• <code>/stream espn2</code> $\\rightarrow$ Transmitir ESPN 2 Sur\n"
             "• <code>/stream tyc</code> $\\rightarrow$ Transmitir TyC Sports\n"
-            "• <code>/stream dsports2</code> $\\rightarrow$ Transmitir Directv Sports 2 (Celta vs Osasuna)\n"
-            "• <code>/stream dsports</code> $\\rightarrow$ Transmitir Directv Sports (Barcelona vs Athletic)\n"
-            "• <code>/stream winsports</code> $\\rightarrow$ Transmitir Win Sports +\n"
+            "• <code>/stream dsports2</code> $\\rightarrow$ Transmitir Directv Sports 2\n"
+            "• <code>/stream dsports</code> $\\rightarrow$ Transmitir Directv Sports 1\n"
             "• <code>/stream &lt;CANAL_O_URL&gt; [STREAM_KEY]</code>\n\n"
             "📋 <b>GUÍA DE PARTIDOS Y CANALES:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver <b>TODOS los partidos de rojadirectatv.ec</b> con todos sus canales exactos\n"
-            "• <code>/top</code> $\\rightarrow$ Lista de canales deportivos principales\n"
-            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar en tu IPTV (ej. <code>/buscar dazn</code>)\n\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver <b>TODOS los partidos de hoy</b> de rojadirectatv.ec\n"
+            "• <code>/top</code> $\\rightarrow$ Lista de canales deportivos principales\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
-            "• <code>/stop 1</code> | <code>/stop 2</code> $\\rightarrow$ Detener una transmisión por número\n"
+            "• <code>/stop 1</code> | <code>/stop 2</code> $\\rightarrow$ Detener por número\n"
             "• <code>/stopall</code> $\\rightarrow$ Detener TODAS las transmisiones a la vez\n\n"
             "📊 <b>ESTADO EN VIVO:</b>\n"
             "• <code>/status</code> $\\rightarrow$ Ver qué transmisiones están activas\n\n"
@@ -541,24 +567,6 @@ def handle_message(msg):
         for m in agenda_msgs:
             send_msg(chat_id, m)
 
-    elif text.startswith("/buscar"):
-        parts = text.split(maxsplit=1)
-        if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;palabra&gt;</code> (ejemplo: <code>/buscar espn</code>, <code>/buscar dazn</code>)")
-            return
-        query = parts[1].strip()
-        send_msg(chat_id, f"🔍 <b>Buscando canales con:</b> <code>{html.escape(query)}</code>...")
-        results = search_iptv_channels(query)
-        if not results:
-            send_msg(chat_id, f"❌ No se encontraron canales con <code>{html.escape(query)}</code>.")
-            return
-
-        resp_txt = f"🎯 <b>RESULTADOS PARA:</b> <code>{html.escape(query)}</code>\n\n"
-        for name, sid, link in results:
-            resp_txt += f"• <b>{html.escape(name)}</b> (ID <code>{sid}</code>):\n<code>/stream {sid} {curr_key}</code>\n\n"
-        resp_txt += "💡 <i>Toca cualquier comando para copiarlo y transmitir.</i>"
-        send_msg(chat_id, resp_txt)
-
     elif text.startswith("/key") or text.startswith("/setkey"):
         parts = text.split()
         if len(parts) < 2:
@@ -572,20 +580,21 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn2</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream dsports2</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Iniciando transmisión directa de {html.escape(raw_url)}...</b>")
+        send_msg(chat_id, f"⏳ <b>Iniciando transmisión blindada anti-freeze de {html.escape(raw_url)}...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión DIRECTA ACTIVA!</b> 🚀\n\n"
+                f"✅ <b>¡Transmisión ACTIVA y PROTEGIDA!</b> 🚀\n\n"
                 f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Máxima Calidad HD)\n\n"
+                f"🛡️ <b>Protección:</b> Anti-Freeze + Watchdog Auto-Reconexión\n"
+                f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Calidad HD)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
         else:
@@ -634,9 +643,11 @@ def handle_message(msg):
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
             secs = elapsed % 60
+            restarts = info.get("restart_count", 0)
             status_text += (
                 f"📺 <b>Transmisión #{sid} ({html.escape(info['raw_name'])}):</b>\n"
                 f"• ⏱️ Tiempo: <code>{mins}m {secs}s</code>\n"
+                f"• 🔄 Auto-Reconexiones: <code>{restarts}</code>\n"
                 f"• 📡 Key: <code>{info['key'][:8]}...</code>\n"
                 f"• 🛑 <b>Detener esta:</b> <code>/stop {sid}</code>\n\n"
             )
@@ -644,7 +655,12 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Oficial de rojadirectatv.ec con Mapeo Exacto de Canales listo...")
+    print("🤖 Iniciando Motor Anti-Freeze y Watchdog de rojadirectatv.ec...")
+    
+    # Iniciar hilo del Watchdog Auto-Recuperador en segundo plano
+    wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
+    wd_thread.start()
+    
     offset = 0
     while True:
         try:
