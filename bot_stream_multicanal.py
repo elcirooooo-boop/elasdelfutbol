@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import re
+import html
 import base64
 from urllib.parse import urlparse
 
@@ -43,7 +44,7 @@ CONFIG = load_config()
 ADMIN_USER_ID = None
 active_streams = {}
 
-# MAPEO RÁPIDO DE CANALES
+# CANALES DE AUTO-RESOLUCIÓN EN VIVO
 AUTO_CHANNELS = {
     "espn": "https://futbollibre.ch/5.php?stream=espn",
     "espn2": "https://futbollibre.ch/5.php?stream=espn2",
@@ -113,7 +114,6 @@ def resolve_live_stream_url(target):
             referer = url_to_fetch if "tv-90" in url_to_fetch or "futbollibre" in url_to_fetch else "https://futbollibre.ch/"
             return m3u8[0], f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
 
-        # Buscar iframes anidados (como /5.php?stream=...)
         iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
         for ifr in iframes:
             ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
@@ -127,7 +127,6 @@ def resolve_live_stream_url(target):
     referer = "https://futbollibre.ch/"
     return target, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
 
-# MAPEO DE NOMBRES A COMANDOS CORTOS
 AGENDA_CMD_MAP = [
     ("espn 2", "espn2"),
     ("espn ar", "espn"),
@@ -156,7 +155,6 @@ AGENDA_CMD_MAP = [
 ]
 
 def map_channel_short(ch_name, embed_iframe=None):
-    # Si tiene iframe con clave r=, intentar extraer stream=
     if embed_iframe and "stream=" in embed_iframe:
         try:
             if "r=" in embed_iframe:
@@ -230,23 +228,24 @@ def get_live_agenda_messages(curr_key):
             return ["🔴 No hay partidos programados en la agenda en este momento."]
 
         messages = []
-        current_msg = f"📅 *AGENDA DEPORTIVA COMPLETA DE HOY ({len(data)} EVENTOS)*\n\n"
+        header = f"📅 <b>AGENDA DEPORTIVA COMPLETA ({len(data)} EVENTOS DE HOY)</b>\n\n"
+        current_msg = header
         
         for item in data:
             attrs = item.get("attributes", {})
-            desc = attrs.get("diary_description", "").strip()
-            desc = desc.replace("\n", " ").replace("\r", "")
+            raw_desc = attrs.get("diary_description", "").strip()
+            clean_desc = html.escape(" ".join(raw_desc.split()))
             hour = attrs.get("diary_hour", "")[:5]
             embeds = attrs.get("embeds", {}).get("data", [])
 
-            partido_block = f"⚽ *{desc}* (`{hour}`)\n"
+            partido_block = f"⚽ <b>{clean_desc}</b> (<code>{hour}</code>)\n"
             
             if not embeds:
-                partido_block += "  • ⏳ _Señales disponibles cerca de la hora del partido_\n"
+                partido_block += "  • ⏳ <i>Señales disponibles cerca de la hora del partido</i>\n"
             else:
                 for em in embeds:
                     em_attrs = em.get("attributes", {})
-                    em_name = em_attrs.get("embed_name", "").strip()
+                    em_name = html.escape(em_attrs.get("embed_name", "").strip())
                     em_iframe = em_attrs.get("embed_iframe", "")
                     
                     cmd_code = map_channel_short(em_name, em_iframe)
@@ -254,13 +253,13 @@ def get_live_agenda_messages(curr_key):
                         cmd_code = em_iframe
 
                     if cmd_code:
-                        partido_block += f"  • ▶ *{em_name}:*\n  `/stream {cmd_code} {curr_key}`\n"
+                        partido_block += f"  • ▶ <b>{em_name}:</b>\n  <code>/stream {cmd_code} {curr_key}</code>\n"
                     else:
-                        partido_block += f"  • ▶ *{em_name}*\n"
+                        partido_block += f"  • ▶ <b>{em_name}</b>\n"
             
             partido_block += "\n"
 
-            if len(current_msg) + len(partido_block) > 3500:
+            if len(current_msg) + len(partido_block) > 3400:
                 messages.append(current_msg)
                 current_msg = partido_block
             else:
@@ -388,12 +387,19 @@ def stop_all_streams():
     return count
 
 # ==============================================================================
-# 3. INTERFAZ DE BOT DE TELEGRAM
+# 3. INTERFAZ DE BOT DE TELEGRAM (HTML BLINDADO CONTRA ERRORES)
 # ==============================================================================
-def send_msg(chat_id, text):
+def send_msg(chat_id, text, parse_mode="HTML"):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=10)
+        payload = {"chat_id": chat_id, "text": text}
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        r = requests.post(url, json=payload, timeout=10)
+        if r.status_code != 200:
+            # Fallback seguro a texto plano para que NUNCA se pierda ningún mensaje
+            plain_text = re.sub(r'<[^>]+>', '', text)
+            requests.post(url, json={"chat_id": chat_id, "text": plain_text}, timeout=10)
     except Exception as e:
         print(f"Error enviando mensaje: {e}")
 
@@ -411,36 +417,36 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN DEPORTIVA (TODOS LOS PARTIDOS)*\n\n"
-            "📺 *TRANSMITIR:*\n"
-            "• `/stream espn2` $\\rightarrow$ Transmitir ESPN 2 Sur\n"
-            "• `/stream tyc` $\\rightarrow$ Transmitir TyC Sports\n"
-            "• `/stream dsports` $\\rightarrow$ Transmitir Directv Sports\n"
-            "• `/stream winsports` $\\rightarrow$ Transmitir Win Sports +\n"
-            "• `/stream <CANAL_O_URL> [STREAM_KEY]`\n\n"
-            "📋 *GUÍA DE PARTIDOS Y CANALES:*\n"
-            "• `/partidos` $\\rightarrow$ Ver TODOS los partidos de hoy con sus canales\n"
-            "• `/top` $\\rightarrow$ Lista de canales deportivos principales\n"
-            "• `/buscar <nombre>` $\\rightarrow$ Buscar en tu IPTV (ej. `/buscar dazn`)\n\n"
-            "🛑 *DETENER TRANSMISIONES:*\n"
-            "• `/stop` $\\rightarrow$ Detener la transmisión activa\n"
-            "• `/stop 1` | `/stop 2` $\\rightarrow$ Detener una transmisión por número\n"
-            "• `/stopall` $\\rightarrow$ Detener TODAS las transmisiones a la vez\n\n"
-            "📊 *ESTADO EN VIVO:*\n"
-            "• `/status` $\\rightarrow$ Ver qué transmisiones están activas\n\n"
-            "🔑 *CLAVE STREAM:* `/key <NUEVA_KEY>`"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA</b>\n\n"
+            "📺 <b>TRANSMITIR PARTIDO:</b>\n"
+            "• <code>/stream espn2</code> $\\rightarrow$ Transmitir ESPN 2 Sur\n"
+            "• <code>/stream tyc</code> $\\rightarrow$ Transmitir TyC Sports\n"
+            "• <code>/stream dsports</code> $\\rightarrow$ Transmitir Directv Sports\n"
+            "• <code>/stream winsports</code> $\\rightarrow$ Transmitir Win Sports +\n"
+            "• <code>/stream &lt;CANAL_O_URL&gt; [STREAM_KEY]</code>\n\n"
+            "📋 <b>GUÍA DE PARTIDOS Y CANALES:</b>\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver <b>TODOS los partidos de hoy</b> con todos sus canales\n"
+            "• <code>/top</code> $\\rightarrow$ Lista de canales deportivos principales\n"
+            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar en tu IPTV (ej. <code>/buscar dazn</code>)\n\n"
+            "🛑 <b>DETENER TRANSMISIONES:</b>\n"
+            "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
+            "• <code>/stop 1</code> | <code>/stop 2</code> $\\rightarrow$ Detener una transmisión por número\n"
+            "• <code>/stopall</code> $\\rightarrow$ Detener TODAS las transmisiones a la vez\n\n"
+            "📊 <b>ESTADO EN VIVO:</b>\n"
+            "• <code>/status</code> $\\rightarrow$ Ver qué transmisiones están activas\n\n"
+            f"🔑 <b>CLAVE STREAM:</b> <code>/key &lt;NUEVA_KEY&gt;</code>"
         )
         send_msg(chat_id, help_text)
 
     elif text.startswith("/top") or text.startswith("/deportes"):
-        msg_txt = "🌟 *CANALES DEPORTIVOS PRINCIPALES (DIRECTO HD):*\n\n"
+        msg_txt = "🌟 <b>CANALES DEPORTIVOS PRINCIPALES (DIRECTO HD):</b>\n\n"
         for ch in TOP_SPORTS_CHANNELS:
-            msg_txt += f"📺 *{ch['name']}:*\n`/stream {ch['cmd']} {curr_key}`\n\n"
-        msg_txt += "💡 _Toca cualquier comando en gris para copiarlo y enviarlo al instante._"
+            msg_txt += f"📺 <b>{ch['name']}:</b>\n<code>/stream {ch['cmd']} {curr_key}</code>\n\n"
+        msg_txt += "💡 <i>Toca cualquier comando en gris para copiarlo y enviarlo al instante.</i>"
         send_msg(chat_id, msg_txt)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ *Cargando agenda completa de hoy con TODOS los partidos y canales...*")
+        send_msg(chat_id, "⏳ <b>Cargando absolutamente TODOS los partidos y canales de hoy...</b>")
         agenda_msgs = get_live_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -448,57 +454,57 @@ def handle_message(msg):
     elif text.startswith("/buscar"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ *Uso:* `/buscar <palabra>` (ejemplo: `/buscar espn`, `/buscar dazn`, `/buscar fox`)")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;palabra&gt;</code> (ejemplo: <code>/buscar espn</code>, <code>/buscar dazn</code>)")
             return
         query = parts[1].strip()
-        send_msg(chat_id, f"🔍 *Buscando canales con:* `{query}`...")
+        send_msg(chat_id, f"🔍 <b>Buscando canales con:</b> <code>{html.escape(query)}</code>...")
         results = search_iptv_channels(query)
         if not results:
-            send_msg(chat_id, f"❌ No se encontraron canales con `{query}`.")
+            send_msg(chat_id, f"❌ No se encontraron canales con <code>{html.escape(query)}</code>.")
             return
 
-        resp_txt = f"🎯 *RESULTADOS PARA:* `{query}`\n\n"
+        resp_txt = f"🎯 <b>RESULTADOS PARA:</b> <code>{html.escape(query)}</code>\n\n"
         for name, sid, link in results:
-            resp_txt += f"• *{name}* (ID `{sid}`):\n`/stream {sid} {curr_key}`\n\n"
-        resp_txt += "💡 _Toca cualquier comando para copiarlo y transmitir._"
+            resp_txt += f"• <b>{html.escape(name)}</b> (ID <code>{sid}</code>):\n<code>/stream {sid} {curr_key}</code>\n\n"
+        resp_txt += "💡 <i>Toca cualquier comando para copiarlo y transmitir.</i>"
         send_msg(chat_id, resp_txt)
 
     elif text.startswith("/key") or text.startswith("/setkey"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, f"⚠️ *Uso:* `/key NUEVA_STREAM_KEY`\nClave actual: `{curr_key}`")
+            send_msg(chat_id, f"⚠️ <b>Uso:</b> <code>/key NUEVA_STREAM_KEY</code>\nClave actual: <code>{curr_key}</code>")
             return
         new_k = clean_arg(parts[1])
         CONFIG["stream_key"] = new_k
         save_config(CONFIG)
-        send_msg(chat_id, f"✅ *¡Stream Key por defecto actualizada!*\n🔑 Nueva Key: `{new_k}`")
+        send_msg(chat_id, f"✅ <b>¡Stream Key por defecto actualizada!</b>\n🔑 Nueva Key: <code>{new_k}</code>")
 
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ *Uso:* `/stream <CANAL>` o `/stream <CANAL> <STREAM_KEY>`\nEjemplo: `/stream espn2`")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn2</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ *Iniciando transmisión directa de {raw_url}...*")
+        send_msg(chat_id, f"⏳ <b>Iniciando transmisión directa de {html.escape(raw_url)}...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ *¡Transmisión DIRECTA ACTIVA!* 🚀\n\n"
-                f"📺 *Transmisión #{sid}:* `{raw_url}`\n"
-                f"🔑 *Key:* `{stream_key[:8]}...`\n"
-                f"⚡ *Modo:* Direct Passthrough (0% CPU / Máxima Calidad HD)\n\n"
-                f"🛑 *Detener esta:* `/stop {sid}` | *Detener todas:* `/stopall`"
+                f"✅ <b>¡Transmisión DIRECTA ACTIVA!</b> 🚀\n\n"
+                f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
+                f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
+                f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Máxima Calidad HD)\n\n"
+                f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
         else:
-            send_msg(chat_id, f"❌ *Error al iniciar:* {res}")
+            send_msg(chat_id, f"❌ <b>Error al iniciar:</b> {html.escape(res)}")
 
     elif text.startswith("/stopall") or text == "/stop all":
         count = stop_all_streams()
         if count > 0:
-            send_msg(chat_id, f"🛑 *Se han detenido todas las transmisiones ({count} partidos cerrados).*")
+            send_msg(chat_id, f"🛑 <b>Se han detenido todas las transmisiones ({count} partidos cerrados).</b>")
         else:
             send_msg(chat_id, "ℹ️ No había ninguna transmisión activa.")
 
@@ -511,44 +517,44 @@ def handle_message(msg):
             if len(active_streams) == 1:
                 sid = list(active_streams.keys())[0]
                 ok, _, ch_name = stop_single_stream(sid)
-                send_msg(chat_id, f"🛑 *Transmisión #{sid} ({ch_name}) detenida correctamente.*")
+                send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(ch_name)}) detenida correctamente.</b>")
                 return
             else:
-                txt = "⚠️ *Hay varias transmisiones activas. Elige cuál detener:*\n\n"
+                txt = "⚠️ <b>Hay varias transmisiones activas. Elige cuál detener:</b>\n\n"
                 for sid, info in active_streams.items():
-                    txt += f"• Transmisión #{sid} (*{info['raw_name']}*): `/stop {sid}`\n"
-                txt += "\n🛑 *O detener todas a la vez:* `/stopall`"
+                    txt += f"• Transmisión #{sid} (<b>{html.escape(info['raw_name'])}</b>): <code>/stop {sid}</code>\n"
+                txt += "\n🛑 <b>O detener todas a la vez:</b> <code>/stopall</code>"
                 send_msg(chat_id, txt)
                 return
         
         target = parts[1].strip()
         ok, sid, ch_name = stop_single_stream(target)
         if ok:
-            send_msg(chat_id, f"🛑 *Transmisión #{sid} ({ch_name}) detenida correctamente.*")
+            send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(ch_name)}) detenida correctamente.</b>")
         else:
-            send_msg(chat_id, f"❌ No se encontró ninguna transmisión activa con identificador: `{target}`.\nUsa `/status` para ver las transmisiones activas.")
+            send_msg(chat_id, f"❌ No se encontró ninguna transmisión activa con identificador: <code>{html.escape(target)}</code>.\nUsa <code>/status</code> para ver las transmisiones activas.")
 
     elif text.startswith("/status"):
         if not active_streams:
-            send_msg(chat_id, "🔴 *No hay ninguna transmisión activa actualmente.*")
+            send_msg(chat_id, "🔴 <b>No hay ninguna transmisión activa actualmente.</b>")
             return
 
-        status_text = f"🟢 *TRANSMISIONES EN DIRECTO ({len(active_streams)} ACTIVAS):*\n\n"
+        status_text = f"🟢 <b>TRANSMISIONES EN DIRECTO ({len(active_streams)} ACTIVAS):</b>\n\n"
         for sid, info in sorted(active_streams.items()):
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
             secs = elapsed % 60
             status_text += (
-                f"📺 *Transmisión #{sid} ({info['raw_name']}):*\n"
-                f"• ⏱️ Tiempo: `{mins}m {secs}s`\n"
-                f"• 📡 Key: `{info['key'][:8]}...`\n"
-                f"• 🛑 *Detener esta:* `/stop {sid}`\n\n"
+                f"📺 <b>Transmisión #{sid} ({html.escape(info['raw_name'])}):</b>\n"
+                f"• ⏱️ Tiempo: <code>{mins}m {secs}s</code>\n"
+                f"• 📡 Key: <code>{info['key'][:8]}...</code>\n"
+                f"• 🛑 <b>Detener esta:</b> <code>/stop {sid}</code>\n\n"
             )
-        status_text += "🛑 *Detener todas juntas:* `/stopall`"
+        status_text += "🛑 <b>Detener todas juntas:</b> <code>/stopall</code>"
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Agenda Completa (Todos los partidos y opciones) listo...")
+    print("🤖 Bot Multi-Canal Blindado con Agenda Completa listo...")
     offset = 0
     while True:
         try:
