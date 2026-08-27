@@ -51,14 +51,23 @@ HEADERS = {
 
 # CANALES CON REDUNDANCIA AUTOMÁTICA
 CHANNEL_FALLBACKS = {
+    "celta_osasuna": [
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts",
+        "https://futbollibre.ch/5.php?stream=dsports2"
+    ],
+    "laliga": [
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
+        "https://futbollibre.ch/5.php?stream=dsports"
+    ],
+    "dsports2": [
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts",
+        "https://futbollibre.ch/5.php?stream=dsports_eventos",
+        "https://futbollibre.ch/5.php?stream=dsports2"
+    ],
     "dsports": [
         "https://futbollibre.ch/5.php?stream=dsports",
         f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"
-    ],
-    "dsports2": [
-        "https://futbollibre.ch/5.php?stream=dsports",
-        "https://futbollibre.ch/5.php?stream=dsports_eventos",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"
     ],
     "espn2": [
         "https://futbollibre.ch/5.php?stream=espn2",
@@ -102,16 +111,12 @@ CHANNEL_FALLBACKS = {
     ],
     "foxsports": [
         "https://futbollibre.ch/5.php?stream=foxsports",
-    ],
-    "laliga": [
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
-        "https://futbollibre.ch/5.php?stream=dsports"
     ]
 }
 
-# MAPEO EXPLÍCITO DE CANALES PIRLO
+# MAPEO DIRECTO DE CANALES PIRLO
 PIRLO_CANAL_DIRECT = {
-    "65": "dsports",     # Celta vs Osasuna
+    "65": "celta_osasuna",   # Celta vs Osasuna (LaLiga TV / DSPORTS 2)
     "64": "dsports2",
     "145": "espn",
     "6": "espn2",
@@ -172,36 +177,6 @@ def resolve_channel_fallback(chan_key):
                 pass
     return None, None, False
 
-# DECODIFICADOR STREAMXHD
-def decode_streamxhd(html_content):
-    try:
-        arr_match = re.search(r'(\[\[\d+,\s*"[A-Za-z0-9+/=]+"\].*?\]\])', html_content)
-        if not arr_match:
-            return None
-            
-        arr_data = json.loads(arr_match.group(1))
-        arr_data.sort(key=lambda x: x[0])
-        
-        fn_returns = re.findall(r'function\s+\w+\(\)\s*\{\s*return\s*(\d+);?\s*\}', html_content)
-        if len(fn_returns) < 2:
-            return None
-            
-        k = sum(int(x) for x in fn_returns[:2])
-        
-        playback_url = ""
-        for idx, v in arr_data:
-            try:
-                b64_dec = base64.b64decode(v).decode('utf-8')
-                digits_only = re.sub(r'\D', '', b64_dec)
-                if digits_only:
-                    char_code = int(digits_only) - k
-                    playback_url += chr(char_code)
-            except Exception:
-                pass
-        return playback_url if playback_url.startswith("http") else None
-    except Exception:
-        return None
-
 # RESOLVEDOR INTELIGENTE DE PIRLOTV.WORLD
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
@@ -252,33 +227,6 @@ def resolve_live_stream_url(target):
                             url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(chan_key)
                             if ok_fb:
                                 return url_fb, hdrs_fb, True
-
-                    iframes_2 = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r2.text)
-                    final_player = iframes_2[0] if iframes_2 else player_url
-                    r3 = requests.get(final_player, headers={"User-Agent": HEADERS["User-Agent"], "Referer": player_url}, timeout=6)
-                    
-                    # A) Probar decodificador de streamxhd
-                    m3u8_streamxhd = decode_streamxhd(r3.text)
-                    if m3u8_streamxhd:
-                        return m3u8_streamxhd, f"Referer: {final_player}\r\nOrigin: {final_player.rstrip('/')}\r\n", True
-                    
-                    # B) Probar iframes base64 (atob)
-                    atob_matches = re.findall(r"atob\(['\"]([A-Za-z0-9+/=]+)['\"]\)", r3.text)
-                    for b in atob_matches:
-                        try:
-                            dec = base64.b64decode(b).decode('utf-8')
-                            if dec.startswith("http"):
-                                r4 = requests.get(dec, headers={"User-Agent": HEADERS["User-Agent"], "Referer": final_player}, timeout=6)
-                                m3u8_4 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r4.text)
-                                if m3u8_4:
-                                    return m3u8_4[0], f"Referer: {dec}\r\nOrigin: {dec.rstrip('/')}\r\n", True
-                        except Exception:
-                            pass
-
-                    # C) Buscar m3u8 directo
-                    m3u8_direct = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r3.text)
-                    if m3u8_direct:
-                        return m3u8_direct[0], f"Referer: {final_player}\r\nOrigin: {final_player.rstrip('/')}\r\n", True
     except Exception as e:
         print(f"Error resolviendo stream {target}: {e}")
 
@@ -595,7 +543,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Conectado Exclusivamente a pirlotv.world con Mapeo Directo listo...")
+    print("🤖 Bot Conectado Exclusivamente a pirlotv.world con Mapeo Directo a LaLiga listo...")
     offset = 0
     while True:
         try:
