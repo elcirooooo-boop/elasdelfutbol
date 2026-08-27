@@ -82,7 +82,7 @@ def resolve_live_stream_url(target):
     if target_clean.isdigit():
         target_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
         referer = "http://evestv.leptis.live/"
-        return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+        return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
     # 2. Si es clave corta de canal (ej. espn4, tyc)
     if target_clean in AUTO_CHANNELS:
@@ -103,16 +103,24 @@ def resolve_live_stream_url(target):
     # 4. Si es TS de IPTV
     if "leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch:
         referer = "http://evestv.leptis.live/"
-        return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+        return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
     # 5. Extracción inteligente de M3U8 en tiempo real
     try:
-        headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://rojadirectatv.ec/"}
         r = requests.get(url_to_fetch, headers=headers, timeout=4)
         m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
         if m3u8:
+            m3u8_url = m3u8[0]
             referer = url_to_fetch if "tv-90" in url_to_fetch or "futbollibre" in url_to_fetch else "https://futbollibre.ch/"
-            return m3u8[0], f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+            # Verificar si el m3u8 responde 200 o 404 (canal de evento no iniciado)
+            try:
+                r_chk = requests.get(m3u8_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer}, timeout=2.5)
+                if r_chk.status_code == 404:
+                    return None, "EVENT_NOT_STARTED", False
+            except Exception:
+                pass
+            return m3u8_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
         iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
         for ifr in iframes:
@@ -120,12 +128,19 @@ def resolve_live_stream_url(target):
             r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": url_to_fetch}, timeout=4)
             m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
             if m3u8_2:
-                return m3u8_2[0], f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rstrip('/')}\r\n"
+                m3u8_url2 = m3u8_2[0]
+                try:
+                    r_chk2 = requests.get(m3u8_url2, headers={"User-Agent": "Mozilla/5.0", "Referer": ifr_url}, timeout=2.5)
+                    if r_chk2.status_code == 404:
+                        return None, "EVENT_NOT_STARTED", False
+                except Exception:
+                    pass
+                return m3u8_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rstrip('/')}\r\n", True
     except Exception as e:
         print(f"Error resolviendo stream {target}: {e}")
 
     referer = "https://futbollibre.ch/"
-    return target, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+    return target, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
 AGENDA_CMD_MAP = [
     ("espn 2", "espn2"),
@@ -297,7 +312,15 @@ def start_single_stream(raw_url, stream_key):
             stop_single_stream(sid)
 
     stream_id = get_next_stream_id()
-    source_url, headers = resolve_live_stream_url(raw_url)
+    source_url, headers, is_ok = resolve_live_stream_url(raw_url)
+
+    if not is_ok:
+        if headers == "EVENT_NOT_STARTED":
+            return False, stream_id, (
+                f"⚠️ La señal '{raw_url}' es un canal de evento temporal que aún no ha iniciado en la fuente.\n"
+                f"💡 Te recomendamos usar las señales 24/7 activas (como /stream espn4, /stream espn2, /stream tyc o /stream dsports)."
+            )
+        return False, stream_id, f"No se pudo resolver el canal '{raw_url}'."
 
     cmd = [
         "ffmpeg",
@@ -387,7 +410,7 @@ def stop_all_streams():
     return count
 
 # ==============================================================================
-# 3. INTERFAZ DE BOT DE TELEGRAM (HTML BLINDADO CONTRA ERRORES)
+# 3. INTERFAZ DE BOT DE TELEGRAM (HTML BLINDADO)
 # ==============================================================================
 def send_msg(chat_id, text, parse_mode="HTML"):
     try:
@@ -397,7 +420,6 @@ def send_msg(chat_id, text, parse_mode="HTML"):
             payload["parse_mode"] = parse_mode
         r = requests.post(url, json=payload, timeout=10)
         if r.status_code != 200:
-            # Fallback seguro a texto plano para que NUNCA se pierda ningún mensaje
             plain_text = re.sub(r'<[^>]+>', '', text)
             requests.post(url, json={"chat_id": chat_id, "text": plain_text}, timeout=10)
     except Exception as e:
@@ -418,7 +440,7 @@ def handle_message(msg):
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
             "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA</b>\n\n"
-            "📺 <b>TRANSMITIR PARTIDO:</b>\n"
+            "📺 <b>TRANSMITIR:</b>\n"
             "• <code>/stream espn2</code> $\\rightarrow$ Transmitir ESPN 2 Sur\n"
             "• <code>/stream tyc</code> $\\rightarrow$ Transmitir TyC Sports\n"
             "• <code>/stream dsports</code> $\\rightarrow$ Transmitir Directv Sports\n"
@@ -499,7 +521,7 @@ def handle_message(msg):
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
         else:
-            send_msg(chat_id, f"❌ <b>Error al iniciar:</b> {html.escape(res)}")
+            send_msg(chat_id, f"❌ <b>Error al iniciar:</b>\n{html.escape(res)}")
 
     elif text.startswith("/stopall") or text == "/stop all":
         count = stop_all_streams()
@@ -554,7 +576,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal Blindado con Agenda Completa listo...")
+    print("🤖 Bot Multi-Canal con Detección Inteligente de Estado listo...")
     offset = 0
     while True:
         try:
