@@ -10,7 +10,7 @@ import base64
 from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT Y CLAVE STREAM (FUENTE EXCLUSIVA: FUTBOLLIBRETV.CLICK)
+# 1. CONFIGURACIÓN DEL BOT Y CLAVE STREAM (FUENTE: FUTBOLLIBRETV.CLICK)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
@@ -44,6 +44,57 @@ HEADERS = {
     "Referer": "https://futbollibretv.click/"
 }
 
+# CANALES DE ALTA VELOCIDAD Y MÁXIMA ESTABILIDAD (200 OK)
+AUTO_CHANNELS = {
+    "espn": "https://futbollibre.ch/5.php?stream=espn",
+    "espn2": "https://futbollibre.ch/5.php?stream=espn2",
+    "espn3": "https://futbollibre.ch/5.php?stream=espn3",
+    "espn4": "https://futbollibre.ch/5.php?stream=espn4",
+    "espn5": "https://futbollibre.ch/5.php?stream=espn5",
+    "espn6": "https://futbollibre.ch/5.php?stream=espn6",
+    "espn7": "https://futbollibre.ch/5.php?stream=espn7",
+    "espndeportes": "https://futbollibre.ch/5.php?stream=espndeportes",
+    "espnplus2": "https://futbollibre.ch/5.php?stream=espnplus2",
+    "espnplus3": "https://futbollibre.ch/5.php?stream=espnplus3",
+    "tyc": "https://futbollibre.ch/5.php?stream=tycsports",
+    "tycsports": "https://futbollibre.ch/5.php?stream=tycsports",
+    "dsports": "https://futbollibre.ch/5.php?stream=dsports",
+    "dsports2": "https://futbollibre.ch/5.php?stream=dsports2",
+    "dsportsar": "https://futbollibre.ch/5.php?stream=dsports_eventos",
+    "winsports": "https://futbollibre.ch/5.php?stream=winsports2",
+    "winsports2": "https://futbollibre.ch/5.php?stream=winsports2",
+    "foxsports": "https://futbollibre.ch/5.php?stream=foxsports",
+    "laliga": "https://futbollibre.ch/5.php?stream=laligatv",
+}
+
+CANAL_KEYWORDS = [
+    ("espn2", "espn2"),
+    ("espn 2", "espn2"),
+    ("espn3", "espn3"),
+    ("espn 3", "espn3"),
+    ("espn4", "espn4"),
+    ("espn 4", "espn4"),
+    ("espn5", "espn5"),
+    ("espn 5", "espn5"),
+    ("espn6", "espn6"),
+    ("espn 6", "espn6"),
+    ("espn7", "espn7"),
+    ("espn 7", "espn7"),
+    ("espn", "espn"),
+    ("dsports 2", "dsports2"),
+    ("dsports2", "dsports2"),
+    ("directv 2", "dsports2"),
+    ("directv2", "dsports2"),
+    ("dsports", "dsports"),
+    ("directv", "dsports"),
+    ("tyc", "tyc"),
+    ("win sports", "winsports"),
+    ("winsports", "winsports"),
+    ("fox sports", "foxsports"),
+    ("foxsports", "foxsports"),
+    ("laliga", "laliga"),
+]
+
 # DECODIFICADOR STREAMXHD
 def decode_streamxhd(html_content):
     try:
@@ -74,11 +125,22 @@ def decode_streamxhd(html_content):
     except Exception:
         return None
 
-# RESOLVEDOR UNIVERSAL EXCLUSIVO DE FUTBOLLIBRETV.CLICK
+# RESOLVEDOR INTELIGENTE DE SEÑAL
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
-    # 1. Si es ID tipo click_64 o canal-64 o número
+    # 1. Si es clave directa
+    if target_clean in AUTO_CHANNELS:
+        target_to_fetch = AUTO_CHANNELS[target_clean]
+        try:
+            r = requests.get(target_to_fetch, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=4)
+            m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+            if m3u8:
+                return m3u8[0], f"Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n", True
+        except Exception:
+            pass
+
+    # 2. Si es ID tipo click_64 o canal-64 o número
     canal_id = None
     if target_clean.startswith("click_") or target_clean.startswith("world_"):
         canal_id = target_clean.replace("click_", "").replace("world_", "")
@@ -94,26 +156,31 @@ def resolve_live_stream_url(target):
     else:
         target_url = f"https://futbollibretv.click/{target.lstrip('/')}"
 
-    # 2. Extraer reproductor desde futbollibretv.click
+    # 3. Mapeo inteligente y extracción limpia
     try:
         r1 = requests.get(target_url, headers=HEADERS, timeout=6)
         if r1.status_code == 200:
             iframes_1 = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r1.text)
-            
-            player_url = None
-            for ifr in iframes_1:
-                if "rodrixtv" in ifr or "player" in ifr or "canal" in ifr:
-                    player_url = ifr
-                    break
-            if not player_url and iframes_1:
-                player_url = iframes_1[0]
+            player_url = iframes_1[0] if iframes_1 else None
 
             if player_url:
                 r2 = requests.get(player_url, headers={"User-Agent": HEADERS["User-Agent"], "Referer": target_url}, timeout=6)
                 if r2.status_code == 200:
+                    r2_text = r2.text.lower()
+                    
+                    # Detectar si el reproductor corresponde a un canal principal (ej. dsports2, espn, tyc)
+                    for kw, chan_key in CANAL_KEYWORDS:
+                        if kw in r2_text:
+                            # Resolver canal limpio
+                            clean_res = AUTO_CHANNELS.get(chan_key)
+                            if clean_res:
+                                r_clean = requests.get(clean_res, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=4)
+                                m3u8_clean = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r_clean.text)
+                                if m3u8_clean:
+                                    return m3u8_clean[0], f"Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n", True
+
                     iframes_2 = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r2.text)
                     final_player = iframes_2[0] if iframes_2 else player_url
-                    
                     r3 = requests.get(final_player, headers={"User-Agent": HEADERS["User-Agent"], "Referer": player_url}, timeout=6)
                     
                     # A) Probar decodificador de streamxhd
@@ -121,24 +188,7 @@ def resolve_live_stream_url(target):
                     if m3u8_streamxhd:
                         return m3u8_streamxhd, f"Referer: {final_player}\r\nOrigin: {final_player.rstrip('/')}\r\n", True
                     
-                    # B) Probar sparkenlighten / elcanaldeportivo
-                    if "sparkenlighten" in r3.text or "deportivo.js" in r3.text:
-                        fid_match = re.search(r'fid=["\']([^"\']+)["\']', r3.text)
-                        if fid_match:
-                            fid = fid_match.group(1)
-                            sp_url = f"https://sparkenlighten.com/deportivo.php?player=desktop&live={fid}"
-                            r_sp = requests.get(sp_url, headers={"User-Agent": HEADERS["User-Agent"], "Referer": final_player}, timeout=6)
-                            atob_sp = re.findall(r"atob\(['\"]([A-Za-z0-9+/=]+)['\"]\)", r_sp.text)
-                            for b in atob_sp:
-                                try:
-                                    dec = base64.b64decode(b).decode('utf-8')
-                                    if "m3u8" in dec:
-                                        full_m3u8 = f"https://sparkenlighten.com{dec}" if dec.startswith("/") else dec
-                                        return full_m3u8, f"Referer: {sp_url}\r\nOrigin: https://sparkenlighten.com\r\n", True
-                                except Exception:
-                                    pass
-
-                    # C) Probar iframes base64 (atob)
+                    # B) Probar iframes base64 (atob)
                     atob_matches = re.findall(r"atob\(['\"]([A-Za-z0-9+/=]+)['\"]\)", r3.text)
                     for b in atob_matches:
                         try:
@@ -151,7 +201,7 @@ def resolve_live_stream_url(target):
                         except Exception:
                             pass
 
-                    # D) Buscar m3u8 directo
+                    # C) Buscar m3u8 directo
                     m3u8_direct = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r3.text)
                     if m3u8_direct:
                         return m3u8_direct[0], f"Referer: {final_player}\r\nOrigin: {final_player.rstrip('/')}\r\n", True
@@ -247,7 +297,7 @@ def start_single_stream(raw_url, stream_key):
 
     cmd = [
         "ffmpeg",
-        "-user_agent", HEADERS["User-Agent"],
+        "-user_agent", "IPTVSmartersPro",
         "-re",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
@@ -469,7 +519,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Conectado Exclusivamente a futbollibretv.click listo...")
+    print("🤖 Bot Multi-Canal con Mapeo Limpio de futbollibretv.click listo...")
     offset = 0
     while True:
         try:
