@@ -17,6 +17,11 @@ RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
 FUTBOLLIBRE_CLICK_URL = "https://futbollibretv.click/"
 
+IPTV_USER = "BE15ERDV"
+IPTV_PASS = "PXELERB9"
+IPTV_SERVER = "http://evestv.ptjfj.com"
+IPTV_SERVER_ALT = "http://evestv.leptis.live"
+
 def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -44,27 +49,60 @@ HEADERS = {
     "Referer": "https://futbollibretv.click/"
 }
 
-# CANALES DE ALTA VELOCIDAD Y MÁXIMA ESTABILIDAD (200 OK)
-AUTO_CHANNELS = {
-    "espn": "https://futbollibre.ch/5.php?stream=espn",
-    "espn2": "https://futbollibre.ch/5.php?stream=espn2",
-    "espn3": "https://futbollibre.ch/5.php?stream=espn3",
-    "espn4": "https://futbollibre.ch/5.php?stream=espn4",
-    "espn5": "https://futbollibre.ch/5.php?stream=espn5",
-    "espn6": "https://futbollibre.ch/5.php?stream=espn6",
-    "espn7": "https://futbollibre.ch/5.php?stream=espn7",
-    "espndeportes": "https://futbollibre.ch/5.php?stream=espndeportes",
-    "espnplus2": "https://futbollibre.ch/5.php?stream=espnplus2",
-    "espnplus3": "https://futbollibre.ch/5.php?stream=espnplus3",
-    "tyc": "https://futbollibre.ch/5.php?stream=tycsports",
-    "tycsports": "https://futbollibre.ch/5.php?stream=tycsports",
-    "dsports": "https://futbollibre.ch/5.php?stream=dsports",
-    "dsports2": "https://futbollibre.ch/5.php?stream=dsports2",
-    "dsportsar": "https://futbollibre.ch/5.php?stream=dsports_eventos",
-    "winsports": "https://futbollibre.ch/5.php?stream=winsports2",
-    "winsports2": "https://futbollibre.ch/5.php?stream=winsports2",
-    "foxsports": "https://futbollibre.ch/5.php?stream=foxsports",
-    "laliga": "https://futbollibre.ch/5.php?stream=laligatv",
+# CANALES CON REDUNDANCIA AUTOMÁTICA (SI UNO ES 404, CAMBIA AL INSTANTE AL RESPALDO)
+CHANNEL_FALLBACKS = {
+    "dsports2": [
+        "https://futbollibre.ch/5.php?stream=dsports_eventos",
+        "https://futbollibre.ch/5.php?stream=dsports2",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"
+    ],
+    "dsports": [
+        "https://futbollibre.ch/5.php?stream=dsports",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"
+    ],
+    "espn2": [
+        "https://futbollibre.ch/5.php?stream=espn2",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"
+    ],
+    "espn": [
+        "https://futbollibre.ch/5.php?stream=espn",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"
+    ],
+    "espn3": [
+        "https://futbollibre.ch/5.php?stream=espn3",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"
+    ],
+    "espn4": [
+        "https://futbollibre.ch/5.php?stream=espn4",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"
+    ],
+    "espn5": [
+        "https://futbollibre.ch/5.php?stream=espn5",
+    ],
+    "espn6": [
+        "https://futbollibre.ch/5.php?stream=espn6",
+    ],
+    "espn7": [
+        "https://futbollibre.ch/5.php?stream=espn7",
+    ],
+    "espndeportes": [
+        "https://futbollibre.ch/5.php?stream=espndeportes",
+    ],
+    "tyc": [
+        "https://futbollibre.ch/5.php?stream=tycsports",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"
+    ],
+    "winsports": [
+        "https://futbollibre.ch/5.php?stream=winsports2",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts"
+    ],
+    "foxsports": [
+        "https://futbollibre.ch/5.php?stream=foxsports",
+    ],
+    "laliga": [
+        "https://futbollibre.ch/5.php?stream=laligatv",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"
+    ]
 }
 
 CANAL_KEYWORDS = [
@@ -94,6 +132,30 @@ CANAL_KEYWORDS = [
     ("foxsports", "foxsports"),
     ("laliga", "laliga"),
 ]
+
+def resolve_channel_fallback(chan_key):
+    sources = CHANNEL_FALLBACKS.get(chan_key, [])
+    for src in sources:
+        if "futbollibre" in src:
+            try:
+                r = requests.get(src, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=3)
+                m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+                if m3u8:
+                    m3u8_url = m3u8[0]
+                    r_chk = requests.get(m3u8_url, headers={"User-Agent": "Mozilla/5.0", "Referer": src}, timeout=2.5)
+                    if r_chk.status_code == 200:
+                        return m3u8_url, f"Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n", True
+            except Exception:
+                pass
+        elif "live" in src:
+            try:
+                r = requests.get(src, headers={"User-Agent": "IPTVSmartersPro"}, stream=True, timeout=3)
+                if r.status_code == 200:
+                    referer = "http://evestv.leptis.live/"
+                    return src, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
+            except Exception:
+                pass
+    return None, None, False
 
 # DECODIFICADOR STREAMXHD
 def decode_streamxhd(html_content):
@@ -130,15 +192,10 @@ def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
     # 1. Si es clave directa
-    if target_clean in AUTO_CHANNELS:
-        target_to_fetch = AUTO_CHANNELS[target_clean]
-        try:
-            r = requests.get(target_to_fetch, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=4)
-            m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-            if m3u8:
-                return m3u8[0], f"Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n", True
-        except Exception:
-            pass
+    if target_clean in CHANNEL_FALLBACKS:
+        url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(target_clean)
+        if ok_fb:
+            return url_fb, hdrs_fb, True
 
     # 2. Si es ID tipo click_64 o canal-64 o número
     canal_id = None
@@ -168,15 +225,12 @@ def resolve_live_stream_url(target):
                 if r2.status_code == 200:
                     r2_text = r2.text.lower()
                     
-                    # Detectar si el reproductor corresponde a un canal principal (ej. dsports2, espn, tyc)
+                    # Detectar si el reproductor corresponde a un canal conocido
                     for kw, chan_key in CANAL_KEYWORDS:
                         if kw in r2_text:
-                            clean_res = AUTO_CHANNELS.get(chan_key)
-                            if clean_res:
-                                r_clean = requests.get(clean_res, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=4)
-                                m3u8_clean = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r_clean.text)
-                                if m3u8_clean:
-                                    return m3u8_clean[0], f"Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n", True
+                            url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(chan_key)
+                            if ok_fb:
+                                return url_fb, hdrs_fb, True
 
                     iframes_2 = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r2.text)
                     final_player = iframes_2[0] if iframes_2 else player_url
@@ -228,7 +282,6 @@ def get_live_agenda_messages(curr_key):
         if not rows:
             return ["🔴 No hay partidos programados en la agenda en este momento."]
 
-        # Agrupar por partido
         partidos_dict = {}
         for hour, link, title in rows:
             clean_title = re.sub(r'<[^>]+>', ' ', title).strip()
@@ -520,7 +573,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal con Mapeo Limpio de futbollibretv.click listo...")
+    print("🤖 Bot Multi-Canal con Redundancia Automática listo...")
     offset = 0
     while True:
         try:
