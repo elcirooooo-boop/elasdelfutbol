@@ -171,7 +171,6 @@ def resolve_live_stream_url(target):
                     # Detectar si el reproductor corresponde a un canal principal (ej. dsports2, espn, tyc)
                     for kw, chan_key in CANAL_KEYWORDS:
                         if kw in r2_text:
-                            # Resolver canal limpio
                             clean_res = AUTO_CHANNELS.get(chan_key)
                             if clean_res:
                                 r_clean = requests.get(clean_res, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=4)
@@ -208,11 +207,13 @@ def resolve_live_stream_url(target):
     except Exception as e:
         print(f"Error resolviendo stream {target}: {e}")
 
-    # Si se pasó una URL directa m3u8
     if target.endswith(".m3u8") or ".ts" in target:
         return target, f"Referer: {FUTBOLLIBRE_CLICK_URL}\r\nOrigin: {FUTBOLLIBRE_CLICK_URL.rstrip('/')}\r\n", True
 
-    return None, f"No se pudo resolver el canal desde futbollibretv.click: {target}", False
+    return None, (
+        f"⚠️ La señal '{target}' aún no ha iniciado en la fuente o está programada para más tarde.\n"
+        f"💡 Las señales de eventos se activan 5 a 10 minutos antes del inicio del partido."
+    ), False
 
 # EXTRACTOR DE LA AGENDA DIRECTA DE FUTBOLLIBRETV.CLICK
 def get_live_agenda_messages(curr_key):
