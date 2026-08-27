@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import re
+import base64
 from urllib.parse import urlparse
 
 # ==============================================================================
@@ -18,7 +19,7 @@ IPTV_USER = "BE15ERDV"
 IPTV_PASS = "PXELERB9"
 IPTV_SERVER = "http://evestv.ptjfj.com"
 IPTV_SERVER_ALT = "http://evestv.leptis.live"
-AGENDA_API = "https://futbollibretv.org.pe/diaries.json"
+AGENDA_API = "https://futbollibretv.org.pe/diaries.json?v=2.2"
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -40,66 +41,105 @@ def save_config(cfg):
 
 CONFIG = load_config()
 ADMIN_USER_ID = None
-
 active_streams = {}
 
+# MAPEO RÁPIDO DE CANALES
 AUTO_CHANNELS = {
-    "espn2": "https://futbollibre.ch/1.php?stream=espn2",
-    "espn": "https://futbollibre.ch/1.php?stream=espn",
-    "espn3": "https://futbollibre.ch/1.php?stream=espn3",
-    "espn4": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/1201550.ts",
+    "espn": "https://futbollibre.ch/5.php?stream=espn",
+    "espn2": "https://futbollibre.ch/5.php?stream=espn2",
+    "espn3": "https://futbollibre.ch/5.php?stream=espn3",
+    "espn4": "https://futbollibre.ch/5.php?stream=espn4",
+    "espn5": "https://futbollibre.ch/5.php?stream=espn5",
+    "espn6": "https://futbollibre.ch/5.php?stream=espn6",
+    "espn7": "https://futbollibre.ch/5.php?stream=espn7",
     "espnextra": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
     "espnpremium": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts",
-    "espndeportes": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts",
-    "tyc": "https://futbollibre.ch/1.php?stream=tyc",
-    "dsports": "https://futbollibre.ch/1.php?stream=directvsports",
-    "dsports2": "https://futbollibre.ch/1.php?stream=directvsports2",
-    "foxsports": "https://futbollibre.ch/1.php?stream=foxsports",
+    "espndeportes": "https://futbollibre.ch/5.php?stream=espndeportes",
+    "espnplus2": "https://futbollibre.ch/5.php?stream=espnplus2",
+    "espnplus3": "https://futbollibre.ch/5.php?stream=espnplus3",
+    "tyc": "https://futbollibre.ch/5.php?stream=tycsports",
+    "tycsports": "https://futbollibre.ch/5.php?stream=tycsports",
+    "dsports": "https://futbollibre.ch/5.php?stream=dsports",
+    "dsports2": "https://futbollibre.ch/5.php?stream=dsports2",
+    "dsportsar": "https://futbollibre.ch/5.php?stream=dsports_eventos",
+    "winsports": "https://futbollibre.ch/5.php?stream=winsports2",
+    "winsports2": "https://futbollibre.ch/5.php?stream=winsports2",
+    "foxsports": "https://futbollibre.ch/5.php?stream=foxsports",
     "tntsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts",
     "laliga": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
     "universo": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/32038.ts",
+    "disney1": "https://futbollibre.ch/5.php?stream=disney1",
+    "disney2": "https://futbollibre.ch/5.php?stream=disney2",
+    "even1": "https://futbollibre.ch/5.php?stream=even1",
+    "even2": "https://futbollibre.ch/5.php?stream=even2",
 }
 
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
+    # 1. Si es ID de IPTV numérico (ej. 30327)
     if target_clean.isdigit():
-        target = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
+        target_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
         referer = "http://evestv.leptis.live/"
-        headers = f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
-        return target, headers
+        return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
 
+    # 2. Si es clave corta de canal (ej. espn4, tyc)
     if target_clean in AUTO_CHANNELS:
-        portal_url = AUTO_CHANNELS[target_clean]
-        if "futbollibre" in portal_url:
-            try:
-                headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}
-                r = requests.get(portal_url, headers=headers, timeout=4)
-                m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-                if m3u8:
-                    return m3u8[0], "Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n"
-            except Exception as e:
-                print(f"Error resolviendo canal libre {target}: {e}")
-        else:
-            return portal_url, "Referer: http://evestv.leptis.live/\r\nOrigin: http://evestv.leptis.live\r\n"
+        target = AUTO_CHANNELS[target_clean]
 
-    referer = "https://google.com/"
-    if "tvlibre.pe" in target or "futbollibre" in target:
-        referer = "https://futbollibre.ch/"
-    elif "leptis.live" in target or "ptjfj.com" in target:
+    # 3. Si es un enlace con base64 (ej. embed/eventos.html?r=...)
+    url_to_fetch = target
+    if "r=" in target:
+        try:
+            b64_part = target.split("r=")[1].split("&")[0]
+            url_to_fetch = base64.b64decode(b64_part).decode('utf-8')
+        except Exception:
+            pass
+
+    if not url_to_fetch.startswith("http"):
+        url_to_fetch = f"https://futbollibre.ch/{url_to_fetch.lstrip('/')}"
+
+    # 4. Si es TS de IPTV
+    if "leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch:
         referer = "http://evestv.leptis.live/"
-    
-    headers = f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
-    return target, headers
+        return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
 
+    # 5. Extracción inteligente de M3U8 en tiempo real
+    try:
+        headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}
+        r = requests.get(url_to_fetch, headers=headers, timeout=4)
+        m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+        if m3u8:
+            referer = url_to_fetch if "tv-90" in url_to_fetch or "futbollibre" in url_to_fetch else "https://futbollibre.ch/"
+            return m3u8[0], f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+
+        # Buscar iframes anidados (como /5.php?stream=...)
+        iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
+        for ifr in iframes:
+            ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
+            r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": url_to_fetch}, timeout=4)
+            m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
+            if m3u8_2:
+                return m3u8_2[0], f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rstrip('/')}\r\n"
+    except Exception as e:
+        print(f"Error resolviendo stream {target}: {e}")
+
+    referer = "https://futbollibre.ch/"
+    return target, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+
+# MAPEO DE NOMBRES A COMANDOS CORTOS
 AGENDA_CMD_MAP = [
     ("espn 2", "espn2"),
     ("espn ar", "espn"),
     ("espn 3", "espn3"),
     ("espn 4", "espn4"),
+    ("espn 5", "espn5"),
+    ("espn 6", "espn6"),
+    ("espn 7", "espn7"),
     ("espn extra", "espnextra"),
     ("espn premium", "espnpremium"),
     ("espn deportes", "espndeportes"),
+    ("espn+", "espnplus2"),
     ("espn", "espn"),
     ("tyc", "tyc"),
     ("tnt", "tntsports"),
@@ -107,12 +147,28 @@ AGENDA_CMD_MAP = [
     ("dsports", "dsports"),
     ("directv 2", "dsports2"),
     ("directv", "dsports"),
+    ("win sports", "winsports"),
     ("fox sports", "foxsports"),
     ("laliga", "laliga"),
     ("universo", "universo"),
+    ("disney", "disney1"),
+    ("entel", "even1"),
 ]
 
-def map_channel_short(ch_name):
+def map_channel_short(ch_name, embed_iframe=None):
+    # Si tiene iframe con clave r=, intentar extraer stream=
+    if embed_iframe and "stream=" in embed_iframe:
+        try:
+            if "r=" in embed_iframe:
+                b64 = embed_iframe.split("r=")[1].split("&")[0]
+                dec = base64.b64decode(b64).decode('utf-8')
+                if "stream=" in dec:
+                    st_val = dec.split("stream=")[1].split("&")[0]
+                    if st_val in AUTO_CHANNELS:
+                        return st_val
+        except Exception:
+            pass
+
     ch_clean = ch_name.lower().strip()
     for key, cmd in AGENDA_CMD_MAP:
         if key in ch_clean:
@@ -124,11 +180,13 @@ TOP_SPORTS_CHANNELS = [
     {"name": "ESPN 1 Sur HD (Español Latam)", "cmd": "espn"},
     {"name": "ESPN 3 Sur HD (Español Latam)", "cmd": "espn3"},
     {"name": "ESPN 4 HD (Español)", "cmd": "espn4"},
+    {"name": "ESPN 5 HD", "cmd": "espn5"},
     {"name": "ESPN Extra Sur HD", "cmd": "espnextra"},
     {"name": "ESPN Premium (Liga Argentina)", "cmd": "espnpremium"},
     {"name": "TyC Sports HD (Argentina)", "cmd": "tyc"},
     {"name": "Directv Sports 1 (DSPORTS)", "cmd": "dsports"},
     {"name": "Directv Sports 2 (DSPORTS 2)", "cmd": "dsports2"},
+    {"name": "Win Sports + HD (Colombia)", "cmd": "winsports"},
     {"name": "Fox Sports HD", "cmd": "foxsports"},
     {"name": "LaLiga TV (FHD)", "cmd": "laliga"},
 ]
@@ -172,7 +230,7 @@ def get_live_agenda_messages(curr_key):
             return ["🔴 No hay partidos programados en la agenda en este momento."]
 
         messages = []
-        current_msg = "📅 *AGENDA DEPORTIVA DE HOY (FÚTBOL EN VIVO)*\n\n"
+        current_msg = f"📅 *AGENDA DEPORTIVA COMPLETA DE HOY ({len(data)} EVENTOS)*\n\n"
         
         for item in data:
             attrs = item.get("attributes", {})
@@ -183,16 +241,22 @@ def get_live_agenda_messages(curr_key):
 
             partido_block = f"⚽ *{desc}* (`{hour}`)\n"
             
-            seen_cmds = set()
-            for em in embeds:
-                em_name = em.get("attributes", {}).get("embed_name", "").strip()
-                cmd_code = map_channel_short(em_name)
-                
-                if cmd_code and cmd_code not in seen_cmds:
-                    seen_cmds.add(cmd_code)
-                    partido_block += f"  • ▶ *{em_name}:*\n  `/stream {cmd_code} {curr_key}`\n"
-                elif not cmd_code:
-                    partido_block += f"  • ▶ *{em_name}*\n"
+            if not embeds:
+                partido_block += "  • ⏳ _Señales disponibles cerca de la hora del partido_\n"
+            else:
+                for em in embeds:
+                    em_attrs = em.get("attributes", {})
+                    em_name = em_attrs.get("embed_name", "").strip()
+                    em_iframe = em_attrs.get("embed_iframe", "")
+                    
+                    cmd_code = map_channel_short(em_name, em_iframe)
+                    if not cmd_code and em_iframe:
+                        cmd_code = em_iframe
+
+                    if cmd_code:
+                        partido_block += f"  • ▶ *{em_name}:*\n  `/stream {cmd_code} {curr_key}`\n"
+                    else:
+                        partido_block += f"  • ▶ *{em_name}*\n"
             
             partido_block += "\n"
 
@@ -210,7 +274,7 @@ def get_live_agenda_messages(curr_key):
         return [f"⚠️ Error obteniendo la agenda: {e}"]
 
 # ==============================================================================
-# 2. MOTOR DE TRANSMISIÓN DIRECTA PASSTHROUGH (0% CPU / CERO LATENCIA / AUTO-HEAL)
+# 2. MOTOR DE TRANSMISIÓN DIRECTA PASSTHROUGH (0% CPU / CERO LATENCIA)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -236,7 +300,6 @@ def start_single_stream(raw_url, stream_key):
     stream_id = get_next_stream_id()
     source_url, headers = resolve_live_stream_url(raw_url)
 
-    # MODO DIRECT PASSTHROUGH (INYECCIÓN DIRECTA SIN COMPRIMIR + AUTO-RECONEXIÓN)
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -348,14 +411,15 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ *BOT DE TRANSMISIÓN DIRECTA (100% NUBE)*\n\n"
+            "⚽ *BOT DE TRANSMISIÓN DEPORTIVA (TODOS LOS PARTIDOS)*\n\n"
             "📺 *TRANSMITIR:*\n"
-            "• `/stream espn2` $\\rightarrow$ Transmitir ESPN 2 Sur (Directo HD)\n"
+            "• `/stream espn2` $\\rightarrow$ Transmitir ESPN 2 Sur\n"
             "• `/stream tyc` $\\rightarrow$ Transmitir TyC Sports\n"
             "• `/stream dsports` $\\rightarrow$ Transmitir Directv Sports\n"
+            "• `/stream winsports` $\\rightarrow$ Transmitir Win Sports +\n"
             "• `/stream <CANAL_O_URL> [STREAM_KEY]`\n\n"
             "📋 *GUÍA DE PARTIDOS Y CANALES:*\n"
-            "• `/partidos` $\\rightarrow$ Agenda de hoy con comandos directos\n"
+            "• `/partidos` $\\rightarrow$ Ver TODOS los partidos de hoy con sus canales\n"
             "• `/top` $\\rightarrow$ Lista de canales deportivos principales\n"
             "• `/buscar <nombre>` $\\rightarrow$ Buscar en tu IPTV (ej. `/buscar dazn`)\n\n"
             "🛑 *DETENER TRANSMISIONES:*\n"
@@ -376,7 +440,7 @@ def handle_message(msg):
         send_msg(chat_id, msg_txt)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ *Cargando agenda de partidos con comandos /stream directos...*")
+        send_msg(chat_id, "⏳ *Cargando agenda completa de hoy con TODOS los partidos y canales...*")
         agenda_msgs = get_live_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -484,7 +548,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Multi-Canal Direct Passthrough (0% CPU) listo...")
+    print("🤖 Bot Multi-Canal con Agenda Completa (Todos los partidos y opciones) listo...")
     offset = 0
     while True:
         try:
