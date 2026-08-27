@@ -51,6 +51,15 @@ HEADERS = {
 
 # CANALES CON REDUNDANCIA AUTOMÁTICA
 CHANNEL_FALLBACKS = {
+    "dsports": [
+        "https://futbollibre.ch/5.php?stream=dsports",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"
+    ],
+    "dsports2": [
+        "https://futbollibre.ch/5.php?stream=dsports",
+        "https://futbollibre.ch/5.php?stream=dsports_eventos",
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"
+    ],
     "espn2": [
         "https://futbollibre.ch/5.php?stream=espn2",
         f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"
@@ -87,15 +96,6 @@ CHANNEL_FALLBACKS = {
         "https://futbollibre.ch/5.php?stream=tycsports",
         f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"
     ],
-    "dsports": [
-        "https://futbollibre.ch/5.php?stream=dsports",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"
-    ],
-    "dsports2": [
-        "https://futbollibre.ch/5.php?stream=dsports_eventos",
-        "https://futbollibre.ch/5.php?stream=dsports2",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"
-    ],
     "winsports": [
         "https://futbollibre.ch/5.php?stream=winsports2",
         f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts"
@@ -104,9 +104,20 @@ CHANNEL_FALLBACKS = {
         "https://futbollibre.ch/5.php?stream=foxsports",
     ],
     "laliga": [
-        "https://futbollibre.ch/5.php?stream=laligatv",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"
+        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
+        "https://futbollibre.ch/5.php?stream=dsports"
     ]
+}
+
+# MAPEO EXPLÍCITO DE CANALES PIRLO
+PIRLO_CANAL_DIRECT = {
+    "65": "dsports",     # Celta vs Osasuna
+    "64": "dsports2",
+    "145": "espn",
+    "6": "espn2",
+    "7": "espn2",
+    "8": "espn2",
+    "9": "espn2",
 }
 
 CANAL_KEYWORDS = [
@@ -195,13 +206,7 @@ def decode_streamxhd(html_content):
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
-    # 1. Si es clave directa
-    if target_clean in CHANNEL_FALLBACKS:
-        url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(target_clean)
-        if ok_fb:
-            return url_fb, hdrs_fb, True
-
-    # 2. Si es ID tipo pirlo_64 o canal-64 o número
+    # 1. Si es ID tipo pirlo_65 o canal-65 o número
     canal_id = None
     if target_clean.startswith("pirlo_") or target_clean.startswith("click_") or target_clean.startswith("world_"):
         canal_id = target_clean.replace("pirlo_", "").replace("click_", "").replace("world_", "")
@@ -209,6 +214,19 @@ def resolve_live_stream_url(target):
         canal_id = target_clean.replace("canal-", "").replace(".php", "")
     elif target_clean.isdigit() and len(target_clean) <= 4:
         canal_id = target_clean
+
+    # Mapeo directo para canales clave de eventos en vivo
+    if canal_id and canal_id in PIRLO_CANAL_DIRECT:
+        key_direct = PIRLO_CANAL_DIRECT[canal_id]
+        url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(key_direct)
+        if ok_fb:
+            return url_fb, hdrs_fb, True
+
+    # 2. Si es clave directa
+    if target_clean in CHANNEL_FALLBACKS:
+        url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(target_clean)
+        if ok_fb:
+            return url_fb, hdrs_fb, True
 
     if canal_id:
         target_url = f"https://pirlotv.world/canal-{canal_id}.php"
@@ -229,7 +247,6 @@ def resolve_live_stream_url(target):
                 if r2.status_code == 200:
                     r2_text = r2.text.lower()
                     
-                    # Detectar si el reproductor corresponde a un canal conocido
                     for kw, chan_key in CANAL_KEYWORDS:
                         if kw in r2_text:
                             url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(chan_key)
@@ -473,6 +490,7 @@ def handle_message(msg):
             "⚽ <b>BOT DE TRANSMISIÓN EXCLUSIVO PIRLOTV.WORLD</b>\n\n"
             "📺 <b>TRANSMITIR PARTIDO:</b>\n"
             "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos de hoy de <b>pirlotv.world</b> con opciones directas\n"
+            "• <code>/stream pirlo_65</code> $\\rightarrow$ Transmitir <b>Celta vs Osasuna</b> (LaLiga)\n"
             "• <code>/stream pirlo_6</code> $\\rightarrow$ Transmitir canal de la agenda\n"
             "• <code>/stream &lt;CANAL_O_URL&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
@@ -504,7 +522,7 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_URL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream pirlo_6</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_URL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream pirlo_65</code>")
             return
         
         raw_url = clean_arg(parts[1])
@@ -577,7 +595,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Conectado Exclusivamente a pirlotv.world listo...")
+    print("🤖 Bot Conectado Exclusivamente a pirlotv.world con Mapeo Directo listo...")
     offset = 0
     while True:
         try:
