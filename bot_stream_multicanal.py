@@ -46,108 +46,23 @@ ADMIN_USER_ID = None
 active_streams = {}
 stream_lock = threading.Lock()
 
-# CANALES CON REDUNDANCIA MULTI-CAPA Y ALTA ESTABILIDAD
-CHANNEL_FALLBACKS = {
-    "dsports2": [
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
-        "https://futbollibre.ch/5.php?stream=dsports2",
-        "https://futbollibre.ch/5.php?stream=dsports_eventos"
-    ],
-    "dsports": [
-        "https://futbollibre.ch/5.php?stream=dsports",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"
-    ],
-    "dsportsar": [
-        "https://futbollibre.ch/5.php?stream=dsports_eventos",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts"
-    ],
-    "dsports_eventos": [
-        "https://futbollibre.ch/5.php?stream=dsports_eventos",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts"
-    ],
-    "espn2": [
-        "https://futbollibre.ch/5.php?stream=espn2",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts"
-    ],
-    "espn": [
-        "https://futbollibre.ch/5.php?stream=espn",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts"
-    ],
-    "espn3": [
-        "https://futbollibre.ch/5.php?stream=espn3",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts"
-    ],
-    "espn4": [
-        "https://futbollibre.ch/5.php?stream=espn4",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts"
-    ],
-    "espn5": [
-        "https://futbollibre.ch/5.php?stream=espn5",
-    ],
-    "espn6": [
-        "https://futbollibre.ch/5.php?stream=espn6",
-    ],
-    "espn7": [
-        "https://futbollibre.ch/5.php?stream=espn7",
-    ],
-    "espnextra": [
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
-    ],
-    "espnpremium": [
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts",
-    ],
-    "espndeportes": [
-        "https://futbollibre.ch/5.php?stream=espndeportes",
-    ],
-    "espnplus1": [
-        "https://futbollibre.ch/5.php?stream=espnplus1",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts"
-    ],
-    "espnplus2": [
-        "https://futbollibre.ch/5.php?stream=espnplus2",
-    ],
-    "espnplus3": [
-        "https://futbollibre.ch/5.php?stream=espnplus3",
-    ],
-    "tyc": [
-        "https://futbollibre.ch/5.php?stream=tycsports",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"
-    ],
-    "tycsports": [
-        "https://futbollibre.ch/5.php?stream=tycsports",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts"
-    ],
-    "winsports": [
-        "https://futbollibre.ch/5.php?stream=winsports2",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts"
-    ],
-    "winsports2": [
-        "https://futbollibre.ch/5.php?stream=winsports2",
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts"
-    ],
-    "foxsports": [
-        "https://futbollibre.ch/5.php?stream=foxsports",
-    ],
-    "tntsports": [
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts",
-    ],
-    "laliga": [
-        f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
-        "https://futbollibre.ch/5.php?stream=dsports"
-    ],
-    "disney1": [
-        "https://futbollibre.ch/5.php?stream=disney1",
-    ],
-    "disney2": [
-        "https://futbollibre.ch/5.php?stream=disney2",
-    ],
-    "even1": [
-        "https://futbollibre.ch/5.php?stream=even1",
-    ],
-    "even2": [
-        "https://futbollibre.ch/5.php?stream=even2",
-    ]
+# CANALES CON RESPALDO DEDICADO EN IPTV (MÁXIMA ESTABILIDAD)
+IPTV_BACKUPS = {
+    "dsports2": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts",
+    "dsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts",
+    "dsportsar": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts",
+    "espn": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts",
+    "espn2": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts",
+    "espn3": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts",
+    "espn4": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
+    "espnextra": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
+    "espnpremium": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts",
+    "tyc": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts",
+    "tycsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts",
+    "winsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts",
+    "winsports2": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts",
+    "tntsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts",
+    "laliga": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
 }
 
 def extract_stream_code(embed_iframe):
@@ -159,54 +74,29 @@ def extract_stream_code(embed_iframe):
             dec = base64.b64decode(b64).decode('utf-8')
             if "stream=" in dec:
                 return dec.split("stream=")[1].split("&")[0]
-            if "tv-90.com/" in dec:
-                return dec.split("tv-90.com/")[1].replace(".php", "").split("&")[0]
+            if "tv-90.com/" in dec or "tvf90.com/" in dec:
+                clean_p = dec.split(".com/")[1].replace(".php", "").split("&")[0]
+                if clean_p.startswith("1") or clean_p.startswith("hd") or clean_p.startswith("3") or clean_p.startswith("5"):
+                    pass
+                else:
+                    return clean_p
         except Exception:
             pass
     if "stream=" in embed_iframe:
         return embed_iframe.split("stream=")[1].split("&")[0]
     return embed_iframe
 
-def resolve_channel_fallback(chan_key):
-    sources = CHANNEL_FALLBACKS.get(chan_key, [])
-    for src in sources:
-        if "futbollibre" in src:
-            try:
-                r = requests.get(src, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://futbollibre.ch/"}, timeout=3)
-                m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-                if m3u8:
-                    m3u8_url = m3u8[0]
-                    r_chk = requests.get(m3u8_url, headers={"User-Agent": "Mozilla/5.0", "Referer": src}, timeout=2.5)
-                    if r_chk.status_code == 200:
-                        return m3u8_url, f"Referer: https://futbollibre.ch/\r\nOrigin: https://futbollibre.ch\r\n", True
-            except Exception:
-                pass
-        elif "live" in src:
-            try:
-                r = requests.get(src, headers={"User-Agent": "IPTVSmartersPro"}, stream=True, timeout=3)
-                if r.status_code == 200:
-                    referer = "http://evestv.leptis.live/"
-                    return src, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
-            except Exception:
-                pass
-    return None, None, False
-
+# RESOLVEDOR UNIVERSAL MULTI-DOMINIO
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
     # 1. Si es ID de IPTV numérico (ej. 30327)
     if target_clean.isdigit():
-        target_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
+        target_url = f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
         referer = "http://evestv.leptis.live/"
         return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
-    # 2. Si es clave directa con respaldo
-    if target_clean in CHANNEL_FALLBACKS:
-        url_fb, hdrs_fb, ok_fb = resolve_channel_fallback(target_clean)
-        if ok_fb:
-            return url_fb, hdrs_fb, True
-
-    # 3. Si es un enlace con base64 (ej. embed/eventos.html?r=...)
+    # 2. Si es una URL completa
     url_to_fetch = target
     if "r=" in target:
         try:
@@ -215,45 +105,69 @@ def resolve_live_stream_url(target):
         except Exception:
             pass
 
-    if not url_to_fetch.startswith("http"):
-        url_to_fetch = f"https://futbollibre.ch/{url_to_fetch.lstrip('/')}"
-
-    if "leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch:
+    if url_to_fetch.startswith("http") and ("leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch):
         referer = "http://evestv.leptis.live/"
         return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
-    # 4. Extracción inteligente de M3U8 en tiempo real desde rojadirectatv.ec
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://rojadirectatv.ec/"}
-        r = requests.get(url_to_fetch, headers=headers, timeout=4)
-        m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-        if m3u8:
-            m3u8_url = m3u8[0]
-            referer = url_to_fetch if "tv-90" in url_to_fetch or "futbollibre" in url_to_fetch else "https://futbollibre.ch/"
-            try:
-                r_chk = requests.get(m3u8_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer}, timeout=2.5)
-                if r_chk.status_code == 404:
-                    return None, "EVENT_NOT_STARTED", False
-            except Exception:
-                pass
-            return m3u8_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
+    # 3. Lista de endpoints oficiales dinámicos
+    endpoints = []
+    if url_to_fetch.startswith("http"):
+        endpoints.append(url_to_fetch)
+    
+    endpoints.extend([
+        f"https://tvf90.com/5.php?stream={target_clean}",
+        f"https://tvf90.com/1.php?stream={target_clean}",
+        f"https://tvf90.com/hd.php?stream={target_clean}",
+        f"https://tvf90.com/3.php?stream={target_clean}",
+        f"https://futbollibre.ch/5.php?stream={target_clean}",
+        f"https://futbollibre.ch/1.php?stream={target_clean}",
+        f"https://futbollibre.ch/hd.php?stream={target_clean}",
+        f"https://tv-90.com/1.php?stream={target_clean}",
+        f"https://tv-90.com/5.php?stream={target_clean}",
+    ])
 
-        iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
-        for ifr in iframes:
-            ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
-            r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": url_to_fetch}, timeout=4)
-            m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
-            if m3u8_2:
-                m3u8_url2 = m3u8_2[0]
-                try:
-                    r_chk2 = requests.get(m3u8_url2, headers={"User-Agent": "Mozilla/5.0", "Referer": ifr_url}, timeout=2.5)
-                    if r_chk2.status_code == 404:
-                        return None, "EVENT_NOT_STARTED", False
-                except Exception:
-                    pass
-                return m3u8_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rstrip('/')}\r\n", True
-    except Exception as e:
-        print(f"Error resolviendo stream {target}: {e}")
+    for ep in endpoints:
+        try:
+            r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=2.5)
+            if r.status_code == 200:
+                # Buscar m3u8 directo
+                m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+                if m3u8:
+                    m3u8_url = m3u8[0]
+                    try:
+                        r_chk = requests.get(m3u8_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=2)
+                        if r_chk.status_code == 200:
+                            return m3u8_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                    except Exception:
+                        pass
+                
+                # Buscar iframe anidado
+                iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
+                for ifr in iframes:
+                    ifr_url = ifr if ifr.startswith("http") else f"https://tvf90.com/{ifr.lstrip('/')}"
+                    r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=2.5)
+                    m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
+                    if m3u8_2:
+                        m3u8_url2 = m3u8_2[0]
+                        try:
+                            r_chk2 = requests.get(m3u8_url2, headers={"User-Agent": "Mozilla/5.0", "Referer": ifr_url}, timeout=2)
+                            if r_chk2.status_code == 200:
+                                return m3u8_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+    # 4. Respaldo IPTV para canales premium
+    if target_clean in IPTV_BACKUPS:
+        iptv_url = IPTV_BACKUPS[target_clean]
+        try:
+            r_iptv = requests.get(iptv_url, headers={"User-Agent": "IPTVSmartersPro"}, stream=True, timeout=2.5)
+            if r_iptv.status_code == 200:
+                referer = "http://evestv.leptis.live/"
+                return iptv_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
+        except Exception:
+            pass
 
     return None, f"No se pudo resolver el canal '{target}'.", False
 
@@ -348,13 +262,12 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
-        "-rw_timeout", "8000000",                # 8s timeout de socket: evita cuelgues eternos
+        "-rw_timeout", "8000000",                # 8s timeout de socket
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
         "-max_interleave_delta", "0"
     ]
 
-    # Pre-buffering para HLS / tiempo real para TS
     if not source_url.endswith(".m3u8"):
         cmd.extend(["-re"])
 
@@ -393,11 +306,6 @@ def start_single_stream(raw_url, stream_key):
         source_url, headers, is_ok = resolve_live_stream_url(raw_url)
 
         if not is_ok:
-            if headers == "EVENT_NOT_STARTED":
-                return False, stream_id, (
-                    f"⚠️ La señal '{raw_url}' es un canal de evento temporal que aún no ha iniciado en la fuente.\n"
-                    f"💡 Te recomendamos usar las señales 24/7 activas (como /stream espn4, /stream espn2, /stream tyc o /stream dsports)."
-                )
             return False, stream_id, f"Error: {headers}"
 
         proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
@@ -445,7 +353,7 @@ def stop_single_stream(identifier):
 
         if target_sid and target_sid in active_streams:
             info = active_streams[target_sid]
-            info["auto_restart"] = False  # Desactivar watchdog para este stream
+            info["auto_restart"] = False
             proc = info["process"]
             try:
                 proc.kill()
@@ -469,7 +377,7 @@ def stop_all_streams():
             count += 1
     return count
 
-# WATCHDOG EN SEGUNDO PLANO (RECUPERACIÓN INMEDIATA SI UN CANAL FLUCTÚA)
+# WATCHDOG EN SEGUNDO PLANO
 def stream_watchdog():
     while True:
         try:
@@ -481,7 +389,6 @@ def stream_watchdog():
                     
                     proc = info.get("process")
                     if proc and proc.poll() is not None:
-                        # El proceso FFmpeg cayó por fluctuación de red de la fuente
                         print(f"⚠️ Watchdog: Canal #{sid} ({info['raw_name']}) cayó. Re-conectando en 1s...")
                         try:
                             if "log_file" in info and not info["log_file"].closed:
@@ -489,7 +396,6 @@ def stream_watchdog():
                         except Exception:
                             pass
                         
-                        # Re-resolver fuente (con fallback automático)
                         new_url, new_hdrs, ok = resolve_live_stream_url(info["raw_name"])
                         if ok:
                             new_proc, new_out_f, new_log = launch_ffmpeg_process(
@@ -534,12 +440,14 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA ANTI-FREEZE (ROJADIRECTATV.EC)</b>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA UNIVERSAL (ROJADIRECTATV.EC)</b>\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
-            "• <code>/stream espn2</code> $\\rightarrow$ Transmitir ESPN 2 Sur\n"
-            "• <code>/stream tyc</code> $\\rightarrow$ Transmitir TyC Sports\n"
+            "• <code>/stream hypermotion1</code> $\\rightarrow$ Transmitir LaLiga Hypermotion\n"
+            "• <code>/stream telemundo</code> $\\rightarrow$ Transmitir Telemundo Deportes\n"
+            "• <code>/stream espn3</code> $\\rightarrow$ Transmitir ESPN 3 Sur\n"
+            "• <code>/stream espn4</code> $\\rightarrow$ Transmitir ESPN 4 HD\n"
+            "• <code>/stream winsports</code> $\\rightarrow$ Transmitir Win Sports\n"
             "• <code>/stream dsports2</code> $\\rightarrow$ Transmitir Directv Sports 2\n"
-            "• <code>/stream dsports</code> $\\rightarrow$ Transmitir Directv Sports 1\n"
             "• <code>/stream &lt;CANAL_O_URL&gt; [STREAM_KEY]</code>\n\n"
             "📋 <b>GUÍA DE PARTIDOS Y CANALES:</b>\n"
             "• <code>/partidos</code> $\\rightarrow$ Ver <b>TODOS los partidos de hoy</b> de rojadirectatv.ec\n"
@@ -580,7 +488,7 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream dsports2</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream hypermotion1</code>")
             return
         
         raw_url = clean_arg(parts[1])
@@ -655,7 +563,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Iniciando Motor Anti-Freeze y Watchdog de rojadirectatv.ec...")
+    print("🤖 Iniciando Bot Universal con Soporte Multi-Dominio (tvf90 / futbollibre)...")
     
     # Iniciar hilo del Watchdog Auto-Recuperador en segundo plano
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
