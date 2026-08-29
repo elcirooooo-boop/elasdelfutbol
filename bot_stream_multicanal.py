@@ -8,6 +8,7 @@ import re
 import html
 import base64
 import threading
+import concurrent.futures
 from urllib.parse import urlparse
 
 # ==============================================================================
@@ -147,20 +148,32 @@ def extract_stream_code(embed_iframe):
             
     return embed_iframe
 
-# DETECTOR DINÁMICO DE SUBDOMINIO CDN ACTIVO
-def find_working_m3u8(raw_m3u8, referer_url):
-    for i in range(1, 16):
-        vh = f"{i}.01-f.com"
-        t_url = re.sub(r'[\w\.-]+\.01-f\.com', vh, raw_m3u8)
-        try:
-            r = requests.get(t_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer_url}, timeout=1.5)
-            if r.status_code == 200 and ("#EXTM3U" in r.text or len(r.content) > 50):
-                return t_url
-        except Exception:
-            pass
+# RESOLUCIÓN PARALELA CONCURRENTE ULTRA-RÁPIDA
+VALID_CDN_HOSTS = ["2.01-f.com", "4.01-f.com", "1.01-f.com", "8.01-f.com", "9.01-f.com", "5.01-f.com", "6.01-f.com", "7.01-f.com", "10.01-f.com"]
+
+def check_single_host(vh, raw_m3u8, referer_url):
+    t_url = re.sub(r'[\w\.-]+\.01-f\.com', vh, raw_m3u8)
+    try:
+        r = requests.get(t_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer_url}, timeout=1.2)
+        if r.status_code == 200 and ("#EXTM3U" in r.text or len(r.content) > 50):
+            return t_url
+    except Exception:
+        pass
     return None
 
-# RESOLVEDOR UNIVERSAL DINÁMICO CON FALLBACK AUTOMÁTICO
+def find_working_m3u8_fast(raw_m3u8, referer_url):
+    orig_host = raw_m3u8.split('/')[2].split(':')[0]
+    hosts_to_try = [orig_host] + [h for h in VALID_CDN_HOSTS if h != orig_host]
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(hosts_to_try)) as executor:
+        futures = {executor.submit(check_single_host, h, raw_m3u8, referer_url): h for h in hosts_to_try}
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            if res:
+                return res
+    return raw_m3u8
+
+# RESOLVEDOR UNIVERSAL DINÁMICO
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
@@ -194,29 +207,25 @@ def resolve_live_stream_url(target):
             f"https://tvf90.com/hd.php?stream={alias}",
             f"https://futbollibre.ch/1.php?stream={alias}",
             f"https://tvf90.com/1.php?stream={alias}",
-            f"https://futbollibre.ch/3.php?stream={alias}",
-            f"https://tvf90.com/3.php?stream={alias}",
         ])
 
         for ep in endpoints:
             try:
-                r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=3.0)
+                r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=2.0)
                 if r.status_code == 200:
                     m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
                     if m3u8:
-                        working_url = find_working_m3u8(m3u8[0], ep)
-                        if working_url:
-                            return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                        working_url = find_working_m3u8_fast(m3u8[0], ep)
+                        return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
                     
                     iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
                     for ifr in iframes:
                         ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
-                        r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=3.0)
+                        r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=2.0)
                         m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
                         if m3u8_2:
-                            working_url2 = find_working_m3u8(m3u8_2[0], ifr_url)
-                            if working_url2:
-                                return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                            working_url2 = find_working_m3u8_fast(m3u8_2[0], ifr_url)
+                            return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
             except Exception:
                 pass
 
@@ -560,7 +569,7 @@ def handle_message(msg):
                 f"✅ <b>¡Transmisión ACTIVA y PROTEGIDA!</b> 🚀\n\n"
                 f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"🛡️ <b>Protección:</b> Anti-Freeze + Auto-Scan CDN\n"
+                f"🛡️ <b>Protección:</b> Anti-Freeze + Auto-Scan Concurrente\n"
                 f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Calidad HD)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
@@ -622,7 +631,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot de Transmisión con Auto-Scan CDN listo...")
+    print("🤖 Bot de Transmisión con Auto-Scan Concurrente listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
