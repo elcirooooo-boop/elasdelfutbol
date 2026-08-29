@@ -147,17 +147,24 @@ def extract_stream_code(embed_iframe):
             
     return embed_iframe
 
-# RESOLVEDOR UNIVERSAL OPTIMIZADO (CON ALIASES Y SIN TIMEOUTS FALSOS)
+# LISTA DE NODOS CDN OFICIALES ACTIVOS EN DNS
+VALID_CDN_HOSTS = ["1.01-f.com", "8.01-f.com", "9.01-f.com", "2.01-f.com", "4.01-f.com"]
+
+def normalize_m3u8_url(raw_m3u8, referer_url):
+    for vh in VALID_CDN_HOSTS:
+        t_url = re.sub(r'[\w\.-]+\.01-f\.com', vh, raw_m3u8)
+        try:
+            r = requests.get(t_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer_url}, timeout=2.5)
+            if r.status_code == 200 and ("#EXTM3U" in r.text or len(r.content) > 50):
+                return t_url
+        except Exception:
+            pass
+    return raw_m3u8
+
+# RESOLVEDOR UNIVERSAL CON AUTO-NORMALIZACIÓN DE NODOS CDN
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
-    # 1. Si es ID de IPTV numérico (ej. 30327)
-    if target_clean.isdigit():
-        target_url = f"http://evestv.leptis.live/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
-        referer = "http://evestv.leptis.live/"
-        return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
-
-    # 2. Si es una URL completa
     url_to_fetch = target
     if "r=" in target:
         try:
@@ -166,18 +173,13 @@ def resolve_live_stream_url(target):
         except Exception:
             pass
 
-    if url_to_fetch.startswith("http") and ("leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch):
-        referer = "http://evestv.leptis.live/"
-        return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
-
-    # 3. Aliases inteligentes para canales alternativos
     aliases = [target_clean]
     if target_clean == "dsportsar":
-        aliases.extend(["dsports_eventos", "dsports"])
+        aliases.extend(["dsports", "dsports_eventos", "dsports2"])
     elif target_clean == "dsports2":
-        aliases.extend(["dsports_eventos", "dsports"])
+        aliases.extend(["dsports", "dsports_eventos"])
     elif target_clean == "dsports_eventos":
-        aliases.extend(["dsportsar", "dsports"])
+        aliases.extend(["dsports", "dsportsar"])
     elif target_clean == "espnpremium":
         aliases.extend(["espn", "espn2"])
 
@@ -187,13 +189,14 @@ def resolve_live_stream_url(target):
             endpoints.append(url_to_fetch)
         
         endpoints.extend([
-            f"https://tvf90.com/5.php?stream={alias}",
             f"https://futbollibre.ch/5.php?stream={alias}",
-            f"https://tvf90.com/hd.php?stream={alias}",
+            f"https://tvf90.com/5.php?stream={alias}",
             f"https://futbollibre.ch/hd.php?stream={alias}",
-            f"https://tvf90.com/1.php?stream={alias}",
+            f"https://tvf90.com/hd.php?stream={alias}",
             f"https://futbollibre.ch/1.php?stream={alias}",
+            f"https://tvf90.com/1.php?stream={alias}",
             f"https://tv-90.com/{alias}.php",
+            f"https://futbollibre.ch/3.php?stream={alias}",
             f"https://tvf90.com/3.php?stream={alias}",
         ])
 
@@ -203,15 +206,17 @@ def resolve_live_stream_url(target):
                 if r.status_code == 200:
                     m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
                     if m3u8:
-                        return m3u8[0], f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                        norm_url = normalize_m3u8_url(m3u8[0], ep)
+                        return norm_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
                     
                     iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
                     for ifr in iframes:
-                        ifr_url = ifr if ifr.startswith("http") else f"https://tvf90.com/{ifr.lstrip('/')}"
+                        ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
                         r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=3.5)
                         m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
                         if m3u8_2:
-                            return m3u8_2[0], f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                            norm_url2 = normalize_m3u8_url(m3u8_2[0], ifr_url)
+                            return norm_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
             except Exception:
                 pass
 
@@ -319,7 +324,7 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "1",
-        "-rw_timeout", "4000000",                # 4s timeout de socket: reconexión inmediata si la fuente se frena
+        "-rw_timeout", "5000000",                # 5s timeout de socket
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
         "-max_interleave_delta", "0"
@@ -555,7 +560,7 @@ def handle_message(msg):
                 f"✅ <b>¡Transmisión ACTIVA y PROTEGIDA!</b> 🚀\n\n"
                 f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"🛡️ <b>Protección:</b> Anti-Freeze + Watchdog Auto-Reconexión\n"
+                f"🛡️ <b>Protección:</b> Anti-Freeze + Auto-Normalización CDN\n"
                 f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Calidad HD)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
@@ -617,7 +622,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot de Transmisión con Auto-Healer y Multi-Espejo listo...")
+    print("🤖 Bot de Transmisión con Auto-Normalización CDN listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
