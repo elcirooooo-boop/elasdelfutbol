@@ -147,21 +147,20 @@ def extract_stream_code(embed_iframe):
             
     return embed_iframe
 
-# LISTA DE NODOS CDN OFICIALES ACTIVOS EN DNS
-VALID_CDN_HOSTS = ["1.01-f.com", "8.01-f.com", "9.01-f.com", "2.01-f.com", "4.01-f.com"]
-
-def normalize_m3u8_url(raw_m3u8, referer_url):
-    for vh in VALID_CDN_HOSTS:
+# DETECTOR DINÁMICO DE SUBDOMINIO CDN ACTIVO
+def find_working_m3u8(raw_m3u8, referer_url):
+    for i in range(1, 16):
+        vh = f"{i}.01-f.com"
         t_url = re.sub(r'[\w\.-]+\.01-f\.com', vh, raw_m3u8)
         try:
-            r = requests.get(t_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer_url}, timeout=2.5)
+            r = requests.get(t_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer_url}, timeout=1.5)
             if r.status_code == 200 and ("#EXTM3U" in r.text or len(r.content) > 50):
                 return t_url
         except Exception:
             pass
     return raw_m3u8
 
-# RESOLVEDOR UNIVERSAL CON AUTO-NORMALIZACIÓN DE NODOS CDN
+# RESOLVEDOR UNIVERSAL DINÁMICO
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
@@ -206,8 +205,8 @@ def resolve_live_stream_url(target):
                 if r.status_code == 200:
                     m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
                     if m3u8:
-                        norm_url = normalize_m3u8_url(m3u8[0], ep)
-                        return norm_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                        working_url = find_working_m3u8(m3u8[0], ep)
+                        return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
                     
                     iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
                     for ifr in iframes:
@@ -215,8 +214,8 @@ def resolve_live_stream_url(target):
                         r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=3.5)
                         m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
                         if m3u8_2:
-                            norm_url2 = normalize_m3u8_url(m3u8_2[0], ifr_url)
-                            return norm_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                            working_url2 = find_working_m3u8(m3u8_2[0], ifr_url)
+                            return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
             except Exception:
                 pass
 
@@ -324,7 +323,7 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "1",
-        "-rw_timeout", "5000000",                # 5s timeout de socket
+        "-rw_timeout", "5000000",
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
         "-max_interleave_delta", "0"
@@ -507,7 +506,7 @@ def handle_message(msg):
             "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos <b>organizados por ligas y países</b>\n"
             "• <code>/top</code> $\\rightarrow$ Canales deportivos principales 24/7\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
-            "• <code>/stream espn2</code> | <code>/stream espn4</code> | <code>/stream tyc</code>\n"
+            "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
             "• <code>/stream dsports</code> | <code>/stream dsports2</code> | <code>/stream dsportsar</code>\n"
             "• <code>/stream winsports</code> | <code>/stream hypermotion1</code> | <code>/stream telemundo</code>\n"
             "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code>\n\n"
@@ -547,7 +546,7 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream dsportsar</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn</code>")
             return
         
         raw_url = clean_arg(parts[1])
@@ -560,7 +559,7 @@ def handle_message(msg):
                 f"✅ <b>¡Transmisión ACTIVA y PROTEGIDA!</b> 🚀\n\n"
                 f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"🛡️ <b>Protección:</b> Anti-Freeze + Auto-Normalización CDN\n"
+                f"🛡️ <b>Protección:</b> Anti-Freeze + Auto-Scan CDN\n"
                 f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Calidad HD)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
@@ -622,7 +621,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot de Transmisión con Auto-Normalización CDN listo...")
+    print("🤖 Bot de Transmisión con Auto-Scan CDN listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
