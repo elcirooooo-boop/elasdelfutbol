@@ -12,12 +12,12 @@ import concurrent.futures
 from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT Y CLAVE STREAM (PRIORIDAD SERVER 2 / HD)
+# 1. CONFIGURACIÓN DEL BOT Y CLAVE STREAM (STREAMEAST 100% EXCLUSIVO)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
-AGENDA_API = "https://futbollibretv.org.pe/diaries.json?v=2.2"
+STREAMEAST_MAIN = "https://istreameast.cx/"
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -42,158 +42,26 @@ ADMIN_USER_ID = None
 active_streams = {}
 stream_lock = threading.Lock()
 
-# LIGAS Y COMPETICIONES CON SUS BANDERAS Y PRIORIDADES
-LEAGUE_CATEGORIES = [
-    # Deportes específicos
-    (r'moto gp|motogp|f[oó]rmula 1|f1|indycar|nascar|rally', '🏎️ <b>MOTORSPORT (MOTO GP / F1 / INDYCAR)</b>', 210),
-    (r'ciclismo|la vuelta|tour de francia|giro d.italia|giro de italia|\bgiro\b', '🚴 <b>CICLISMO</b>', 220),
-    (r'tenis|tennis|atp|wta|us open|roland garros|wimbledon|australian open', '🎾 <b>TENIS (ATP / WTA)</b>', 230),
-    (r'golf|pga|tour championship', '⛳ <b>GOLF (PGA TOUR)</b>', 290),
-    (r'rugby|pumas|all blacks|six nations|urba', '🏉 <b>RUGBY</b>', 240),
-    (r'boxeo|box|knockout|ufc|mma|peleas', '🥊 <b>BOXEO / UFC / COMBATE</b>', 250),
-    (r'b[eé]isbol|baseball|mlb|little ligue|little league', '⚾ <b>BÉISBOL (MLB)</b>', 260),
-    (r'b[aá]squet|basketball|nba|euroliga', '🏀 <b>BÁSQUETBOL (NBA / EUROLIGA)</b>', 270),
-    (r'hockey', '🏑 <b>HOCKEY</b>', 280),
-
-    # Conmebol / UEFA / Internacionales
-    (r'champions league|uefa|sorteo.*champions|europa league|conference league|supercopa de europa', '🇪🇺 <b>UEFA (CHAMPIONS / EUROPA / CONFERENCE)</b>', 1),
-    (r'libertadores|sudamericana|recopa', '🌎 <b>CONMEBOL (LIBERTADORES / SUDAMERICANA)</b>', 2),
-
-    # Ligas Top de Europa
-    (r'laliga smartbank|laliga hypermotion|smartbank|hypermotion', '🇪🇸 <b>LALIGA HYPERMOTION (ESPAÑA)</b>', 10),
-    (r'laliga|la liga|copa del rey|supercopa de espa[nñ]a', '🇪🇸 <b>LALIGA EA SPORTS (ESPAÑA)</b>', 11),
-    (r'premier league|premier', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA)</b>', 20),
-    (r'championship|efl cup|carabao|fa cup|league one|league two', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>FÚTBOL INGLÉS (CHAMPIONSHIP / COPAS)</b>', 21),
-    
-    # Ecuador (antes de Serie A Italia)
-    (r'independiente del valle|guayaquil city|manta vs|barcelona.*sc|ldu quito|aucas|emelec|delfin|el nacional|cat[oó]lica.*ecuador|orense|cumbay|macar[aá]|mushuc', '🇪🇨 <b>LIGA PRO (ECUADOR)</b>', 160),
-    
-    # Italia
-    (r'serie a|coppa italia', '🇮🇹 <b>SERIE A (ITALIA)</b>', 30),
-    
-    # Alemania
-    (r'2\.\s*bundesliga', '🇩🇪 <b>2. BUNDESLIGA (ALEMANIA)</b>', 40),
-    (r'bundesliga|dfb[ -]pokal|supercopa alemana', '🇩🇪 <b>BUNDESLIGA (ALEMANIA)</b>', 41),
-    
-    # Francia
-    (r'ligue 1|ligue 2|coupe de france', '🇫🇷 <b>LIGUE 1 (FRANCIA)</b>', 50),
-    
-    # Portugal
-    (r'primeira liga|taca de portugal|liga portugal', '🇵🇹 <b>PRIMEIRA LIGA (PORTUGAL)</b>', 60),
-    
-    # Países Bajos
-    (r'eredivisie|eerste divisie|knvb beker', '🇳🇱 <b>EREDIVISIE (PAÍSES BAJOS)</b>', 70),
-    
-    # Arabia Saudita
-    (r'pro league|saudi pro league|saudi|al fateh|al ittihad|al hilal|al nassr', '🇸🇦 <b>SAUDI PRO LEAGUE (ARABIA SAUDITA)</b>', 75),
-    
-    # Argentina
-    (r'liga profesional|copa de la liga|copa argentina|primera nacional|torneo de reserva', '🇦🇷 <b>FÚTBOL ARGENTINO (LIGA PROFESIONAL)</b>', 80),
-    
-    # Brasil
-    (r'brasileir[aã]o|copa do brasil|paulista|carioca|brasileiro', '🇧🇷 <b>BRASILEIRÃO (BRASIL)</b>', 90),
-    
-    # Colombia
-    (r'primera a:\s*(?:junior|santa fe|jaguares|am[eé]rica|alianza|atl[eé]tico nacional|millonarios|medellin|cali|tolima|once caldas|bucaramanga|pereira|pasto|envigado|aguilas|equidad|patriotas|fortaleza)|liga betplay|copa colombia', '🇨🇴 <b>LIGA BETPLAY (COLOMBIA)</b>', 100),
-    
-    # México
-    (r'liga mx|expansi[oó]n mx|liga de expansi[oó]n|copa mx', '🇲🇽 <b>LIGA MX (MÉXICO)</b>', 110),
-    
-    # Perú
-    (r'liga 1|liga 2|copa bicentenario', '🇵🇪 <b>LIGA 1 (PERÚ)</b>', 120),
-    
-    # Chile
-    (r'limache|concepci[oó]n|nublense|san felipe|magallanes|iquique|san luis|santa cruz|rangers|colo|u[.]\s*de chile|u[.]\s*cat[oó]lica|huachipato|audax|cobresal|cobreloa|coquimbo|palestino|uni[oó]n espa[nñ]ola|everton', '🇨🇱 <b>FÚTBOL CHILENO (CHILE)</b>', 130),
-    
-    # Uruguay
-    (r'progreso|danubio|deportivo colonia|tacuaremb|cerrito|montevideo|la luz|paysandu|atenas|torque|boston river|defensor|juventud|deportivo maldonado|pe[nñ]arol|nacional', '🇺🇾 <b>FÚTBOL URUGUAYO (URUGUAY)</b>', 140),
-    
-    # Paraguay
-    (r'trinidense|2 de mayo|recoleta|olimpia|sportivo luq|sportivo sa|cerro porte[nñ]o|libertad|guaran[ií]|nacional.*py|tacuary|general caballero|amelliano', '🇵🇾 <b>PRIMERA DIVISIÓN (PARAGUAY)</b>', 150),
-    
-    # Bolivia
-    (r'bolivia|gualberto|real oruro|potos[ií]|always ready|the strongest|bolivar|wilstermann|oriente petrolero|blooming|aurora|universitario de vinto|guabir[aá]|independiente petrolero|san antonio bulo', '🇧🇴 <b>DIVISIÓN PROFESIONAL (BOLIVIA)</b>', 170),
-    
-    # Centroamérica / CONCACAF
-    (r'costa rica|alajuelense|saprissa|herediano|zeled[oó]n|concacaf|centroamericana|comunicaciones|municipal|motagua|olimpia.*hn|alianza.*pan|mixco', '🌎 <b>CENTROAMÉRICA / CONCACAF</b>', 180),
-]
-
-def classify_event(desc):
-    desc_clean = desc.lower()
-    for pattern, cat_name, priority in LEAGUE_CATEGORIES:
-        if re.search(pattern, desc_clean):
-            return cat_name, priority
-    return '🏆 <b>MÁS EVENTOS DEPORTIVOS</b>', 999
-
-def extract_stream_code(embed_iframe):
-    if not embed_iframe:
-        return None
-    
-    clean_ifr = embed_iframe
-    if "r=" in clean_ifr:
-        try:
-            b64 = clean_ifr.split("r=")[1].split("&")[0]
-            clean_ifr = base64.b64decode(b64).decode('utf-8')
-        except Exception:
-            pass
-            
-    if "stream=" in clean_ifr:
-        st = clean_ifr.split("stream=")[1].split("&")[0]
-        return st.strip()
-        
-    if "tv-90.com/" in clean_ifr or "tvf90.com/" in clean_ifr:
-        part = clean_ifr.split(".com/")[1].replace(".php", "").split("&")[0]
-        if not (part.startswith("1") or part.startswith("hd") or part.startswith("3") or part.startswith("5")):
-            return part.strip()
-            
-    return embed_iframe
-
-# RESOLUCIÓN PARALELA CONCURRENTE DE NODOS CDN
-VALID_CDN_HOSTS = ["6.01-f.com", "8.01-f.com", "4.01-f.com", "1.01-f.com", "2.01-f.com", "9.01-f.com", "5.01-f.com", "7.01-f.com", "10.01-f.com"]
-
-def check_single_host(vh, raw_m3u8, referer_url):
-    t_url = re.sub(r'[\w\.-]+\.01-f\.com', vh, raw_m3u8)
-    try:
-        r = requests.get(t_url, headers={"User-Agent": "Mozilla/5.0", "Referer": referer_url}, timeout=1.2)
-        if r.status_code == 200 and ("#EXTM3U" in r.text or len(r.content) > 50):
-            return t_url
-    except Exception:
-        pass
-    return None
-
-def find_working_m3u8_fast(raw_m3u8, referer_url):
-    orig_host = raw_m3u8.split('/')[2].split(':')[0]
-    hosts_to_try = [orig_host] + [h for h in VALID_CDN_HOSTS if h != orig_host]
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(hosts_to_try)) as executor:
-        futures = {executor.submit(check_single_host, h, raw_m3u8, referer_url): h for h in hosts_to_try}
-        for future in concurrent.futures.as_completed(futures):
-            res = future.result()
-            if res:
-                return res
-    return None
-
-# RESOLVEDOR UNIVERSAL (CON PRIORIDAD SERVER 2)
+# RESOLUCIÓN DE TRANSMISIONES DE STREAMEAST Y ENLACES DIRECTOS
 def resolve_live_stream_url(target):
     target = target.strip()
-    target_clean = target.lower()
-
-    # 1. Si es un enlace directo .m3u8 o .ts (copiado de Server 2 en StreamEast o cualquier web)
+    
+    # 1. Si es un enlace directo .m3u8 o .ts (copiado de Server 2 de StreamEast)
     if ".m3u8" in target or ".ts" in target:
         referer = "https://embed.st/"
         if "embedindia" in target:
             referer = "https://embedindia.st/"
-        elif "01-f.com" in target or "tvf90" in target:
-            referer = "https://tvf90.com/"
         elif "istreameast" in target:
             referer = "https://istreameast.cx/"
         hdrs = f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
         return target, hdrs, True
 
-    # 2. Si es una URL de StreamEast (https://istreameast.cx/links/...) -> PRIORIZAR SERVER 2
-    if "istreameast.cx" in target or "thestreameast" in target:
+    # 2. Si es una URL de evento de StreamEast (https://istreameast.cx/links/...)
+    if "istreameast.cx" in target or "thestreameast" in target or target.startswith("/links/"):
+        full_url = target if target.startswith("http") else f"https://istreameast.cx{target}"
         try:
-            r = requests.get(target, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://istreameast.cx/"}, timeout=4)
+            r = requests.get(full_url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://istreameast.cx/"}, timeout=4)
+            # Extraer botones de servidor priorizando SERVER 2
             btns = re.findall(r'<button[^>]+class=["\']server-btn[^"\']*["\'][^>]+data-src=["\']([^"\']+)["\'][^>]*>(.*?)</button>', r.text)
             
             selected_embed = None
@@ -201,157 +69,95 @@ def resolve_live_stream_url(target):
                 if "2" in name or "Server 2" in name or "server 2" in name:
                     selected_embed = src
                     break
-            
             if not selected_embed and btns:
                 selected_embed = btns[0][0]
                 
             if selected_embed:
-                r_ifr = requests.get(selected_embed, headers={"User-Agent": "Mozilla/5.0", "Referer": target}, timeout=4)
+                r_ifr = requests.get(selected_embed, headers={"User-Agent": "Mozilla/5.0", "Referer": full_url}, timeout=4)
                 m3u8s = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r_ifr.text)
                 if m3u8s:
                     return m3u8s[0], f"Referer: {selected_embed}\r\nOrigin: {selected_embed.rsplit('/', 1)[0]}\r\n", True
         except Exception:
             pass
 
-    # 3. Canales estándar de RojaDirecta / FútbolLibre (PRIORIDAD SERVIDOR 2 / HD)
-    url_to_fetch = target
-    if "r=" in target:
-        try:
-            b64_part = target.split("r=")[1].split("&")[0]
-            url_to_fetch = base64.b64decode(b64_part).decode('utf-8')
-        except Exception:
-            pass
-
-    aliases = [target_clean]
-    if target_clean == "dsportsar":
-        aliases.extend(["dsports", "dsports2"])
-    elif target_clean == "dsports2":
-        aliases.extend(["dsports"])
-    elif target_clean == "dsports_eventos":
-        aliases.extend(["dsports", "dsportsar"])
-    elif target_clean == "espnpremium":
-        aliases.extend(["espn", "espn2"])
-
-    for alias in aliases:
-        endpoints = []
-        if url_to_fetch.startswith("http") and alias == target_clean:
-            endpoints.append(url_to_fetch)
-        
-        # Prioridad a Servidor 2 (HD)
-        endpoints.extend([
-            f"https://tvf90.com/hd.php?stream={alias}",
-            f"https://futbollibre.ch/hd.php?stream={alias}",
-            f"https://tvf90.com/5.php?stream={alias}",
-            f"https://futbollibre.ch/5.php?stream={alias}",
-            f"https://tvf90.com/1.php?stream={alias}",
-            f"https://futbollibre.ch/1.php?stream={alias}",
-        ])
-
+    # 3. Canales o nombres directos
+    aliases = [target.lower()]
+    for al in aliases:
+        endpoints = [
+            f"https://tvf90.com/hd.php?stream={al}",
+            f"https://futbollibre.ch/hd.php?stream={al}",
+            f"https://tvf90.com/5.php?stream={al}",
+            f"https://futbollibre.ch/5.php?stream={al}",
+        ]
         for ep in endpoints:
             try:
                 r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=2.0)
                 if r.status_code == 200:
                     m3u8s = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
                     if m3u8s:
-                        working_url = find_working_m3u8_fast(m3u8s[0], ep)
-                        if working_url:
-                            return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
-                    
-                    iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
-                    for ifr in iframes:
-                        ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
-                        r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=2.0)
-                        m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
-                        if m3u8_2:
-                            working_url2 = find_working_m3u8_fast(m3u8_2[0], ifr_url)
-                            if working_url2:
-                                return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                        return m3u8s[0], f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
             except Exception:
                 pass
 
     return None, f"No se pudo resolver el canal '{target}'.", False
 
-TOP_SPORTS_CHANNELS = [
-    {"name": "ESPN 2 Sur HD (Mariano Closs)", "cmd": "espn2"},
-    {"name": "ESPN 1 Sur HD (Español Latam)", "cmd": "espn"},
-    {"name": "ESPN 3 Sur HD (Español Latam)", "cmd": "espn3"},
-    {"name": "ESPN 4 HD (Español)", "cmd": "espn4"},
-    {"name": "ESPN 5 HD", "cmd": "espn5"},
-    {"name": "ESPN Extra Sur HD", "cmd": "espnextra"},
-    {"name": "ESPN Premium (Liga Argentina)", "cmd": "espnpremium"},
-    {"name": "TyC Sports HD (Argentina)", "cmd": "tyc"},
-    {"name": "Directv Sports 1 (DSPORTS)", "cmd": "dsports"},
-    {"name": "Directv Sports 2 (DSPORTS 2)", "cmd": "dsports2"},
-    {"name": "Directv Sports Argentina (DSPORTS AR)", "cmd": "dsportsar"},
-    {"name": "Win Sports + HD (Colombia)", "cmd": "winsports"},
-    {"name": "Fox Sports HD", "cmd": "foxsports"},
-    {"name": "LaLiga TV (FHD)", "cmd": "laliga"},
-]
-
-def get_live_agenda_messages(curr_key):
+# AGENDA OFICIAL COMPLETA DE STREAMEAST
+def get_streameast_agenda_messages(curr_key):
     try:
-        r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"})
-        data = r.json().get("data", [])
-        if not data:
-            return ["🔴 No hay partidos programados en la agenda en este momento."]
-
-        groups = {}
-        for item in data:
-            attrs = item.get("attributes", {})
-            raw_desc = attrs.get("diary_description", "").strip().replace("\n", " ")
-            clean_desc = html.escape(" ".join(raw_desc.split()))
-            hour = attrs.get("diary_hour", "")[:5]
-            embeds = attrs.get("embeds", {}).get("data", [])
+        r = requests.get(STREAMEAST_MAIN, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://istreameast.cx/"}, timeout=6)
+        html_txt = r.text
+        
+        cards = re.findall(r'<div[^>]+class=["\']event-card[^"\']*["\'][^>]+onclick=["\']window\.location\.href=[\'"]([^\'"]+)[\'"][^>]*>(.*?)</div>\s*</div>', html_txt, re.DOTALL)
+        if not cards:
+            return ["🔴 No se encontraron eventos disponibles en StreamEast en este momento."]
             
-            cat_header, prio = classify_event(raw_desc)
-            if (prio, cat_header) not in groups:
-                groups[(prio, cat_header)] = []
+        events = []
+        for link, body in cards:
+            title_m = re.findall(r'<div[^>]+class=["\']event-title["\'][^>]*>(.*?)</div>', body)
+            title = html.unescape(title_m[0].strip()) if title_m else link.replace("/links/", "").replace("-", " ").title()
             
-            groups[(prio, cat_header)].append((hour, clean_desc, embeds))
-
+            time_m = re.findall(r'<div[^>]+class=["\']event-datetime["\'][^>]*>(.*?)</div>', body)
+            dt = html.unescape(time_m[0].strip()) if time_m else ""
+            
+            league_m = re.findall(r'<div[^>]+class=["\']event-league["\'][^>]*>(.*?)</div>', body)
+            league_raw = re.sub(r'<[^>]+>', ' ', league_m[0]).strip() if league_m else ""
+            is_live = "LIVE" in league_raw.upper()
+            
+            events.append({
+                "title": title,
+                "time": dt,
+                "live": is_live,
+                "url": f"https://istreameast.cx{link}"
+            })
+            
         messages = []
-        header = f"📅 <b>AGENDA DEPORTIVA ORGANIZADA POR LIGAS ({len(data)} EVENTOS DE HOY)</b>\n\n"
-        current_msg = header
-
-        for (prio, cat_header), event_list in sorted(groups.items()):
-            cat_block = f"━━━━━━━━━━━━━━━━━━━━\n{cat_header}\n━━━━━━━━━━━━━━━━━━━━\n"
+        current_msg = f"🌐 <b>AGENDA STREAMEAST EN VIVO ({len(events)} EVENTOS DE HOY)</b>\n\n"
+        
+        for ev in events:
+            live_tag = "🔴 <b>[EN VIVO]</b> " if ev["live"] else "⏳ "
+            time_str = f" ({html.escape(ev['time'])})" if ev["time"] else ""
             
-            for hour, clean_desc, embeds in event_list:
-                partido_block = f"⚽ <b>{clean_desc}</b> (<code>{hour}</code>)\n"
-                if not embeds:
-                    partido_block += "  • ⏳ <i>Señales disponibles cerca de la hora del partido</i>\n"
-                else:
-                    for em in embeds:
-                        em_attrs = em.get("attributes", {})
-                        em_name = html.escape(em_attrs.get("embed_name", "").strip())
-                        em_iframe = em_attrs.get("embed_iframe", "")
-                        
-                        cmd_code = extract_stream_code(em_iframe)
-                        if not cmd_code and em_iframe:
-                            cmd_code = em_iframe
-
-                        if cmd_code:
-                            partido_block += f"  • ▶ <b>{em_name}:</b>\n  <code>/stream {cmd_code} {curr_key}</code>\n"
-                        else:
-                            partido_block += f"  • ▶ <b>{em_name}</b>\n"
-                partido_block += "\n"
-                cat_block += partido_block
+            item_block = (
+                f"{live_tag}<b>{html.escape(ev['title'])}</b>{time_str}\n"
+                f"▶ <b>Transmitir (Server 2):</b>\n"
+                f"<code>/stream {ev['url']} {curr_key}</code>\n\n"
+            )
             
-            if len(current_msg) + len(cat_block) > 3400:
+            if len(current_msg) + len(item_block) > 3400:
                 messages.append(current_msg)
-                current_msg = cat_block
+                current_msg = item_block
             else:
-                current_msg += cat_block
-
+                current_msg += item_block
+                
         if current_msg.strip():
             messages.append(current_msg)
-
+            
         return messages
     except Exception as e:
-        return [f"⚠️ Error obteniendo la agenda de rojadirectatv.ec: {e}"]
+        return [f"⚠️ Error obteniendo agenda de StreamEast: {e}"]
 
 # ==============================================================================
-# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG BLINDADO + WATCHDOG ULTRA-RÁPIDO)
+# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG BLINDADO + WATCHDOG)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -522,7 +328,7 @@ def stream_watchdog():
             print(f"Error en stream watchdog: {e}")
 
 # ==============================================================================
-# 3. INTERFAZ DE BOT DE TELEGRAM (HTML BLINDADO)
+# 3. INTERFAZ DE BOT DE TELEGRAM
 # ==============================================================================
 def send_msg(chat_id, text, parse_mode="HTML"):
     try:
@@ -551,17 +357,14 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (SERVER 2 / HD PRIORITARIO)</b>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN STREAMEAST OFICIAL</b>\n\n"
             "📋 <b>AGENDA DE PARTIDOS:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver agenda de hoy organizada por ligas\n"
-            "• <code>/top</code> $\\rightarrow$ Canales deportivos principales 24/7\n\n"
-            "📺 <b>TRANSMITIR (PRIORIDAD SERVER 2 / HD):</b>\n"
-            "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
-            "• <code>/stream dsports</code> | <code>/stream dsports2</code> | <code>/stream dsportsar</code>\n"
-            "• <code>/stream &lt;URL_M3U8_O_CANAL&gt; [STREAM_KEY]</code>\n\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos de <b>StreamEast en vivo</b>\n\n"
+            "📺 <b>TRANSMITIR:</b>\n"
+            "• <code>/stream &lt;URL_STREAMEAST_O_M3U8&gt; [STREAM_KEY]</code>\n"
+            "• <i>(Prioridad automática a Server 2)</i>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
-            "• <code>/stop 1</code> | <code>/stop 2</code> $\\rightarrow$ Detener por número\n"
             "• <code>/stopall</code> $\\rightarrow$ Detener TODAS las transmisiones\n\n"
             "📊 <b>ESTADO EN VIVO:</b>\n"
             "• <code>/status</code> $\\rightarrow$ Ver transmisiones activas\n\n"
@@ -569,16 +372,9 @@ def handle_message(msg):
         )
         send_msg(chat_id, help_text)
 
-    elif text.startswith("/top") or text.startswith("/deportes"):
-        msg_txt = "🌟 <b>CANALES DEPORTIVOS PRINCIPALES (SERVER 2 / HD DIRECTO):</b>\n\n"
-        for ch in TOP_SPORTS_CHANNELS:
-            msg_txt += f"📺 <b>{ch['name']}:</b>\n<code>/stream {ch['cmd']} {curr_key}</code>\n\n"
-        msg_txt += "💡 <i>Toca cualquier comando en gris para copiarlo y enviarlo al instante.</i>"
-        send_msg(chat_id, msg_txt)
-
-    elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ <b>Cargando agenda organizada con prioridad Server 2 / HD...</b>")
-        agenda_msgs = get_live_agenda_messages(curr_key)
+    elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda") or text.startswith("/streameast"):
+        send_msg(chat_id, "⏳ <b>Cargando agenda oficial en vivo de StreamEast...</b>")
+        agenda_msgs = get_streameast_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
 
@@ -595,20 +391,20 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_M3U8&gt;</code> o <code>/stream &lt;CANAL_O_M3U8&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;URL_STREAMEAST_O_M3U8&gt;</code> o <code>/stream &lt;URL&gt; &lt;STREAM_KEY&gt;</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Iniciando transmisión blindada anti-freeze de {html.escape(raw_url[:40])}...</b>")
+        send_msg(chat_id, f"⏳ <b>Iniciando transmisión blindada anti-freeze de StreamEast (Server 2)...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión ACTIVA (SERVER 2 / HD)!</b> 🚀\n\n"
+                f"✅ <b>¡Transmisión ACTIVA (StreamEast Server 2)!</b> 🚀\n\n"
                 f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url[:45])}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"🛡️ <b>Servidor:</b> Prioridad Server 2 / HD\n"
+                f"🛡️ <b>Fuente:</b> StreamEast (Server 2 / HD)\n"
                 f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Calidad HD)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
@@ -670,7 +466,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Universal con Prioridad Server 2 / HD listo...")
+    print("🤖 Bot StreamEast Oficial (100% Exclusivo con Server 2) listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
