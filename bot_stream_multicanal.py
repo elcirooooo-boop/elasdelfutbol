@@ -12,7 +12,7 @@ import concurrent.futures
 from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT Y CLAVE STREAM (FUENTE OFICIAL: ROJADIRECTATV.EC)
+# 1. CONFIGURACIÓN DEL BOT Y CLAVE STREAM (ROJADIRECTA + STREAMEAST + M3U8 DIRECTO)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
@@ -148,7 +148,7 @@ def extract_stream_code(embed_iframe):
             
     return embed_iframe
 
-# RESOLUCIÓN PARALELA CONCURRENTE ULTRA-RÁPIDA
+# RESOLUCIÓN PARALELA CONCURRENTE DE NODOS CDN
 VALID_CDN_HOSTS = ["2.01-f.com", "4.01-f.com", "1.01-f.com", "8.01-f.com", "9.01-f.com", "5.01-f.com", "6.01-f.com", "7.01-f.com", "10.01-f.com"]
 
 def check_single_host(vh, raw_m3u8, referer_url):
@@ -173,10 +173,36 @@ def find_working_m3u8_fast(raw_m3u8, referer_url):
                 return res
     return raw_m3u8
 
-# RESOLVEDOR UNIVERSAL DINÁMICO
+# RESOLVEDOR UNIVERSAL MULTI-FUENTE (ROJADIRECTA + STREAMEAST + M3U8 DIRECTO)
 def resolve_live_stream_url(target):
-    target_clean = target.lower().strip()
-    
+    target = target.strip()
+    target_clean = target.lower()
+
+    # 1. Si es un enlace directo .m3u8 o .ts (ej. copiado de Network tab de StreamEast o cualquier web)
+    if ".m3u8" in target or ".ts" in target:
+        referer = "https://istreameast.cx/"
+        if "embed" in target:
+            referer = "https://embedindia.st/"
+        elif "01-f.com" in target or "tvf90" in target:
+            referer = "https://tvf90.com/"
+        hdrs = f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n"
+        return target, hdrs, True
+
+    # 2. Si es una URL de StreamEast (https://istreameast.cx/links/...)
+    if "istreameast.cx" in target or "thestreameast" in target:
+        try:
+            r = requests.get(target, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://istreameast.cx/"}, timeout=4)
+            iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
+            if iframes:
+                ifr = iframes[0]
+                r_ifr = requests.get(ifr, headers={"User-Agent": "Mozilla/5.0", "Referer": target}, timeout=4)
+                m3u8s = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r_ifr.text)
+                if m3u8s:
+                    return m3u8s[0], f"Referer: {ifr}\r\nOrigin: {ifr.rsplit('/', 1)[0]}\r\n", True
+        except Exception:
+            pass
+
+    # 3. Canales estándar de RojaDirecta / FútbolLibre
     url_to_fetch = target
     if "r=" in target:
         try:
@@ -309,6 +335,37 @@ def get_live_agenda_messages(curr_key):
         return messages
     except Exception as e:
         return [f"⚠️ Error obteniendo la agenda de rojadirectatv.ec: {e}"]
+
+# AGENDA DE STREAMEAST
+def get_streameast_agenda_messages(curr_key):
+    try:
+        r = requests.get("https://istreameast.cx/", headers={"User-Agent": "Mozilla/5.0", "Referer": "https://istreameast.cx/"}, timeout=5)
+        links = re.findall(r'href=["\'](/links/[^"\']+)["\']', r.text)
+        unique_links = list(dict.fromkeys(links))
+        if not unique_links:
+            return ["🔴 No se encontraron eventos activos en StreamEast."]
+
+        messages = []
+        header = f"🌐 <b>AGENDA STREAMEAST EN VIVO ({len(unique_links)} EVENTOS)</b>\n\n"
+        current_msg = header
+
+        for link in unique_links:
+            title = link.replace("/links/", "").replace("-", " ").title()
+            full_url = f"https://istreameast.cx{link}"
+            block = f"🏆 <b>{html.escape(title)}</b>\n<code>/stream {full_url} {curr_key}</code>\n\n"
+            
+            if len(current_msg) + len(block) > 3400:
+                messages.append(current_msg)
+                current_msg = block
+            else:
+                current_msg += block
+
+        if current_msg.strip():
+            messages.append(current_msg)
+
+        return messages
+    except Exception as e:
+        return [f"⚠️ Error obteniendo agenda de StreamEast: {e}"]
 
 # ==============================================================================
 # 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG BLINDADO + WATCHDOG ULTRA-RÁPIDO)
@@ -511,15 +568,15 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (ROJADIRECTATV.EC)</b>\n\n"
-            "📋 <b>AGENDA ORGANIZADA:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos <b>organizados por ligas y países</b>\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA MULTI-FUENTE</b>\n\n"
+            "📋 <b>AGENDAS EN VIVO:</b>\n"
+            "• <code>/partidos</code> $\\rightarrow$ Agenda de RojaDirecta (organizada por ligas y banderas)\n"
+            "• <code>/streameast</code> $\\rightarrow$ Agenda completa de <b>StreamEast</b> (NFL, NBA, Fútbol, UFC)\n"
             "• <code>/top</code> $\\rightarrow$ Canales deportivos principales 24/7\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
             "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
             "• <code>/stream dsports</code> | <code>/stream dsports2</code> | <code>/stream dsportsar</code>\n"
-            "• <code>/stream winsports</code> | <code>/stream hypermotion1</code> | <code>/stream telemundo</code>\n"
-            "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code>\n\n"
+            "• <code>/stream &lt;URL_STREAMEAST_O_M3U8&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
             "• <code>/stop 1</code> | <code>/stop 2</code> $\\rightarrow$ Detener por número\n"
@@ -543,6 +600,12 @@ def handle_message(msg):
         for m in agenda_msgs:
             send_msg(chat_id, m)
 
+    elif text.startswith("/streameast") or text.startswith("/east"):
+        send_msg(chat_id, "⏳ <b>Cargando agenda en vivo de StreamEast...</b>")
+        east_msgs = get_streameast_agenda_messages(curr_key)
+        for m in east_msgs:
+            send_msg(chat_id, m)
+
     elif text.startswith("/key") or text.startswith("/setkey"):
         parts = text.split()
         if len(parts) < 2:
@@ -556,18 +619,18 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_URL&gt;</code> o <code>/stream &lt;CANAL_O_URL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Iniciando transmisión blindada anti-freeze de {html.escape(raw_url)}...</b>")
+        send_msg(chat_id, f"⏳ <b>Iniciando transmisión blindada anti-freeze de {html.escape(raw_url[:40])}...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
                 f"✅ <b>¡Transmisión ACTIVA y PROTEGIDA!</b> 🚀\n\n"
-                f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
+                f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(raw_url[:45])}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
                 f"🛡️ <b>Protección:</b> Anti-Freeze + Auto-Scan Concurrente\n"
                 f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Calidad HD)\n\n"
@@ -592,12 +655,12 @@ def handle_message(msg):
             if len(active_streams) == 1:
                 sid = list(active_streams.keys())[0]
                 ok, _, ch_name = stop_single_stream(sid)
-                send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(ch_name)}) detenida correctamente.</b>")
+                send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(ch_name[:30])}) detenida correctamente.</b>")
                 return
             else:
                 txt = "⚠️ <b>Hay varias transmisiones activas. Elige cuál detener:</b>\n\n"
                 for sid, info in active_streams.items():
-                    txt += f"• Transmisión #{sid} (<b>{html.escape(info['raw_name'])}</b>): <code>/stop {sid}</code>\n"
+                    txt += f"• Transmisión #{sid} (<b>{html.escape(info['raw_name'][:30])}</b>): <code>/stop {sid}</code>\n"
                 txt += "\n🛑 <b>O detener todas a la vez:</b> <code>/stopall</code>"
                 send_msg(chat_id, txt)
                 return
@@ -605,7 +668,7 @@ def handle_message(msg):
         target = parts[1].strip()
         ok, sid, ch_name = stop_single_stream(target)
         if ok:
-            send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(ch_name)}) detenida correctamente.</b>")
+            send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(ch_name[:30])}) detenida correctamente.</b>")
         else:
             send_msg(chat_id, f"❌ No se encontró ninguna transmisión activa con identificador: <code>{html.escape(target)}</code>.\nUsa <code>/status</code> para ver las transmisiones activas.")
 
@@ -621,7 +684,7 @@ def handle_message(msg):
             secs = elapsed % 60
             restarts = info.get("restart_count", 0)
             status_text += (
-                f"📺 <b>Transmisión #{sid} ({html.escape(info['raw_name'])}):</b>\n"
+                f"📺 <b>Transmisión #{sid} ({html.escape(info['raw_name'][:35])}):</b>\n"
                 f"• ⏱️ Tiempo: <code>{mins}m {secs}s</code>\n"
                 f"• 🔄 Auto-Reconexiones: <code>{restarts}</code>\n"
                 f"• 📡 Key: <code>{info['key'][:8]}...</code>\n"
@@ -631,7 +694,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot de Transmisión con Auto-Scan Concurrente listo...")
+    print("🤖 Bot Universal (RojaDirecta + StreamEast + Direct M3U8) listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
