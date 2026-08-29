@@ -182,7 +182,7 @@ def resolve_iptv_stream(stream_id_or_cmd):
                 break
 
     if not stream_id:
-        stream_id = "32114" # Fallback por defecto a ESPN 1 HD
+        stream_id = "32114"
 
     for host in IPTV_HOSTS:
         try:
@@ -209,7 +209,7 @@ def resolve_iptv_stream(stream_id_or_cmd):
 
     return None, None, False
 
-# AGENDA MUNDIAL DE PARTIDOS DE HOY CON TODOS SUS CANALES
+# AGENDA MUNDIAL DE PARTIDOS DE HOY CON CHUNKING SEGURO
 def get_live_agenda_messages(curr_key):
     try:
         r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"})
@@ -236,12 +236,19 @@ def get_live_agenda_messages(curr_key):
         current_msg = header
 
         for (prio, cat_header), event_list in sorted(groups.items()):
-            cat_block = f"━━━━━━━━━━━━━━━━━━━━\n{cat_header}\n━━━━━━━━━━━━━━━━━━━━\n"
+            cat_title = f"━━━━━━━━━━━━━━━━━━━━\n{cat_header}\n━━━━━━━━━━━━━━━━━━━━\n"
             
+            # Si el título de la categoría no entra, mandar mensaje previo
+            if len(current_msg) + len(cat_title) > 3000:
+                messages.append(current_msg)
+                current_msg = cat_title
+            else:
+                current_msg += cat_title
+
             for hour, clean_desc, embeds in event_list:
                 partido_block = f"⚽ <b>{clean_desc}</b> (<code>{hour}</code>)\n"
                 if not embeds:
-                    partido_block += "  • 📺 <i>Canales principales:</i> <code>/stream espn</code> | <code>/stream laliga</code>\n"
+                    partido_block += "  • 📺 <i>Canales:</i> <code>/stream espn</code> | <code>/stream laliga</code>\n"
                 else:
                     for em in embeds:
                         em_attrs = em.get("attributes", {})
@@ -256,13 +263,13 @@ def get_live_agenda_messages(curr_key):
 
                         partido_block += f"  • ▶ <b>{em_name}:</b>\n  <code>/stream {cmd} {curr_key}</code>\n"
                 partido_block += "\n"
-                cat_block += partido_block
-            
-            if len(current_msg) + len(cat_block) > 3400:
-                messages.append(current_msg)
-                current_msg = cat_block
-            else:
-                current_msg += cat_block
+                
+                # Control estricto de tamaño por partido
+                if len(current_msg) + len(partido_block) > 3000:
+                    messages.append(current_msg)
+                    current_msg = f"{cat_title}{partido_block}"
+                else:
+                    current_msg += partido_block
 
         if current_msg.strip():
             messages.append(current_msg)
@@ -295,7 +302,7 @@ def search_iptv_channels(query, curr_key):
 
         for sid, name in matches[:60]:
             item = f"📺 <b>{name}</b> (ID: <code>{sid}</code>)\n<code>/stream {sid} {curr_key}</code>\n\n"
-            if len(current_msg) + len(item) > 3400:
+            if len(current_msg) + len(item) > 3000:
                 messages.append(current_msg)
                 current_msg = item
             else:
