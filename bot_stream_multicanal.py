@@ -6,18 +6,16 @@ import os
 import sys
 import re
 import html
-import base64
 import threading
 import concurrent.futures
-from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT (SERVIDOR IPTV DEDICADO + AGENDA MUNDIAL)
+# 1. CONFIGURACIÓN DEL BOT (FUENTE 100% TARJETAROJA.MY + MOTOR DEDICADO)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
-AGENDA_API = "https://futbollibretv.org.pe/diaries.json?v=2.2"
+AGENDA_URL = "https://tarjetaroja.my/"
 
 IPTV_USER = "BE15ERDV"
 IPTV_PASS = "PXELERB9"
@@ -26,6 +24,11 @@ IPTV_HOSTS = [
     "http://evestv.ptjfj.com",
     "http://tv.rmhat.com"
 ]
+
+HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://tarjetaroja.my/"
+}
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -59,6 +62,7 @@ LEAGUE_CATEGORIES = [
     (r'championship|efl cup|carabao|fa cup|league one|league two', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>FÚTBOL INGLÉS (CHAMPIONSHIP / COPAS)</b>', 21),
     (r'champions league|uefa|sorteo.*champions|europa league|conference league|supercopa de europa', '🇪🇺 <b>UEFA (CHAMPIONS / EUROPA / CONFERENCE)</b>', 1),
     (r'libertadores|sudamericana|recopa', '🌎 <b>CONMEBOL (LIBERTADORES / SUDAMERICANA)</b>', 2),
+    (r'bundesliga 2|2\. bundesliga', '🇩🇪 <b>BUNDESLIGA 2 (ALEMANIA)</b>', 40),
     (r'bundesliga|dfb[ -]pokal|supercopa alemana|bayern|dortmund', '🇩🇪 <b>BUNDESLIGA (ALEMANIA)</b>', 41),
     (r'ligue 1|ligue 2|coupe de france|psg|marseille|monaco|lyon', '🇫🇷 <b>LIGUE 1 (FRANCIA)</b>', 50),
     (r'primeira liga|taca de portugal|liga portugal|benfica|porto|sporting', '🇵🇹 <b>PRIMEIRA LIGA (PORTUGAL)</b>', 60),
@@ -69,12 +73,12 @@ LEAGUE_CATEGORIES = [
     (r'primera a:\s*(?:junior|santa fe|jaguares|am[eé]rica|alianza|atl[eé]tico nacional|millonarios|medellin|cali|tolima|once caldas|bucaramanga|pereira|pasto|envigado|aguilas|equidad|patriotas|fortaleza)|liga betplay|copa colombia', '🇨🇴 <b>LIGA BETPLAY (COLOMBIA)</b>', 100),
     (r'liga mx|expansi[oó]n mx|liga de expansi[oó]n|copa mx|america|chivas|cruz azul|monterrey|tigres', '🇲🇽 <b>LIGA MX (MÉXICO)</b>', 110),
     (r'liga 1|liga 2|copa bicentenario|alianza lima|universitario|cristal', '🇵🇪 <b>LIGA 1 (PERÚ)</b>', 120),
-    (r'moto gp|motogp|f[oó]rmula 1|f1|indycar|nascar|rally', '🏎️ <b>MOTORSPORT (MOTO GP / F1 / INDYCAR)</b>', 210),
-    (r'ciclismo|la vuelta|tour de francia|giro d.italia|giro de italia|\bgiro\b', '🚴 <b>CICLISMO</b>', 220),
+    (r'moto gp|motogp|f[oó]rmula 1|f1|indycar|nascar|rally|gp arag', '🏎️ <b>MOTORSPORT (MOTO GP / F1 / INDYCAR)</b>', 210),
+    (r'ciclismo|la vuelta|tour de francia|giro d.italia|giro de italia|\bgiro\b', '🚴 <b>CICLISMO (LA VUELTA)</b>', 220),
     (r'tenis|tennis|atp|wta|us open|roland garros|wimbledon|australian open', '🎾 <b>TENIS (ATP / WTA)</b>', 230),
     (r'golf|pga|tour championship', '⛳ <b>GOLF (PGA TOUR)</b>', 290),
     (r'rugby|pumas|all blacks|six nations|urba', '🏉 <b>RUGBY</b>', 240),
-    (r'boxeo|box|knockout|ufc|mma|peleas', '🥊 <b>BOXEO / UFC / COMBATE</b>', 250),
+    (r'boxeo|box|knockout|ufc|mma|peleas|lfa', '🥊 <b>BOXEO / UFC / COMBATE</b>', 250),
     (r'b[eé]isbol|baseball|mlb|little ligue|little league', '⚾ <b>BÉISBOL (MLB)</b>', 260),
     (r'b[aá]squet|basketball|nba|euroliga', '🏀 <b>BÁSQUETBOL (NBA / EUROLIGA)</b>', 270),
     (r'hockey', '🏑 <b>HOCKEY</b>', 280),
@@ -87,139 +91,106 @@ def classify_event(desc):
             return cat_name, priority
     return '🏆 <b>MÁS EVENTOS DEPORTIVOS</b>', 999
 
-# DICCIONARIO GLOBAL DE CANALES IPTV
-IPTV_CHANNELS_MAP = {
-    # Juventus / Serie A
-    "juventus": "8805",
-    "juve": "8805",
-    "seriea": "8805",
-    "parma": "8805",
-    "cbssports": "32109",
-    "golazo": "3959",
-    
+# DICCIONARIO DIRECTO DE CANALES (TARJETAROJA.MY -> STREAMS DEDICADOS)
+TARJETAROJA_CHANNELS = {
     # ESPN / Disney
     "espn": "32114",
     "espn1": "32114",
     "espn2": "32164",
     "espn3": "32112",
     "espn4": "32111",
+    "espn7": "32138",
     "espnextra": "32138",
-    "espnpremium": "32114",
+    "espnplus1": "32114",
+    "espn-deportes": "32038",
     "espndeportes": "32038",
+    "disney-1": "32114",
+    "disney-2": "32164",
+    "disney-3": "32112",
+    "disney-4": "32111",
+    "disney-5": "32138",
+    "disney-6": "32114",
+    "disney-7": "32164",
+    "disney8": "32112",
+    "disney12": "32114",
     "disney1": "32114",
     "disney2": "32164",
     "disney3": "32112",
     "disney4": "32111",
-    "disney5": "32138",
-    "disney6": "32114",
-    "disney7": "32164",
     
-    # Directv Sports (DSPORTS)
+    # Fox Sports / TUDN / Max / Universo
+    "foxone": "6873",
+    "foxone3": "6872",
+    "fox1ar": "6873",
+    "foxsports": "6873",
+    "tudn_usa": "32040",
+    "tudn": "32040",
+    "max1": "239671",
+    "max": "239671",
+    "universo_usa": "32162",
+    "universo": "32162",
+    "canal5": "3987",
+    
+    # Paramount
+    "paramount1": "29016",
+    "paramount2": "29043",
+    "paramount3": "29044",
+    "stp-paramount1": "29016",
+    
+    # Serie A / Juventus / Directv / Win / TyC
+    "juventus": "8805",
+    "juve": "8805",
+    "seriea": "8805",
+    "parma": "8805",
     "dsports": "33933",
     "dsports1": "33933",
     "directv": "33933",
     "dsportsar": "33933",
     "dsports2": "33932",
     "dsportsplus": "33931",
-    "dsports3": "33931",
-    
-    # LaLiga / España
-    "laliga": "30905",
-    "movistarlaliga": "30905",
-    "m+laliga": "30905",
-    "laligatv": "33866",
-    "hypermotion": "1219972",
-    "hypermotion1": "1219972",
-    "hypermotion2": "1219971",
-    "dazn": "224832",
-    "daznlaliga": "224832",
-    "dazn1": "1459675",
-    "golplay": "30905",
-    "gol": "30905",
-    
-    # Champions / Premier / UK / USA
-    "champions": "239671",
-    "movistarchampions": "239671",
-    "premier": "29016",
-    "skysports": "29016",
-    "premiersports": "29043",
-    "premiersports1": "29043",
-    "premiersports2": "29044",
-    "tudn": "32040",
-    "tudn_usa": "32040",
-    "telemundo": "32162",
-    "universo_usa": "32162",
-    "max1": "239671",
-    "paramount1": "29016",
-    "paramount2": "29043",
-    "paramount3": "29044",
-    
-    # Deportes Regionales
     "winsports": "33945",
     "win": "33945",
     "wincolombia": "33944",
     "tyc": "30365",
     "tycsports": "30365",
-    "foxsports": "6873",
-    "fox1ar": "6873",
-    "foxone": "6873",
     
-    # Moto / Motorsport / Otros
+    # LaLiga / Premier / Motorsport
+    "laliga": "30905",
+    "movistarlaliga": "30905",
+    "m+laliga": "30905",
+    "laligatv": "33866",
+    "premier2uk": "29044",
+    "premier": "29016",
+    "premiersports": "29043",
+    "dazn": "224832",
+    "daznlaliga": "224832",
     "f1": "30907",
     "daznf1": "30907",
     "motogp": "1349240",
+    "champions": "239671",
     "eurosport": "30911",
     "eurosport1": "30911",
     "eurosport2": "30912",
     "nfl": "32121",
     "redzone": "32121",
-    "nba": "32106",
+    "nba": "32106"
 }
 
-def clean_channel_code(raw_code):
-    if not raw_code:
-        return "espn"
+# RESOLVER DE STREAM (TARJETAROJA.MY)
+def resolve_tarjetaroja_stream(channel_name):
+    ch_raw = str(channel_name).strip().lower()
+    ch_slug = ch_raw.replace("stp-", "").strip()
     
-    c = raw_code.strip()
-    
-    # Si viene con r= o base64
-    if "r=" in c:
-        try:
-            b64 = c.split("r=")[1].split("&")[0]
-            c = base64.b64decode(b64 + "==").decode('utf-8')
-        except Exception:
-            pass
-            
-    # Si es base64 puro
-    if len(c) > 10 and not "/" in c and not "." in c and not " " in c:
-        try:
-            dec = base64.b64decode(c + "==").decode('utf-8')
-            if "stream=" in dec:
-                c = dec
-        except Exception:
-            pass
-
-    if "stream=" in c:
-        c = c.split("stream=")[1].split("&")[0].strip()
-    elif "/" in c:
-        c = c.split("/")[-1].replace(".php", "").replace(".html", "").strip()
-
-    c_clean = re.sub(r'[^a-zA-Z0-9_]', '', c).lower()
-    return c_clean or "espn"
-
-# RESOLVER DE CANAL IPTV (DIRECTO A SERVIDOR DEDICADO)
-def resolve_iptv_stream(stream_id_or_cmd):
-    target_raw = str(stream_id_or_cmd).strip()
-    target = clean_channel_code(target_raw)
     stream_id = None
-
-    if target in IPTV_CHANNELS_MAP:
-        stream_id = IPTV_CHANNELS_MAP[target]
-    elif target.isdigit():
-        stream_id = target
+    if ch_slug in TARJETAROJA_CHANNELS:
+        stream_id = TARJETAROJA_CHANNELS[ch_slug]
+    elif ch_raw in TARJETAROJA_CHANNELS:
+        stream_id = TARJETAROJA_CHANNELS[ch_raw]
+    elif ch_slug.isdigit():
+        stream_id = ch_slug
     else:
-        for k, sid in IPTV_CHANNELS_MAP.items():
-            if k in target or target in k:
+        for k, sid in TARJETAROJA_CHANNELS.items():
+            if k in ch_slug or ch_slug in k:
                 stream_id = sid
                 break
 
@@ -251,56 +222,69 @@ def resolve_iptv_stream(stream_id_or_cmd):
 
     return None, None, False
 
-# AGENDA MUNDIAL DE PARTIDOS CON CÓDIGOS LIMPIOS Y SEGUROS
-def get_live_agenda_messages(curr_key):
+# AGENDA EXTRAÍDA 100% DE HTTPS://TARJETAROJA.MY/
+def get_tarjetaroja_agenda_messages(curr_key):
     try:
-        r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"})
-        data = r.json().get("data", [])
-        if not data:
-            return ["🔴 No hay partidos programados en la agenda en este momento."]
+        r = requests.get(AGENDA_URL, headers=HTTP_HEADERS, timeout=8)
+        if r.status_code != 200:
+            return ["🔴 No se pudo conectar a https://tarjetaroja.my/."]
+        
+        articles = re.findall(r'<article class="tr-event"[^>]*>(.*?)</article>', r.text, re.DOTALL)
+        if not articles:
+            return ["🔴 No se encontraron partidos en https://tarjetaroja.my/."]
 
         groups = {}
-        for item in data:
-            attrs = item.get("attributes", {})
-            raw_desc = attrs.get("diary_description", "").strip().replace("\n", " ")
-            clean_desc = html.escape(" ".join(raw_desc.split()))
-            hour = attrs.get("diary_hour", "")[:5]
-            embeds = attrs.get("embeds", {}).get("data", [])
-            
-            cat_header, prio = classify_event(raw_desc)
+        for art in articles:
+            m_time = re.search(r'<span class="tr-event-time[^"]*">([^<]+)</span>', art)
+            event_time = m_time.group(1).strip() if m_time else "00:00"
+
+            m_title = re.search(r'<span class="tr-event-title">(.*?)</span>\s*<span class="tr-event-chevron"', art, re.DOTALL)
+            if m_title:
+                clean = re.sub(r'<[^>]+>', ' ', m_title.group(1)).strip()
+                clean_title = html.escape(" ".join(clean.split()))
+            else:
+                m_title_fallback = re.search(r'<span class="tr-event-title">(.*?)</span>', art, re.DOTALL)
+                if m_title_fallback:
+                    clean = re.sub(r'<[^>]+>', ' ', m_title_fallback.group(1)).strip()
+                    clean_title = html.escape(" ".join(clean.split()))
+                else:
+                    clean_title = "Evento Deportivo"
+
+            channels = []
+            ch_matches = re.findall(r'<a class="tr-event-channel"\s+href=["\']([^"\']+)["\'][^>]*>([^<]+)</a>', art)
+            for href, ch_name in ch_matches:
+                ch_slug = href.split("/stream/")[-1].strip()
+                channels.append((html.escape(ch_name.strip()), ch_slug))
+
+            cat_header, prio = classify_event(clean_title)
             if (prio, cat_header) not in groups:
                 groups[(prio, cat_header)] = []
-            
-            groups[(prio, cat_header)].append((hour, clean_desc, embeds))
+
+            groups[(prio, cat_header)].append((event_time, clean_title, channels))
 
         messages = []
-        header = f"📅 <b>AGENDA DEPORTIVA DE HOY ({len(data)} EVENTOS CON CANALES IPTV 1080P)</b>\n\n"
+        header = f"📅 <b>AGENDA DEPORTIVA DE TARJETAROJA.MY ({len(articles)} EVENTOS EN VIVO)</b>\n\n"
         current_msg = header
 
         for (prio, cat_header), event_list in sorted(groups.items()):
             cat_title = f"━━━━━━━━━━━━━━━━━━━━\n{cat_header}\n━━━━━━━━━━━━━━━━━━━━\n"
-            
-            if len(current_msg) + len(cat_title) > 3000:
+
+            if len(current_msg) + len(cat_title) > 2800:
                 messages.append(current_msg)
                 current_msg = cat_title
             else:
                 current_msg += cat_title
 
-            for hour, clean_desc, embeds in event_list:
-                partido_block = f"⚽ <b>{clean_desc}</b> (<code>{hour}</code>)\n"
-                if not embeds:
-                    partido_block += "  • 📺 <i>Canales:</i> <code>/stream espn</code> | <code>/stream laliga</code>\n"
+            for event_time, clean_title, channels in event_list:
+                partido_block = f"⚽ <b>{clean_title}</b> (<code>{event_time}</code>)\n"
+                if not channels:
+                    partido_block += f"  • ▶ <b>ESPN:</b>\n  <code>/stream espn {curr_key}</code>\n"
                 else:
-                    for em in embeds:
-                        em_attrs = em.get("attributes", {})
-                        em_name = html.escape(em_attrs.get("embed_name", "").strip())
-                        em_ifr = em_attrs.get("embed_iframe", "")
-                        
-                        clean_cmd = clean_channel_code(em_ifr)
-                        partido_block += f"  • ▶ <b>{em_name}:</b>\n  <code>/stream {clean_cmd} {curr_key}</code>\n"
+                    for ch_name, ch_slug in channels:
+                        partido_block += f"  • ▶ <b>{ch_name}:</b>\n  <code>/stream {ch_slug} {curr_key}</code>\n"
                 partido_block += "\n"
-                
-                if len(current_msg) + len(partido_block) > 3000:
+
+                if len(current_msg) + len(partido_block) > 2800:
                     messages.append(current_msg)
                     current_msg = f"{cat_title}{partido_block}"
                 else:
@@ -311,47 +295,10 @@ def get_live_agenda_messages(curr_key):
 
         return messages
     except Exception as e:
-        return [f"⚠️ Error obteniendo la agenda de partidos: {e}"]
-
-# BÚSQUEDA DE CANALES IPTV EN EL SERVIDOR DEDICADO
-def search_iptv_channels(query, curr_key):
-    q = query.upper().strip()
-    try:
-        url = f"{IPTV_HOSTS[0]}/player_api.php?username={IPTV_USER}&password={IPTV_PASS}&action=get_live_streams"
-        r = requests.get(url, timeout=10, headers={"User-Agent": "IPTVSmartersPro"}).json()
-        
-        matches = []
-        for s in r:
-            name = s.get("name", "").upper()
-            if q in name:
-                sid = s.get("stream_id")
-                clean_name = html.escape(s.get("name").strip())
-                matches.append((sid, clean_name))
-
-        if not matches:
-            return [f"🔍 No se encontraron canales con la búsqueda: <b>{html.escape(query)}</b>"]
-
-        messages = []
-        header = f"🔍 <b>RESULTADOS PARA '{html.escape(query)}' ({len(matches)} CANALES ENCONTRADOS):</b>\n\n"
-        current_msg = header
-
-        for sid, name in matches[:60]:
-            item = f"📺 <b>{name}</b> (ID: <code>{sid}</code>)\n<code>/stream {sid} {curr_key}</code>\n\n"
-            if len(current_msg) + len(item) > 3000:
-                messages.append(current_msg)
-                current_msg = item
-            else:
-                current_msg += item
-
-        if current_msg.strip():
-            messages.append(current_msg)
-
-        return messages
-    except Exception as e:
-        return [f"⚠️ Error buscando canales en el servidor IPTV: {e}"]
+        return [f"⚠️ Error cargando agenda de tarjetaroja.my: {e}"]
 
 # ==============================================================================
-# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG ULTRA-ESTABLE PARA IPTV TS)
+# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG ULTRA-ESTABLE)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -411,10 +358,10 @@ def start_single_stream(raw_url, stream_key):
                 stop_single_stream(sid)
 
         stream_id = get_next_stream_id()
-        source_url, headers, is_ok = resolve_iptv_stream(raw_url)
+        source_url, headers, is_ok = resolve_tarjetaroja_stream(raw_url)
 
         if not is_ok or not source_url:
-            return False, stream_id, f"No se pudo resolver el canal '{raw_url}'. Usa /top o /buscar."
+            return False, stream_id, f"No se pudo resolver el canal '{raw_url}' de tarjetaroja.my."
 
         proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
         
@@ -504,7 +451,7 @@ def stream_watchdog():
                         except Exception:
                             pass
                         
-                        new_url, new_hdrs, ok = resolve_iptv_stream(info["raw_name"])
+                        new_url, new_hdrs, ok = resolve_tarjetaroja_stream(info["raw_name"])
                         if ok and new_url:
                             new_proc, new_out_f, new_log = launch_ffmpeg_process(
                                 new_url, new_hdrs, info["destination"], sid
@@ -548,16 +495,16 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (SERVIDOR IPTV DEDICADO)</b>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (FUENTE: TARJETAROJA.MY)</b>\n\n"
             "📋 <b>AGENDA DE PARTIDOS:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos de hoy con sus canales limpios\n"
-            "• <code>/top</code> $\\rightarrow$ Canales deportivos principales 24/7\n"
-            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar entre los 27.000 canales del servidor\n\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos del día en <b>https://tarjetaroja.my/</b> organizados por ligas con sus canales de transmisión\n"
+            "• <code>/top</code> $\\rightarrow$ Canales deportivos 24/7\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
             "• <code>/stream juventus</code> | <code>/stream seriea</code>\n"
             "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
-            "• <code>/stream dsports</code> | <code>/stream laliga</code> | <code>/stream dazn</code>\n"
-            "• <code>/stream &lt;CANAL_O_ID&gt; [STREAM_KEY]</code>\n\n"
+            "• <code>/stream foxone</code> | <code>/stream tudn_usa</code> | <code>/stream paramount1</code>\n"
+            "• <code>/stream laliga</code> | <code>/stream dazn</code> | <code>/stream premier</code>\n"
+            "• <code>/stream &lt;CANAL_O_SLUG&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
             "• <code>/stopall</code> $\\rightarrow$ Detener TODAS las transmisiones\n\n"
@@ -568,33 +515,21 @@ def handle_message(msg):
         send_msg(chat_id, help_text)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ <b>Cargando agenda limpia de hoy con todos los canales IPTV...</b>")
-        agenda_msgs = get_live_agenda_messages(curr_key)
+        send_msg(chat_id, "⏳ <b>Cargando agenda de partidos de https://tarjetaroja.my/...</b>")
+        agenda_msgs = get_tarjetaroja_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
 
     elif text.startswith("/top") or text.startswith("/canales") or text.startswith("/deportes"):
-        msg_txt = "🌟 <b>CANALES DEPORTIVOS PRINCIPALES (SERVIDOR IPTV DEDICADO 1080P):</b>\n\n"
+        msg_txt = "🌟 <b>CANALES DEPORTIVOS PRINCIPALES (TARJETAROJA.MY):</b>\n\n"
         seen = set()
-        for cmd_name, sid in IPTV_CHANNELS_MAP.items():
+        for cmd_name, sid in TARJETAROJA_CHANNELS.items():
             if sid in seen:
                 continue
             seen.add(sid)
             msg_txt += f"📺 <b>{cmd_name.upper()}:</b>\n<code>/stream {cmd_name} {curr_key}</code>\n\n"
-        msg_txt += "💡 <i>Toca cualquier comando en gris para copiarlo y enviarlo al instante.</i>\n"
-        msg_txt += "🔍 <i>¿Buscas otro canal? Usa <code>/buscar &lt;nombre&gt;</code></i>"
+        msg_txt += "💡 <i>Toca cualquier comando en gris para copiarlo y enviarlo al instante.</i>"
         send_msg(chat_id, msg_txt)
-
-    elif text.startswith("/buscar") or text.startswith("/search"):
-        parts = text.split(maxsplit=1)
-        if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_canal&gt;</code>\nEjemplo: <code>/buscar juventus</code> o <code>/buscar espn</code> o <code>/buscar directv</code>")
-            return
-        query = parts[1].strip()
-        send_msg(chat_id, f"🔍 <b>Buscando '{html.escape(query)}' en los 27.000 canales del servidor IPTV...</b>")
-        results_msgs = search_iptv_channels(query, curr_key)
-        for m in results_msgs:
-            send_msg(chat_id, m)
 
     elif text.startswith("/key") or text.startswith("/setkey"):
         parts = text.split()
@@ -609,21 +544,21 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_ID&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream juventus</code> o <code>/stream espn</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_SLUG&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream juventus</code> o <code>/stream espn</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Iniciando transmisión IPTV de {html.escape(raw_url)}...</b>")
+        send_msg(chat_id, f"⏳ <b>Iniciando transmisión de {html.escape(raw_url)} desde https://tarjetaroja.my/...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión IPTV ACTIVA y FLUIDA!</b> 🚀\n\n"
+                f"✅ <b>¡Transmisión ACTIVA y FLUIDA!</b> 🚀\n\n"
                 f"📺 <b>Canal #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"📡 <b>Servidor:</b> IPTV Dedicado (0% Cortes / Calidad Máxima 1080p)\n"
-                f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Ultra Estable)\n\n"
+                f"📡 <b>Fuente:</b> https://tarjetaroja.my/\n"
+                f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Ultra Estable 1080p)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
         else:
@@ -684,7 +619,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot IPTV Dedicado (Auto-Decoder & Juventus Stream) listo...")
+    print("🤖 Bot 100% TarjetaRoja.my listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
