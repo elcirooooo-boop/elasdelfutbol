@@ -147,10 +147,17 @@ def extract_stream_code(embed_iframe):
             
     return embed_iframe
 
-# RESOLVEDOR UNIVERSAL MULTI-DOMINIO
+# RESOLVEDOR UNIVERSAL OPTIMIZADO (CON ALIASES Y SIN TIMEOUTS FALSOS)
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
+    # 1. Si es ID de IPTV numérico (ej. 30327)
+    if target_clean.isdigit():
+        target_url = f"http://evestv.leptis.live/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
+        referer = "http://evestv.leptis.live/"
+        return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
+
+    # 2. Si es una URL completa
     url_to_fetch = target
     if "r=" in target:
         try:
@@ -159,50 +166,54 @@ def resolve_live_stream_url(target):
         except Exception:
             pass
 
-    endpoints = []
-    if url_to_fetch.startswith("http"):
-        endpoints.append(url_to_fetch)
-    
-    endpoints.extend([
-        f"https://tvf90.com/5.php?stream={target_clean}",
-        f"https://futbollibre.ch/5.php?stream={target_clean}",
-        f"https://tvf90.com/hd.php?stream={target_clean}",
-        f"https://futbollibre.ch/hd.php?stream={target_clean}",
-        f"https://tvf90.com/1.php?stream={target_clean}",
-        f"https://futbollibre.ch/1.php?stream={target_clean}",
-        f"https://tvf90.com/3.php?stream={target_clean}",
-        f"https://futbollibre.ch/3.php?stream={target_clean}",
-    ])
+    if url_to_fetch.startswith("http") and ("leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch):
+        referer = "http://evestv.leptis.live/"
+        return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
 
-    for ep in endpoints:
-        try:
-            r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=2.5)
-            if r.status_code == 200:
-                m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-                if m3u8:
-                    m3u8_url = m3u8[0]
-                    try:
-                        r_chk = requests.get(m3u8_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=2)
-                        if r_chk.status_code == 200:
-                            return m3u8_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
-                    except Exception:
-                        pass
-                
-                iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
-                for ifr in iframes:
-                    ifr_url = ifr if ifr.startswith("http") else f"https://tvf90.com/{ifr.lstrip('/')}"
-                    r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=2.5)
-                    m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
-                    if m3u8_2:
-                        m3u8_url2 = m3u8_2[0]
-                        try:
-                            r_chk2 = requests.get(m3u8_url2, headers={"User-Agent": "Mozilla/5.0", "Referer": ifr_url}, timeout=2)
-                            if r_chk2.status_code == 200:
-                                return m3u8_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
-                        except Exception:
-                            pass
-        except Exception:
-            pass
+    # 3. Aliases inteligentes para canales alternativos
+    aliases = [target_clean]
+    if target_clean == "dsportsar":
+        aliases.extend(["dsports_eventos", "dsports"])
+    elif target_clean == "dsports2":
+        aliases.extend(["dsports_eventos", "dsports"])
+    elif target_clean == "dsports_eventos":
+        aliases.extend(["dsportsar", "dsports"])
+    elif target_clean == "espnpremium":
+        aliases.extend(["espn", "espn2"])
+
+    for alias in aliases:
+        endpoints = []
+        if url_to_fetch.startswith("http") and alias == target_clean:
+            endpoints.append(url_to_fetch)
+        
+        endpoints.extend([
+            f"https://tvf90.com/5.php?stream={alias}",
+            f"https://futbollibre.ch/5.php?stream={alias}",
+            f"https://tvf90.com/hd.php?stream={alias}",
+            f"https://futbollibre.ch/hd.php?stream={alias}",
+            f"https://tvf90.com/1.php?stream={alias}",
+            f"https://futbollibre.ch/1.php?stream={alias}",
+            f"https://tv-90.com/{alias}.php",
+            f"https://tvf90.com/3.php?stream={alias}",
+        ])
+
+        for ep in endpoints:
+            try:
+                r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=3.5)
+                if r.status_code == 200:
+                    m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+                    if m3u8:
+                        return m3u8[0], f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                    
+                    iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
+                    for ifr in iframes:
+                        ifr_url = ifr if ifr.startswith("http") else f"https://tvf90.com/{ifr.lstrip('/')}"
+                        r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=3.5)
+                        m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
+                        if m3u8_2:
+                            return m3u8_2[0], f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+            except Exception:
+                pass
 
     return None, f"No se pudo resolver el canal '{target}'.", False
 
@@ -217,6 +228,7 @@ TOP_SPORTS_CHANNELS = [
     {"name": "TyC Sports HD (Argentina)", "cmd": "tyc"},
     {"name": "Directv Sports 1 (DSPORTS)", "cmd": "dsports"},
     {"name": "Directv Sports 2 (DSPORTS 2)", "cmd": "dsports2"},
+    {"name": "Directv Sports Argentina (DSPORTS AR)", "cmd": "dsportsar"},
     {"name": "Win Sports + HD (Colombia)", "cmd": "winsports"},
     {"name": "Fox Sports HD", "cmd": "foxsports"},
     {"name": "LaLiga TV (FHD)", "cmd": "laliga"},
@@ -300,7 +312,6 @@ def get_next_stream_id():
     return str(len(active_streams) + 1)
 
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
-    # Flags de ultra-baja latencia y reconexión inmediata en 1s ante fluctuaciones
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
@@ -308,7 +319,7 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "1",
-        "-rw_timeout", "3000000",                # 3s timeout de socket: reconexión instantánea si la fuente se frena
+        "-rw_timeout", "4000000",                # 4s timeout de socket: reconexión inmediata si la fuente se frena
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
         "-max_interleave_delta", "0"
@@ -492,8 +503,8 @@ def handle_message(msg):
             "• <code>/top</code> $\\rightarrow$ Canales deportivos principales 24/7\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
             "• <code>/stream espn2</code> | <code>/stream espn4</code> | <code>/stream tyc</code>\n"
-            "• <code>/stream dsports</code> | <code>/stream dsports2</code> | <code>/stream winsports</code>\n"
-            "• <code>/stream hypermotion1</code> | <code>/stream telemundo</code>\n"
+            "• <code>/stream dsports</code> | <code>/stream dsports2</code> | <code>/stream dsportsar</code>\n"
+            "• <code>/stream winsports</code> | <code>/stream hypermotion1</code> | <code>/stream telemundo</code>\n"
             "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
@@ -531,7 +542,7 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn4</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream dsportsar</code>")
             return
         
         raw_url = clean_arg(parts[1])
