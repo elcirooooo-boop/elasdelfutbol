@@ -158,9 +158,9 @@ def find_working_m3u8(raw_m3u8, referer_url):
                 return t_url
         except Exception:
             pass
-    return raw_m3u8
+    return None
 
-# RESOLVEDOR UNIVERSAL DINÁMICO
+# RESOLVEDOR UNIVERSAL DINÁMICO CON FALLBACK AUTOMÁTICO
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
@@ -174,9 +174,9 @@ def resolve_live_stream_url(target):
 
     aliases = [target_clean]
     if target_clean == "dsportsar":
-        aliases.extend(["dsports", "dsports_eventos", "dsports2"])
+        aliases.extend(["dsports", "dsports2"])
     elif target_clean == "dsports2":
-        aliases.extend(["dsports", "dsports_eventos"])
+        aliases.extend(["dsports"])
     elif target_clean == "dsports_eventos":
         aliases.extend(["dsports", "dsportsar"])
     elif target_clean == "espnpremium":
@@ -194,28 +194,29 @@ def resolve_live_stream_url(target):
             f"https://tvf90.com/hd.php?stream={alias}",
             f"https://futbollibre.ch/1.php?stream={alias}",
             f"https://tvf90.com/1.php?stream={alias}",
-            f"https://tv-90.com/{alias}.php",
             f"https://futbollibre.ch/3.php?stream={alias}",
             f"https://tvf90.com/3.php?stream={alias}",
         ])
 
         for ep in endpoints:
             try:
-                r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=3.5)
+                r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=3.0)
                 if r.status_code == 200:
                     m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
                     if m3u8:
                         working_url = find_working_m3u8(m3u8[0], ep)
-                        return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                        if working_url:
+                            return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
                     
                     iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
                     for ifr in iframes:
                         ifr_url = ifr if ifr.startswith("http") else f"https://futbollibre.ch/{ifr.lstrip('/')}"
-                        r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=3.5)
+                        r2 = requests.get(ifr_url, headers={"User-Agent": "Mozilla/5.0", "Referer": ep}, timeout=3.0)
                         m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
                         if m3u8_2:
                             working_url2 = find_working_m3u8(m3u8_2[0], ifr_url)
-                            return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                            if working_url2:
+                                return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
             except Exception:
                 pass
 
