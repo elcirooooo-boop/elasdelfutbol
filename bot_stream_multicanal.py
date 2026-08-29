@@ -6,24 +6,17 @@ import os
 import sys
 import re
 import html
+import base64
 import threading
 import concurrent.futures
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT (FUENTE 100% TARJETAROJA.MY + MOTOR DEDICADO)
+# 1. CONFIGURACIÓN DEL BOT (100% NATIVO TARJETAROJA.MY + STREAMXHD + STREAMTP)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
 AGENDA_URL = "https://tarjetaroja.my/"
-
-IPTV_USER = "BE15ERDV"
-IPTV_PASS = "PXELERB9"
-IPTV_HOSTS = [
-    "http://evestv.leptis.live",
-    "http://evestv.ptjfj.com",
-    "http://tv.rmhat.com"
-]
 
 HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -53,7 +46,7 @@ ADMIN_USER_ID = None
 active_streams = {}
 stream_lock = threading.Lock()
 
-# LIGAS Y COMPETICIONES CON SUS BANDERAS Y PRIORIDADES
+# CLASIFICACIÓN DE LIGAS CON BANDERAS
 LEAGUE_CATEGORIES = [
     (r'juventus|parma|serie a|coppa italia|milan|inter|roma|napoli|lazio', '🇮🇹 <b>SERIE A (ITALIA)</b>', 30),
     (r'laliga smartbank|laliga hypermotion|smartbank|hypermotion', '🇪🇸 <b>LALIGA HYPERMOTION (ESPAÑA)</b>', 10),
@@ -91,132 +84,97 @@ def classify_event(desc):
             return cat_name, priority
     return '🏆 <b>MÁS EVENTOS DEPORTIVOS</b>', 999
 
-# DICCIONARIO DIRECTO DE CANALES (TARJETAROJA.MY -> STREAMS DEDICADOS)
-TARJETAROJA_CHANNELS = {
-    # ESPN / Disney
-    "espn": "32114",
-    "espn1": "32114",
-    "espn2": "32164",
-    "espn3": "32112",
-    "espn4": "32111",
-    "espn7": "32138",
-    "espnextra": "32138",
-    "espnplus1": "32114",
-    "espn-deportes": "32038",
-    "espndeportes": "32038",
-    "disney-1": "32114",
-    "disney-2": "32164",
-    "disney-3": "32112",
-    "disney-4": "32111",
-    "disney-5": "32138",
-    "disney-6": "32114",
-    "disney-7": "32164",
-    "disney8": "32112",
-    "disney12": "32114",
-    "disney1": "32114",
-    "disney2": "32164",
-    "disney3": "32112",
-    "disney4": "32111",
-    
-    # Fox Sports / TUDN / Max / Universo
-    "foxone": "6873",
-    "foxone3": "6872",
-    "fox1ar": "6873",
-    "foxsports": "6873",
-    "tudn_usa": "32040",
-    "tudn": "32040",
-    "max1": "239671",
-    "max": "239671",
-    "universo_usa": "32162",
-    "universo": "32162",
-    "canal5": "3987",
-    
-    # Paramount
-    "paramount1": "29016",
-    "paramount2": "29043",
-    "paramount3": "29044",
-    "stp-paramount1": "29016",
-    
-    # Serie A / Juventus / Directv / Win / TyC
-    "juventus": "8805",
-    "juve": "8805",
-    "seriea": "8805",
-    "parma": "8805",
-    "dsports": "33933",
-    "dsports1": "33933",
-    "directv": "33933",
-    "dsportsar": "33933",
-    "dsports2": "33932",
-    "dsportsplus": "33931",
-    "winsports": "33945",
-    "win": "33945",
-    "wincolombia": "33944",
-    "tyc": "30365",
-    "tycsports": "30365",
-    
-    # LaLiga / Premier / Motorsport
-    "laliga": "30905",
-    "movistarlaliga": "30905",
-    "m+laliga": "30905",
-    "laligatv": "33866",
-    "premier2uk": "29044",
-    "premier": "29016",
-    "premiersports": "29043",
-    "dazn": "224832",
-    "daznlaliga": "224832",
-    "f1": "30907",
-    "daznf1": "30907",
-    "motogp": "1349240",
-    "champions": "239671",
-    "eurosport": "30911",
-    "eurosport1": "30911",
-    "eurosport2": "30912",
-    "nfl": "32121",
-    "redzone": "32121",
-    "nba": "32106"
-}
+# EXTRACTOR DE M3U8 DE STREAMXHD (DISNEY, STAR, DAZN, ESPN)
+def extract_from_streamxhd(stream_url):
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://tarjetaroja.my/"
+        }
+        r = requests.get(stream_url, headers=headers, timeout=5)
+        html_txt = r.text
+        
+        func_returns = re.findall(r'function\s+[a-zA-Z0-9_]+\s*\(\)\s*\{\s*return\s+(\d+)\s*;\s*\}', html_txt)
+        if not func_returns:
+            return None, None, False
+        k = sum(int(x) for x in func_returns)
+        
+        arr_match = re.search(r'(\[\[\d+,\s*["\'][^"\']+["\']\].*?\]);', html_txt, re.DOTALL)
+        if not arr_match:
+            return None, None, False
+            
+        ho_data = json.loads(arr_match.group(1))
+        ho_data.sort(key=lambda x: x[0])
+        
+        playbackURL = ""
+        for idx, v in ho_data:
+            decoded_b64 = base64.b64decode(v).decode('utf-8', errors='ignore')
+            digits_only = re.sub(r'\D', '', decoded_b64)
+            if digits_only:
+                char_code = int(digits_only) - k
+                playbackURL += chr(char_code)
+                
+        if playbackURL.startswith("http"):
+            return playbackURL, f"Referer: {stream_url}\r\nUser-Agent: Mozilla/5.0\r\n", True
+    except Exception as e:
+        print(f"Error decodificando StreamXHD: {e}")
+    return None, None, False
 
-# RESOLVER DE STREAM (TARJETAROJA.MY)
+# RESOLVER DIRECTO DE SEÑAL EXACTA DE TARJETAROJA.MY
 def resolve_tarjetaroja_stream(channel_name):
     ch_raw = str(channel_name).strip().lower()
     ch_slug = ch_raw.replace("stp-", "").strip()
     
-    stream_id = None
-    if ch_slug in TARJETAROJA_CHANNELS:
-        stream_id = TARJETAROJA_CHANNELS[ch_slug]
-    elif ch_raw in TARJETAROJA_CHANNELS:
-        stream_id = TARJETAROJA_CHANNELS[ch_raw]
-    elif ch_slug.isdigit():
-        stream_id = ch_slug
-    else:
-        for k, sid in TARJETAROJA_CHANNELS.items():
-            if k in ch_slug or ch_slug in k:
-                stream_id = sid
-                break
-
-    if not stream_id:
-        stream_id = "32114"
-
-    for host in IPTV_HOSTS:
-        try:
-            req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
-            r = requests.get(req_url, headers={"User-Agent": "IPTVSmartersPro"}, allow_redirects=False, timeout=3.5)
-            loc = r.headers.get("Location")
-            if loc:
-                edge_host = loc.split('/')[2]
-                edge_ip = "154.6.144.120"
-                try:
-                    doh = requests.get(f"https://cloudflare-dns.com/dns-query?name={edge_host}&type=A", headers={"accept": "application/dns-json"}, timeout=2).json()
-                    if "Answer" in doh and doh["Answer"]:
-                        edge_ip = doh["Answer"][0]["data"]
-                except Exception:
-                    pass
+    # 1. Consultar la página exacta del stream en https://tarjetaroja.my/stream/<ch>
+    page_url = f"https://tarjetaroja.my/stream/{ch_raw}"
+    try:
+        r_page = requests.get(page_url, headers=HTTP_HEADERS, timeout=5)
+        if r_page.status_code == 200:
+            iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r_page.text)
+            if iframes:
+                ifr_url = iframes[0]
+                if ifr_url.startswith("//"):
+                    ifr_url = "https:" + ifr_url
+                print(f"Iframe detectado para '{ch_raw}': {ifr_url}")
                 
-                final_stream_url = loc.replace(edge_host, edge_ip)
-                headers_str = f"User-Agent: IPTVSmartersPro\r\nHost: {edge_host}\r\n"
-                return final_stream_url, headers_str, True
-            elif r.status_code == 200:
-                return req_url, "User-Agent: IPTVSmartersPro\r\n", True
+                # Caso A: StreamXHD (ej. disney21, disney2, espnplus, etc.)
+                if "streamxhd.com" in ifr_url:
+                    m3u8, hdrs, ok = extract_from_streamxhd(ifr_url)
+                    if ok:
+                        return m3u8, hdrs, True
+                
+                # Caso B: TVF90 / FutbolLibre / StreamTP
+                if any(w in ifr_url for w in ["tvf90.com", "futbollibre.ch", "streamtp"]):
+                    stream_param = ch_slug
+                    if "stream=" in ifr_url:
+                        stream_param = ifr_url.split("stream=")[1].split("&")[0].strip()
+                    
+                    for ep in [
+                        f"https://tvf90.com/5.php?stream={stream_param}",
+                        f"https://futbollibre.ch/5.php?stream={stream_param}",
+                        f"https://tvf90.com/hd.php?stream={stream_param}",
+                        f"https://futbollibre.ch/hd.php?stream={stream_param}"
+                    ]:
+                        try:
+                            r_ep = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": ifr_url}, timeout=3.5)
+                            m = re.search(r'playbackURL\s*=\s*["\']([^"\']+)["\']', r_ep.text)
+                            if m and m.group(1).startswith("http"):
+                                return m.group(1), f"Referer: {ifr_url}\r\nUser-Agent: Mozilla/5.0\r\n", True
+                        except Exception:
+                            pass
+    except Exception as e:
+        print(f"Error consultando {page_url}: {e}")
+
+    # Fallback general para canales conocidos de tarjetaroja
+    for ep in [
+        f"https://tvf90.com/5.php?stream={ch_slug}",
+        f"https://futbollibre.ch/5.php?stream={ch_slug}"
+    ]:
+        try:
+            r_ep = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://tvf90.com/"}, timeout=3.5)
+            m = re.search(r'playbackURL\s*=\s*["\']([^"\']+)["\']', r_ep.text)
+            if m and m.group(1).startswith("http"):
+                return m.group(1), "Referer: https://tvf90.com/\r\nUser-Agent: Mozilla/5.0\r\n", True
         except Exception:
             pass
 
@@ -315,7 +273,6 @@ def get_next_stream_id():
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd = [
         "ffmpeg",
-        "-user_agent", "IPTVSmartersPro",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
@@ -361,7 +318,7 @@ def start_single_stream(raw_url, stream_key):
         source_url, headers, is_ok = resolve_tarjetaroja_stream(raw_url)
 
         if not is_ok or not source_url:
-            return False, stream_id, f"No se pudo resolver el canal '{raw_url}' de tarjetaroja.my."
+            return False, stream_id, f"No se pudo resolver la señal '{raw_url}' de tarjetaroja.my."
 
         proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
         
@@ -432,7 +389,7 @@ def stop_all_streams():
             count += 1
     return count
 
-# WATCHDOG EN SEGUNDO PLANO (AUTO-RECUPERADOR INSTANTÁNEO)
+# WATCHDOG EN SEGUNDO PLANO
 def stream_watchdog():
     while True:
         try:
@@ -497,13 +454,11 @@ def handle_message(msg):
         help_text = (
             "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (FUENTE: TARJETAROJA.MY)</b>\n\n"
             "📋 <b>AGENDA DE PARTIDOS:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos del día en <b>https://tarjetaroja.my/</b> organizados por ligas con sus canales de transmisión\n"
-            "• <code>/top</code> $\\rightarrow$ Canales deportivos 24/7\n\n"
-            "📺 <b>TRANSMITIR:</b>\n"
-            "• <code>/stream juventus</code> | <code>/stream seriea</code>\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos en vivo de <b>https://tarjetaroja.my/</b>\n\n"
+            "📺 <b>TRANSMITIR CUALQUIER SEÑAL:</b>\n"
+            "• <code>/stream disney21</code> | <code>/stream disney-2</code>\n"
             "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
-            "• <code>/stream foxone</code> | <code>/stream tudn_usa</code> | <code>/stream paramount1</code>\n"
-            "• <code>/stream laliga</code> | <code>/stream dazn</code> | <code>/stream premier</code>\n"
+            "• <code>/stream foxone</code> | <code>/stream tudn_usa</code> | <code>/stream max1</code>\n"
             "• <code>/stream &lt;CANAL_O_SLUG&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
@@ -515,21 +470,10 @@ def handle_message(msg):
         send_msg(chat_id, help_text)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ <b>Cargando agenda de partidos de https://tarjetaroja.my/...</b>")
+        send_msg(chat_id, "⏳ <b>Cargando agenda en vivo de https://tarjetaroja.my/...</b>")
         agenda_msgs = get_tarjetaroja_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
-
-    elif text.startswith("/top") or text.startswith("/canales") or text.startswith("/deportes"):
-        msg_txt = "🌟 <b>CANALES DEPORTIVOS PRINCIPALES (TARJETAROJA.MY):</b>\n\n"
-        seen = set()
-        for cmd_name, sid in TARJETAROJA_CHANNELS.items():
-            if sid in seen:
-                continue
-            seen.add(sid)
-            msg_txt += f"📺 <b>{cmd_name.upper()}:</b>\n<code>/stream {cmd_name} {curr_key}</code>\n\n"
-        msg_txt += "💡 <i>Toca cualquier comando en gris para copiarlo y enviarlo al instante.</i>"
-        send_msg(chat_id, msg_txt)
 
     elif text.startswith("/key") or text.startswith("/setkey"):
         parts = text.split()
@@ -544,21 +488,21 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_SLUG&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream juventus</code> o <code>/stream espn</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_SLUG&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream disney21</code> o <code>/stream espn</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Iniciando transmisión de {html.escape(raw_url)} desde https://tarjetaroja.my/...</b>")
+        send_msg(chat_id, f"⏳ <b>Conectando a la señal exacta de {html.escape(raw_url)} en https://tarjetaroja.my/...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión ACTIVA y FLUIDA!</b> 🚀\n\n"
+                f"✅ <b>¡Transmisión ACTIVA y 100% IDÉNTICA a la Web!</b> 🚀\n\n"
                 f"📺 <b>Canal #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"📡 <b>Fuente:</b> https://tarjetaroja.my/\n"
-                f"⚡ <b>Modo:</b> Direct Passthrough (0% CPU / Ultra Estable 1080p)\n\n"
+                f"📡 <b>Fuente:</b> https://tarjetaroja.my/stream/{html.escape(raw_url)}\n"
+                f"⚡ <b>Modo:</b> Stream Passthrough (0% CPU / Calidad Original)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
         else:
@@ -619,7 +563,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot 100% TarjetaRoja.my listo...")
+    print("🤖 Bot 100% TarjetaRoja.my (StreamXHD & StreamTP Direct Resolver) listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
