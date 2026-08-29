@@ -16,11 +16,6 @@ from urllib.parse import urlparse
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
-
-IPTV_USER = "BE15ERDV"
-IPTV_PASS = "PXELERB9"
-IPTV_SERVER = "http://evestv.ptjfj.com"
-IPTV_SERVER_ALT = "http://evestv.leptis.live"
 AGENDA_API = "https://futbollibretv.org.pe/diaries.json?v=2.2"
 
 def load_config():
@@ -129,25 +124,6 @@ def classify_event(desc):
             return cat_name, priority
     return '🏆 <b>MÁS EVENTOS DEPORTIVOS</b>', 999
 
-# CANALES CON RESPALDO DEDICADO EN IPTV
-IPTV_BACKUPS = {
-    "dsports2": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33932.ts",
-    "dsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts",
-    "dsportsar": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33933.ts",
-    "espn": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30326.ts",
-    "espn2": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30327.ts",
-    "espn3": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30328.ts",
-    "espn4": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
-    "espnextra": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30329.ts",
-    "espnpremium": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/4883.ts",
-    "tyc": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts",
-    "tycsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/30365.ts",
-    "winsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts",
-    "winsports2": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33945.ts",
-    "tntsports": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/5987.ts",
-    "laliga": f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/33866.ts",
-}
-
 def extract_stream_code(embed_iframe):
     if not embed_iframe:
         return None
@@ -175,13 +151,6 @@ def extract_stream_code(embed_iframe):
 def resolve_live_stream_url(target):
     target_clean = target.lower().strip()
     
-    # 1. Si es ID de IPTV numérico (ej. 30327)
-    if target_clean.isdigit():
-        target_url = f"{IPTV_SERVER_ALT}/live/{IPTV_USER}/{IPTV_PASS}/{target_clean}.ts"
-        referer = "http://evestv.leptis.live/"
-        return target_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
-
-    # 2. Si es una URL completa
     url_to_fetch = target
     if "r=" in target:
         try:
@@ -190,25 +159,19 @@ def resolve_live_stream_url(target):
         except Exception:
             pass
 
-    if url_to_fetch.startswith("http") and ("leptis.live" in url_to_fetch or "ptjfj.com" in url_to_fetch):
-        referer = "http://evestv.leptis.live/"
-        return url_to_fetch, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
-
-    # 3. Lista de endpoints oficiales dinámicos
     endpoints = []
     if url_to_fetch.startswith("http"):
         endpoints.append(url_to_fetch)
     
     endpoints.extend([
         f"https://tvf90.com/5.php?stream={target_clean}",
-        f"https://tvf90.com/1.php?stream={target_clean}",
-        f"https://tvf90.com/hd.php?stream={target_clean}",
-        f"https://tvf90.com/3.php?stream={target_clean}",
         f"https://futbollibre.ch/5.php?stream={target_clean}",
-        f"https://futbollibre.ch/1.php?stream={target_clean}",
+        f"https://tvf90.com/hd.php?stream={target_clean}",
         f"https://futbollibre.ch/hd.php?stream={target_clean}",
-        f"https://tv-90.com/1.php?stream={target_clean}",
-        f"https://tv-90.com/5.php?stream={target_clean}",
+        f"https://tvf90.com/1.php?stream={target_clean}",
+        f"https://futbollibre.ch/1.php?stream={target_clean}",
+        f"https://tvf90.com/3.php?stream={target_clean}",
+        f"https://futbollibre.ch/3.php?stream={target_clean}",
     ])
 
     for ep in endpoints:
@@ -241,16 +204,6 @@ def resolve_live_stream_url(target):
         except Exception:
             pass
 
-    if target_clean in IPTV_BACKUPS:
-        iptv_url = IPTV_BACKUPS[target_clean]
-        try:
-            r_iptv = requests.get(iptv_url, headers={"User-Agent": "IPTVSmartersPro"}, stream=True, timeout=2.5)
-            if r_iptv.status_code == 200:
-                referer = "http://evestv.leptis.live/"
-                return iptv_url, f"Referer: {referer}\r\nOrigin: {referer.rstrip('/')}\r\n", True
-        except Exception:
-            pass
-
     return None, f"No se pudo resolver el canal '{target}'.", False
 
 TOP_SPORTS_CHANNELS = [
@@ -269,7 +222,6 @@ TOP_SPORTS_CHANNELS = [
     {"name": "LaLiga TV (FHD)", "cmd": "laliga"},
 ]
 
-# EXTRACTOR Y ORGANIZADOR DE AGENDA POR LIGAS CON BANDERAS
 def get_live_agenda_messages(curr_key):
     try:
         r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"})
@@ -277,7 +229,6 @@ def get_live_agenda_messages(curr_key):
         if not data:
             return ["🔴 No hay partidos programados en la agenda en este momento."]
 
-        # Agrupar eventos por Liga
         groups = {}
         for item in data:
             attrs = item.get("attributes", {})
@@ -334,7 +285,7 @@ def get_live_agenda_messages(curr_key):
         return [f"⚠️ Error obteniendo la agenda de rojadirectatv.ec: {e}"]
 
 # ==============================================================================
-# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG BLINDADO + WATCHDOG AUTORREPARADOR)
+# 2. MOTOR ANTI-CONGELAMIENTO (FFMPEG BLINDADO + WATCHDOG ULTRA-RÁPIDO)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -349,14 +300,15 @@ def get_next_stream_id():
     return str(len(active_streams) + 1)
 
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
+    # Flags de ultra-baja latencia y reconexión inmediata en 1s ante fluctuaciones
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "2",
-        "-rw_timeout", "8000000",                # 8s timeout de socket
+        "-reconnect_delay_max", "1",
+        "-rw_timeout", "3000000",                # 3s timeout de socket: reconexión instantánea si la fuente se frena
         "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
         "-avoid_negative_ts", "make_zero",
         "-max_interleave_delta", "0"
@@ -370,7 +322,7 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
 
     cmd.extend([
         "-i", source_url,
-        "-max_muxing_queue_size", "8192",
+        "-max_muxing_queue_size", "16384",
         "-c:v", "copy",
         "-c:a", "aac",
         "-b:a", "128k",
@@ -471,11 +423,11 @@ def stop_all_streams():
             count += 1
     return count
 
-# WATCHDOG EN SEGUNDO PLANO
+# WATCHDOG EN SEGUNDO PLANO (AUTO-RECUPERADOR INSTANTÁNEO)
 def stream_watchdog():
     while True:
         try:
-            time.sleep(3)
+            time.sleep(2)
             with stream_lock:
                 for sid, info in list(active_streams.items()):
                     if not info.get("auto_restart", False):
@@ -654,7 +606,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot de Transmisión por Ligas y Banderas listo...")
+    print("🤖 Bot de Transmisión con Auto-Healer y Multi-Espejo listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
