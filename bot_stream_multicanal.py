@@ -149,7 +149,7 @@ def extract_stream_code(embed_iframe):
     return embed_iframe
 
 # RESOLUCIÓN PARALELA CONCURRENTE DE NODOS CDN
-VALID_CDN_HOSTS = ["2.01-f.com", "4.01-f.com", "1.01-f.com", "8.01-f.com", "9.01-f.com", "5.01-f.com", "6.01-f.com", "7.01-f.com", "10.01-f.com"]
+VALID_CDN_HOSTS = ["6.01-f.com", "8.01-f.com", "4.01-f.com", "1.01-f.com", "2.01-f.com", "9.01-f.com", "5.01-f.com", "7.01-f.com", "10.01-f.com"]
 
 def check_single_host(vh, raw_m3u8, referer_url):
     t_url = re.sub(r'[\w\.-]+\.01-f\.com', vh, raw_m3u8)
@@ -171,7 +171,7 @@ def find_working_m3u8_fast(raw_m3u8, referer_url):
             res = future.result()
             if res:
                 return res
-    return raw_m3u8
+    return None
 
 # RESOLVEDOR UNIVERSAL (CON PRIORIDAD SERVER 2)
 def resolve_live_stream_url(target):
@@ -194,7 +194,6 @@ def resolve_live_stream_url(target):
     if "istreameast.cx" in target or "thestreameast" in target:
         try:
             r = requests.get(target, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://istreameast.cx/"}, timeout=4)
-            # Buscar botones de Server 2
             btns = re.findall(r'<button[^>]+class=["\']server-btn[^"\']*["\'][^>]+data-src=["\']([^"\']+)["\'][^>]*>(.*?)</button>', r.text)
             
             selected_embed = None
@@ -242,20 +241,21 @@ def resolve_live_stream_url(target):
         endpoints.extend([
             f"https://tvf90.com/hd.php?stream={alias}",
             f"https://futbollibre.ch/hd.php?stream={alias}",
-            f"https://futbollibre.ch/5.php?stream={alias}",
             f"https://tvf90.com/5.php?stream={alias}",
-            f"https://futbollibre.ch/1.php?stream={alias}",
+            f"https://futbollibre.ch/5.php?stream={alias}",
             f"https://tvf90.com/1.php?stream={alias}",
+            f"https://futbollibre.ch/1.php?stream={alias}",
         ])
 
         for ep in endpoints:
             try:
                 r = requests.get(ep, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"}, timeout=2.0)
                 if r.status_code == 200:
-                    m3u8 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
-                    if m3u8:
-                        working_url = find_working_m3u8_fast(m3u8[0], ep)
-                        return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
+                    m3u8s = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r.text)
+                    if m3u8s:
+                        working_url = find_working_m3u8_fast(m3u8s[0], ep)
+                        if working_url:
+                            return working_url, f"Referer: {ep}\r\nOrigin: {ep.rsplit('/', 1)[0]}\r\n", True
                     
                     iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
                     for ifr in iframes:
@@ -264,7 +264,8 @@ def resolve_live_stream_url(target):
                         m3u8_2 = re.findall(r'(https?://[^\s"\']+\.m3u8[^\s"\']*)', r2.text)
                         if m3u8_2:
                             working_url2 = find_working_m3u8_fast(m3u8_2[0], ifr_url)
-                            return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
+                            if working_url2:
+                                return working_url2, f"Referer: {ifr_url}\r\nOrigin: {ifr_url.rsplit('/', 1)[0]}\r\n", True
             except Exception:
                 pass
 
