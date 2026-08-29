@@ -6,12 +6,13 @@ import os
 import sys
 import re
 import html
+import base64
 import threading
 import concurrent.futures
 from urllib.parse import urlparse
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT (SERVIDOR IPTV DEDICADO + AGENDA MUNDIAL DE PARTIDOS)
+# 1. CONFIGURACIÓN DEL BOT (SERVIDOR IPTV DEDICADO + AGENDA MUNDIAL)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
@@ -51,6 +52,23 @@ stream_lock = threading.Lock()
 
 # LIGAS Y COMPETICIONES CON SUS BANDERAS Y PRIORIDADES
 LEAGUE_CATEGORIES = [
+    (r'juventus|parma|serie a|coppa italia|milan|inter|roma|napoli|lazio', '🇮🇹 <b>SERIE A (ITALIA)</b>', 30),
+    (r'laliga smartbank|laliga hypermotion|smartbank|hypermotion', '🇪🇸 <b>LALIGA HYPERMOTION (ESPAÑA)</b>', 10),
+    (r'laliga|la liga|copa del rey|supercopa de espa[nñ]a|real madrid|barcelona|atletico|sevilla', '🇪🇸 <b>LALIGA EA SPORTS (ESPAÑA)</b>', 11),
+    (r'premier league|premier|liverpool|arsenal|chelsea|manchester|tottenham|newcastle', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA)</b>', 20),
+    (r'championship|efl cup|carabao|fa cup|league one|league two', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>FÚTBOL INGLÉS (CHAMPIONSHIP / COPAS)</b>', 21),
+    (r'champions league|uefa|sorteo.*champions|europa league|conference league|supercopa de europa', '🇪🇺 <b>UEFA (CHAMPIONS / EUROPA / CONFERENCE)</b>', 1),
+    (r'libertadores|sudamericana|recopa', '🌎 <b>CONMEBOL (LIBERTADORES / SUDAMERICANA)</b>', 2),
+    (r'bundesliga|dfb[ -]pokal|supercopa alemana|bayern|dortmund', '🇩🇪 <b>BUNDESLIGA (ALEMANIA)</b>', 41),
+    (r'ligue 1|ligue 2|coupe de france|psg|marseille|monaco|lyon', '🇫🇷 <b>LIGUE 1 (FRANCIA)</b>', 50),
+    (r'primeira liga|taca de portugal|liga portugal|benfica|porto|sporting', '🇵🇹 <b>PRIMEIRA LIGA (PORTUGAL)</b>', 60),
+    (r'eredivisie|eerste divisie|knvb beker|ajax|psv|feyenoord', '🇳🇱 <b>EREDIVISIE (PAÍSES BAJOS)</b>', 70),
+    (r'pro league|saudi pro league|saudi|al fateh|al ittihad|al hilal|al nassr', '🇸🇦 <b>SAUDI PRO LEAGUE (ARABIA SAUDITA)</b>', 75),
+    (r'liga profesional|copa de la liga|copa argentina|primera nacional|boca|river|racing', '🇦🇷 <b>FÚTBOL ARGENTINO (LIGA PROFESIONAL)</b>', 80),
+    (r'brasileir[aã]o|copa do brasil|paulista|carioca|flamengo|palmeiras', '🇧🇷 <b>BRASILEIRÃO (BRASIL)</b>', 90),
+    (r'primera a:\s*(?:junior|santa fe|jaguares|am[eé]rica|alianza|atl[eé]tico nacional|millonarios|medellin|cali|tolima|once caldas|bucaramanga|pereira|pasto|envigado|aguilas|equidad|patriotas|fortaleza)|liga betplay|copa colombia', '🇨🇴 <b>LIGA BETPLAY (COLOMBIA)</b>', 100),
+    (r'liga mx|expansi[oó]n mx|liga de expansi[oó]n|copa mx|america|chivas|cruz azul|monterrey|tigres', '🇲🇽 <b>LIGA MX (MÉXICO)</b>', 110),
+    (r'liga 1|liga 2|copa bicentenario|alianza lima|universitario|cristal', '🇵🇪 <b>LIGA 1 (PERÚ)</b>', 120),
     (r'moto gp|motogp|f[oó]rmula 1|f1|indycar|nascar|rally', '🏎️ <b>MOTORSPORT (MOTO GP / F1 / INDYCAR)</b>', 210),
     (r'ciclismo|la vuelta|tour de francia|giro d.italia|giro de italia|\bgiro\b', '🚴 <b>CICLISMO</b>', 220),
     (r'tenis|tennis|atp|wta|us open|roland garros|wimbledon|australian open', '🎾 <b>TENIS (ATP / WTA)</b>', 230),
@@ -60,23 +78,6 @@ LEAGUE_CATEGORIES = [
     (r'b[eé]isbol|baseball|mlb|little ligue|little league', '⚾ <b>BÉISBOL (MLB)</b>', 260),
     (r'b[aá]squet|basketball|nba|euroliga', '🏀 <b>BÁSQUETBOL (NBA / EUROLIGA)</b>', 270),
     (r'hockey', '🏑 <b>HOCKEY</b>', 280),
-    (r'champions league|uefa|sorteo.*champions|europa league|conference league|supercopa de europa', '🇪🇺 <b>UEFA (CHAMPIONS / EUROPA / CONFERENCE)</b>', 1),
-    (r'libertadores|sudamericana|recopa', '🌎 <b>CONMEBOL (LIBERTADORES / SUDAMERICANA)</b>', 2),
-    (r'laliga smartbank|laliga hypermotion|smartbank|hypermotion', '🇪🇸 <b>LALIGA HYPERMOTION (ESPAÑA)</b>', 10),
-    (r'laliga|la liga|copa del rey|supercopa de espa[nñ]a', '🇪🇸 <b>LALIGA EA SPORTS (ESPAÑA)</b>', 11),
-    (r'premier league|premier', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA)</b>', 20),
-    (r'championship|efl cup|carabao|fa cup|league one|league two', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>FÚTBOL INGLÉS (CHAMPIONSHIP / COPAS)</b>', 21),
-    (r'serie a|coppa italia', '🇮🇹 <b>SERIE A (ITALIA)</b>', 30),
-    (r'bundesliga|dfb[ -]pokal|supercopa alemana', '🇩🇪 <b>BUNDESLIGA (ALEMANIA)</b>', 41),
-    (r'ligue 1|ligue 2|coupe de france', '🇫🇷 <b>LIGUE 1 (FRANCIA)</b>', 50),
-    (r'primeira liga|taca de portugal|liga portugal', '🇵🇹 <b>PRIMEIRA LIGA (PORTUGAL)</b>', 60),
-    (r'eredivisie|eerste divisie|knvb beker', '🇳🇱 <b>EREDIVISIE (PAÍSES BAJOS)</b>', 70),
-    (r'pro league|saudi pro league|saudi|al fateh|al ittihad|al hilal|al nassr', '🇸🇦 <b>SAUDI PRO LEAGUE (ARABIA SAUDITA)</b>', 75),
-    (r'liga profesional|copa de la liga|copa argentina|primera nacional|torneo de reserva', '🇦🇷 <b>FÚTBOL ARGENTINO (LIGA PROFESIONAL)</b>', 80),
-    (r'brasileir[aã]o|copa do brasil|paulista|carioca|brasileiro', '🇧🇷 <b>BRASILEIRÃO (BRASIL)</b>', 90),
-    (r'primera a:\s*(?:junior|santa fe|jaguares|am[eé]rica|alianza|atl[eé]tico nacional|millonarios|medellin|cali|tolima|once caldas|bucaramanga|pereira|pasto|envigado|aguilas|equidad|patriotas|fortaleza)|liga betplay|copa colombia', '🇨🇴 <b>LIGA BETPLAY (COLOMBIA)</b>', 100),
-    (r'liga mx|expansi[oó]n mx|liga de expansi[oó]n|copa mx', '🇲🇽 <b>LIGA MX (MÉXICO)</b>', 110),
-    (r'liga 1|liga 2|copa bicentenario', '🇵🇪 <b>LIGA 1 (PERÚ)</b>', 120),
 ]
 
 def classify_event(desc):
@@ -86,8 +87,16 @@ def classify_event(desc):
             return cat_name, priority
     return '🏆 <b>MÁS EVENTOS DEPORTIVOS</b>', 999
 
-# DICCIONARIO GLOBAL DE CANALES IPTV (MUNDIALES + LATAM + ESPAÑA + UK + USA)
+# DICCIONARIO GLOBAL DE CANALES IPTV
 IPTV_CHANNELS_MAP = {
+    # Juventus / Serie A
+    "juventus": "8805",
+    "juve": "8805",
+    "seriea": "8805",
+    "parma": "8805",
+    "cbssports": "32109",
+    "golazo": "3959",
+    
     # ESPN / Disney
     "espn": "32114",
     "espn1": "32114",
@@ -96,6 +105,7 @@ IPTV_CHANNELS_MAP = {
     "espn4": "32111",
     "espnextra": "32138",
     "espnpremium": "32114",
+    "espndeportes": "32038",
     "disney1": "32114",
     "disney2": "32164",
     "disney3": "32112",
@@ -166,9 +176,41 @@ IPTV_CHANNELS_MAP = {
     "nba": "32106",
 }
 
+def clean_channel_code(raw_code):
+    if not raw_code:
+        return "espn"
+    
+    c = raw_code.strip()
+    
+    # Si viene con r= o base64
+    if "r=" in c:
+        try:
+            b64 = c.split("r=")[1].split("&")[0]
+            c = base64.b64decode(b64 + "==").decode('utf-8')
+        except Exception:
+            pass
+            
+    # Si es base64 puro
+    if len(c) > 10 and not "/" in c and not "." in c and not " " in c:
+        try:
+            dec = base64.b64decode(c + "==").decode('utf-8')
+            if "stream=" in dec:
+                c = dec
+        except Exception:
+            pass
+
+    if "stream=" in c:
+        c = c.split("stream=")[1].split("&")[0].strip()
+    elif "/" in c:
+        c = c.split("/")[-1].replace(".php", "").replace(".html", "").strip()
+
+    c_clean = re.sub(r'[^a-zA-Z0-9_]', '', c).lower()
+    return c_clean or "espn"
+
 # RESOLVER DE CANAL IPTV (DIRECTO A SERVIDOR DEDICADO)
 def resolve_iptv_stream(stream_id_or_cmd):
-    target = str(stream_id_or_cmd).lower().strip()
+    target_raw = str(stream_id_or_cmd).strip()
+    target = clean_channel_code(target_raw)
     stream_id = None
 
     if target in IPTV_CHANNELS_MAP:
@@ -209,7 +251,7 @@ def resolve_iptv_stream(stream_id_or_cmd):
 
     return None, None, False
 
-# AGENDA MUNDIAL DE PARTIDOS DE HOY CON CHUNKING SEGURO
+# AGENDA MUNDIAL DE PARTIDOS CON CÓDIGOS LIMPIOS Y SEGUROS
 def get_live_agenda_messages(curr_key):
     try:
         r = requests.get(AGENDA_API, timeout=10, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://rojadirectatv.ec/"})
@@ -232,13 +274,12 @@ def get_live_agenda_messages(curr_key):
             groups[(prio, cat_header)].append((hour, clean_desc, embeds))
 
         messages = []
-        header = f"📅 <b>AGENDA DEPORTIVA DE HOY ({len(data)} EVENTOS CON TODOS SUS CANALES)</b>\n\n"
+        header = f"📅 <b>AGENDA DEPORTIVA DE HOY ({len(data)} EVENTOS CON CANALES IPTV 1080P)</b>\n\n"
         current_msg = header
 
         for (prio, cat_header), event_list in sorted(groups.items()):
             cat_title = f"━━━━━━━━━━━━━━━━━━━━\n{cat_header}\n━━━━━━━━━━━━━━━━━━━━\n"
             
-            # Si el título de la categoría no entra, mandar mensaje previo
             if len(current_msg) + len(cat_title) > 3000:
                 messages.append(current_msg)
                 current_msg = cat_title
@@ -255,16 +296,10 @@ def get_live_agenda_messages(curr_key):
                         em_name = html.escape(em_attrs.get("embed_name", "").strip())
                         em_ifr = em_attrs.get("embed_iframe", "")
                         
-                        cmd = em_ifr
-                        if "stream=" in em_ifr:
-                            cmd = em_ifr.split("stream=")[1].split("&")[0].strip()
-                        elif "/" in em_ifr:
-                            cmd = em_ifr.split("/")[-1].replace(".php", "").strip()
-
-                        partido_block += f"  • ▶ <b>{em_name}:</b>\n  <code>/stream {cmd} {curr_key}</code>\n"
+                        clean_cmd = clean_channel_code(em_ifr)
+                        partido_block += f"  • ▶ <b>{em_name}:</b>\n  <code>/stream {clean_cmd} {curr_key}</code>\n"
                 partido_block += "\n"
                 
-                # Control estricto de tamaño por partido
                 if len(current_msg) + len(partido_block) > 3000:
                     messages.append(current_msg)
                     current_msg = f"{cat_title}{partido_block}"
@@ -515,14 +550,13 @@ def handle_message(msg):
         help_text = (
             "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (SERVIDOR IPTV DEDICADO)</b>\n\n"
             "📋 <b>AGENDA DE PARTIDOS:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos de hoy con <b>todos sus canales de transmisión</b>\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos de hoy con sus canales limpios\n"
             "• <code>/top</code> $\\rightarrow$ Canales deportivos principales 24/7\n"
             "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar entre los 27.000 canales del servidor\n\n"
             "📺 <b>TRANSMITIR:</b>\n"
+            "• <code>/stream juventus</code> | <code>/stream seriea</code>\n"
             "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
-            "• <code>/stream dsports</code> | <code>/stream dsports2</code> | <code>/stream dsportsplus</code>\n"
-            "• <code>/stream laliga</code> | <code>/stream dazn</code> | <code>/stream premier</code>\n"
-            "• <code>/stream winsports</code> | <code>/stream tyc</code> | <code>/stream f1</code>\n"
+            "• <code>/stream dsports</code> | <code>/stream laliga</code> | <code>/stream dazn</code>\n"
             "• <code>/stream &lt;CANAL_O_ID&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
@@ -534,7 +568,7 @@ def handle_message(msg):
         send_msg(chat_id, help_text)
 
     elif text.startswith("/partidos") or text.startswith("/hoy") or text.startswith("/agenda"):
-        send_msg(chat_id, "⏳ <b>Cargando agenda de hoy con todos los canales donde pasarán los partidos...</b>")
+        send_msg(chat_id, "⏳ <b>Cargando agenda limpia de hoy con todos los canales IPTV...</b>")
         agenda_msgs = get_live_agenda_messages(curr_key)
         for m in agenda_msgs:
             send_msg(chat_id, m)
@@ -554,7 +588,7 @@ def handle_message(msg):
     elif text.startswith("/buscar") or text.startswith("/search"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_canal&gt;</code>\nEjemplo: <code>/buscar espn</code> o <code>/buscar directv</code> o <code>/buscar sky sports</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_canal&gt;</code>\nEjemplo: <code>/buscar juventus</code> o <code>/buscar espn</code> o <code>/buscar directv</code>")
             return
         query = parts[1].strip()
         send_msg(chat_id, f"🔍 <b>Buscando '{html.escape(query)}' en los 27.000 canales del servidor IPTV...</b>")
@@ -575,13 +609,13 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_ID&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream espn</code> o <code>/stream 30905</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_ID&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream juventus</code> o <code>/stream espn</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Iniciando transmisión IPTV dedicada de {html.escape(raw_url)}...</b>")
+        send_msg(chat_id, f"⏳ <b>Iniciando transmisión IPTV de {html.escape(raw_url)}...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
@@ -650,7 +684,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot IPTV Dedicado (Agenda Mundial Completa) listo...")
+    print("🤖 Bot IPTV Dedicado (Auto-Decoder & Juventus Stream) listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
