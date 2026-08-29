@@ -94,27 +94,26 @@ def resolve_iptv_stream(stream_id_or_cmd):
     elif target.isdigit():
         stream_id = target
     else:
-        # Buscar por coincidencia parcial en el diccionario rápido
         for k, v in IPTV_TOP_CHANNELS.items():
             if k in target or target in k:
                 stream_id = v["id"]
                 break
 
     if not stream_id:
-        return None, None, f"Canal o ID '{target}' no encontrado. Usa /canales o /buscar <nombre>."
+        return None, None, False
 
-    # Obtener URL del stream desde los hosts activos
     for host in IPTV_HOSTS:
         try:
             req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
-            r = requests.get(req_url, headers={"User-Agent": "IPTVSmartersPro"}, allow_redirects=False, timeout=4)
+            r = requests.get(req_url, headers={"User-Agent": "IPTVSmartersPro"}, allow_redirects=False, timeout=3.5)
             loc = r.headers.get("Location")
             if loc:
                 edge_host = loc.split('/')[2]
-                edge_ip = "149.57.9.64"
+                edge_ip = "154.6.144.120"
                 try:
                     doh = requests.get(f"https://cloudflare-dns.com/dns-query?name={edge_host}&type=A", headers={"accept": "application/dns-json"}, timeout=2).json()
-                    edge_ip = doh["Answer"][0]["data"]
+                    if "Answer" in doh and doh["Answer"]:
+                        edge_ip = doh["Answer"][0]["data"]
                 except Exception:
                     pass
                 
@@ -126,7 +125,7 @@ def resolve_iptv_stream(stream_id_or_cmd):
         except Exception:
             pass
 
-    return None, None, f"No se pudo conectar al servidor IPTV para el canal ID: {stream_id}."
+    return None, None, False
 
 # BÚSQUEDA EN TIEMPO REAL DE CANALES IPTV
 def search_iptv_channels(query, curr_key):
@@ -150,7 +149,7 @@ def search_iptv_channels(query, curr_key):
         header = f"🔍 <b>RESULTADOS PARA '{html.escape(query)}' ({len(matches)} CANALES ENCONTRADOS):</b>\n\n"
         current_msg = header
 
-        for sid, name in matches[:60]: # Limitar a los 60 mejores resultados
+        for sid, name in matches[:60]:
             item = f"📺 <b>{name}</b> (ID: <code>{sid}</code>)\n<code>/stream {sid} {curr_key}</code>\n\n"
             if len(current_msg) + len(item) > 3400:
                 messages.append(current_msg)
@@ -228,8 +227,8 @@ def start_single_stream(raw_url, stream_key):
         stream_id = get_next_stream_id()
         source_url, headers, is_ok = resolve_iptv_stream(raw_url)
 
-        if not is_ok:
-            return False, stream_id, f"Error: {is_ok}"
+        if not is_ok or not source_url:
+            return False, stream_id, f"No se pudo resolver el canal '{raw_url}'. Usa /top o /buscar."
 
         proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
         
@@ -320,7 +319,7 @@ def stream_watchdog():
                             pass
                         
                         new_url, new_hdrs, ok = resolve_iptv_stream(info["raw_name"])
-                        if ok:
+                        if ok and new_url:
                             new_proc, new_out_f, new_log = launch_ffmpeg_process(
                                 new_url, new_hdrs, info["destination"], sid
                             )
