@@ -89,11 +89,26 @@ ADMIN_USER_ID = None
 active_streams = {}
 stream_lock = threading.Lock()
 
-def get_iptv_stream_url(stream_id):
+def get_free_iptv_account():
+    accounts = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])
+    used_users = set()
+    for sid, info in active_streams.items():
+        if "account_user" in info:
+            used_users.add(info["account_user"])
+            
+    for acc in accounts:
+        if acc["user"] not in used_users:
+            return acc
+    return None
+
+def get_iptv_stream_url(stream_id, account=None):
     clean_id = str(stream_id).strip()
     headers_str = "User-Agent: IPTVSmartersPro\r\n"
+    acc = account or CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])[0]
+    user = acc["user"]
+    passwd = acc["pass"]
     for host in IPTV_HOSTS:
-        url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{clean_id}.ts"
+        url = f"{host}/live/{user}/{passwd}/{clean_id}.ts"
         return url, headers_str, True
     return None, None, False
 
@@ -231,18 +246,27 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     proc = subprocess.Popen(cmd, stdout=out_f, stderr=out_f)
     return proc, out_f, log_file
 
+def get_next_stream_id():
+    for i in range(1, 100):
+        sid = str(i)
+        if sid not in active_streams:
+            return sid
+    return str(len(active_streams) + 1)
+
 def start_single_stream(raw_channel, stream_key):
     raw_channel = clean_arg(raw_channel)
     stream_key = clean_arg(stream_key)
     destination = RTMP_SERVER + stream_key
 
     with stream_lock:
-        # Liberar la conexión previa de inmediato para evitar límite de cupo (401)
-        for sid in list(active_streams.keys()):
-            stop_single_stream(sid)
-        time.sleep(0.5)
+        # Reemplazar únicamente la transmisión que use la MISMA stream_key
+        for sid, info in list(active_streams.items()):
+            if info.get("key") == stream_key:
+                stop_single_stream(sid)
 
-        stream_id = "1"
+        stream_id = get_next_stream_id()
+        chosen_acc = None
+
         if raw_channel.startswith("http://") or raw_channel.startswith("https://"):
             source_url = raw_channel
             headers = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n"
@@ -250,8 +274,16 @@ def start_single_stream(raw_channel, stream_key):
             channel_id = "direct"
             is_ok = True
         else:
+            chosen_acc = get_free_iptv_account()
+            if not chosen_acc and active_streams:
+                # Si todas las cuentas IPTV están ocupadas, liberar la más antigua
+                oldest_sid = list(active_streams.keys())[0]
+                stop_single_stream(oldest_sid)
+                time.sleep(0.5)
+                chosen_acc = get_free_iptv_account()
+
             channel_id, channel_display = resolve_channel_input(raw_channel)
-            source_url, headers, is_ok = get_iptv_stream_url(channel_id)
+            source_url, headers, is_ok = get_iptv_stream_url(channel_id, chosen_acc)
 
         if not is_ok or not source_url:
             return False, stream_id, f"No se pudo conectar al canal '{raw_channel}'."
@@ -279,6 +311,7 @@ def start_single_stream(raw_channel, stream_key):
             "log_path": log_file,
             "raw_name": channel_display,
             "channel_id": channel_id,
+            "account_user": chosen_acc.get("user") if chosen_acc else "direct",
             "url": source_url,
             "headers": headers,
             "destination": destination,
@@ -540,22 +573,48 @@ def handle_message(msg):
         else:
             send_msg(chat_id, "ℹ️ No había ninguna transmisión activa.")
 
+    elif text.startswith("/cuentas") or text.startswith("/accounts"):
+        accs = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])
+        res = "📋 <b>CUENTAS IPTV REGISTRADAS:</b>\n\n"
+        for i, a in enumerate(accs, 1):
+            res += f"• <b>Cuenta #{i}:</b> <code>{a['user']}</code>\n"
+        res += f"\n💡 <i>Puedes transmitir tantos canales simultáneos como cuentas IPTV tengas registradas.</i>\nPara agregar otra cuenta: <code>/addcuenta &lt;USER&gt; &lt;PASS&gt;</code>"
+        send_msg(chat_id, res)
+
+    elif text.startswith("/addcuenta"):
+        parts = text.split()
+        if len(parts) < 3:
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/addcuenta &lt;USUARIO&gt; &lt;PASSWORD&gt;</code>\nEjemplo: <code>/addcuenta MI_USER MI_PASS</code>")
+            return
+        u = clean_arg(parts[1])
+        p = clean_arg(parts[2])
+        accs = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])
+        # Verificar si ya existe
+        if any(a["user"] == u for a in accs):
+            send_msg(chat_id, f"ℹ️ La cuenta <code>{u}</code> ya está registrada.")
+            return
+        accs.append({"user": u, "pass": p})
+        CONFIG["iptv_accounts"] = accs
+        save_config(CONFIG)
+        send_msg(chat_id, f"✅ <b>¡Nueva cuenta IPTV agregada con éxito!</b>\n👤 Usuario: <code>{u}</code>\nTotal cuentas disponibles: <b>{len(accs)}</b>")
+
     elif text.startswith("/status"):
         if not active_streams:
             send_msg(chat_id, "🔴 <b>No hay ninguna transmisión activa actualmente.</b>")
             return
 
-        status_text = f"🟢 <b>TRANSMISIÓN EN DIRECTO ACTIVA:</b>\n\n"
+        status_text = f"🟢 <b>TRANSMISIONES EN DIRECTO ACTIVAS ({len(active_streams)}):</b>\n\n"
         for sid, info in sorted(active_streams.items()):
             elapsed = int(time.time() - info["start_time"])
             mins = elapsed // 60
             secs = elapsed % 60
             status_text += (
-                f"📺 <b>Canal:</b> <code>{html.escape(info['raw_name'])}</code>\n"
+                f"📺 <b>Canal #{sid}:</b> <code>{html.escape(info['raw_name'])}</code>\n"
                 f"• ⏱️ Tiempo: <code>{mins}m {secs}s</code>\n"
                 f"• 📡 Key: <code>{info['key'][:8]}...</code>\n"
-                f"• 🛑 <b>Detener:</b> <code>/stop</code>\n"
+                f"• 🛑 <b>Detener esta:</b> <code>/stop {sid}</code>\n\n"
             )
+        status_text += "🛑 <b>Detener todas:</b> <code>/stopall</code>"
         send_msg(chat_id, status_text)
 
 def main():
