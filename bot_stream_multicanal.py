@@ -259,13 +259,20 @@ def start_single_stream(raw_channel, stream_key):
     destination = RTMP_SERVER + stream_key
 
     with stream_lock:
-        # Reemplazar únicamente la transmisión que use la MISMA stream_key
+        chosen_acc = get_free_iptv_account()
+        # Si la cuenta IPTV ya está ocupada por otra transmisión, detenerla para liberar la conexión
+        if not chosen_acc and active_streams:
+            for sid in list(active_streams.keys()):
+                stop_single_stream(sid)
+            time.sleep(1.0)
+            chosen_acc = get_free_iptv_account()
+
+        # Si ya hay una transmisión activa usando la MISMA stream_key, la reemplazamos
         for sid, info in list(active_streams.items()):
             if info.get("key") == stream_key:
                 stop_single_stream(sid)
 
         stream_id = get_next_stream_id()
-        chosen_acc = None
 
         if raw_channel.startswith("http://") or raw_channel.startswith("https://"):
             source_url = raw_channel
@@ -273,15 +280,10 @@ def start_single_stream(raw_channel, stream_key):
             channel_display = "Enlace Directo Stream"
             channel_id = "direct"
             is_ok = True
+            chosen_acc = None
         else:
-            chosen_acc = get_free_iptv_account()
-            if not chosen_acc and active_streams:
-                # Si todas las cuentas IPTV están ocupadas, liberar la más antigua
-                oldest_sid = list(active_streams.keys())[0]
-                stop_single_stream(oldest_sid)
-                time.sleep(0.5)
-                chosen_acc = get_free_iptv_account()
-
+            if not chosen_acc:
+                chosen_acc = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])[0]
             channel_id, channel_display = resolve_channel_input(raw_channel)
             source_url, headers, is_ok = get_iptv_stream_url(channel_id, chosen_acc)
 
