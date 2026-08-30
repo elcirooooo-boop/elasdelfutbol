@@ -335,10 +335,11 @@ def get_next_stream_id():
     return str(len(active_streams) + 1)
 
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
-    # -c copy (Passthrough directo de Audio y Video)
-    # Conserva la sincronización A/V original al 100% de milisegundo (0ms de retraso de audio)
+    # Pipeline con ritmo nativo en tiempo real (-re) y buffer de estabilización
+    # Elimina los parones causados por descargas en ráfagas de HLS
     cmd = [
         "ffmpeg",
+        "-re",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
@@ -357,7 +358,8 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-bsf:v", "dump_extra=freq=keyframe",
         "-bsf:a", "aac_adtstoasc",
         "-avoid_negative_ts", "make_zero",
-        "-max_muxing_queue_size", "4096",
+        "-max_muxing_queue_size", "8192",
+        "-rtmp_live", "live",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
