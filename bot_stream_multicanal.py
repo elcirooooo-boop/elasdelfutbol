@@ -611,11 +611,18 @@ def get_live_matches_agenda(curr_key):
 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     try:
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        now_art = now_utc - datetime.timedelta(hours=3) # Hora de referencia agenda
+        current_minutes = now_art.hour * 60 + now_art.minute
+
         r = requests.get("https://tarjetaroja.my/", headers=headers, timeout=6)
         if r.status_code == 200:
             page_html = r.text
             articles = re.findall(r'<article class="tr-event"[^>]*>(.*?)</article>', page_html, re.DOTALL)
-            parsed_events = []
+            
+            live_events = []
+            upcoming_events = []
+            
             for art in articles:
                 time_m = re.search(r'<span class="tr-event-time[^"]*">([^<]+)</span>', art)
                 time_str = time_m.group(1).strip() if time_m else ""
@@ -631,29 +638,80 @@ def get_live_matches_agenda(curr_key):
                     
                 channels_raw = re.findall(r'<a class="tr-event-channel"[^>]*href="[^"]*stream/([^"]+)"[^>]*>([^<]+)</a>', art)
                 iptv_options = smart_match_channel_resolver(title_clean, channels_raw)
-                        
-                if iptv_options:
-                    parsed_events.append({
-                        "time": time_str,
-                        "title": title_clean,
-                        "channels": iptv_options
-                    })
+                
+                if not iptv_options:
+                    continue
+
+                status_tag = ""
+                is_live = False
+                is_upcoming = False
+                
+                if ":" in time_str:
+                    try:
+                        h, m = map(int, time_str.split(":"))
+                        ev_minutes = h * 60 + m
+                        diff = current_minutes - ev_minutes
+                        if 0 <= diff <= 125:
+                            status_tag = f"🔴 EN VIVO"
+                            is_live = True
+                        elif diff < 0:
+                            status_tag = f"⏰ En {abs(diff)}m"
+                            is_upcoming = True
+                    except Exception:
+                        is_upcoming = True
+                else:
+                    is_upcoming = True
                     
-            if parsed_events:
+                ev_data = {
+                    "time": time_str,
+                    "title": title_clean,
+                    "status_tag": status_tag,
+                    "channels": iptv_options
+                }
+                
+                if is_live:
+                    live_events.append(ev_data)
+                elif is_upcoming:
+                    upcoming_events.append(ev_data)
+                    
+            if live_events or upcoming_events:
                 messages = []
-                current_msg = "⚽ <b>AGENDA DE PARTIDOS DE HOY (CON CANAL DIRECTO 1-CLICK)</b>\n\n"
-                for ev in parsed_events:
-                    block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b>\n"
-                    for ch in ev["channels"]:
-                        block += f"• 📺 <i>{html.escape(ch['name'])}:</i>\n  <code>/stream {ch['id']} {curr_key}</code>\n"
-                    block += "\n"
-                    
-                    if len(current_msg) + len(block) > 3500:
-                        messages.append(current_msg)
-                        current_msg = block
-                    else:
-                        current_msg += block
+                current_msg = ""
+                
+                if live_events:
+                    current_msg += "🔴 <b>PARTIDOS EN VIVO AHORA MISMO (JUGÁNDOSE EN TV):</b>\n\n"
+                    for ev in live_events:
+                        block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b> {ev['status_tag']}\n"
+                        for ch in ev["channels"]:
+                            block += f"• 📺 <i>{html.escape(ch['name'])}:</i>\n  <code>/stream {ch['id']} {curr_key}</code>\n"
+                        block += "\n"
                         
+                        if len(current_msg) + len(block) > 3500:
+                            messages.append(current_msg)
+                            current_msg = block
+                        else:
+                            current_msg += block
+                            
+                if upcoming_events:
+                    up_header = "\n⏰ <b>PRÓXIMOS PARTIDOS DE HOY:</b>\n\n"
+                    if len(current_msg) + len(up_header) > 3500:
+                        messages.append(current_msg)
+                        current_msg = up_header
+                    else:
+                        current_msg += up_header
+                        
+                    for ev in upcoming_events:
+                        block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b> ({ev['status_tag']})\n"
+                        for ch in ev["channels"]:
+                            block += f"• 📺 <i>{html.escape(ch['name'])}:</i>\n  <code>/stream {ch['id']} {curr_key}</code>\n"
+                        block += "\n"
+                        
+                        if len(current_msg) + len(block) > 3500:
+                            messages.append(current_msg)
+                            current_msg = block
+                        else:
+                            current_msg += block
+                            
                 if current_msg:
                     messages.append(current_msg)
                     
