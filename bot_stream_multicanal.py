@@ -31,14 +31,15 @@ OFFICIAL_CHANNELS = {
     "224832": "DAZN LaLiga 1 FHD",
     "224831": "DAZN LaLiga 2 FHD",
     "6560": "LaLiga Hypermotion HD (2da División)",
+    "30906": "Movistar Liga de Campeones FHD",
     "91781": "DAZN 1 España",
     "91782": "DAZN 2 España",
     "30907": "DAZN F1 España",
     "1349240": "DAZN MotoGP",
-    # Argentina / Sudamérica
+    # Argentina & Sudamérica
     "4883": "ESPN Premium HD (Argentina)",
-    "30365": "TyC Sports HD",
-    "4880": "Fox Sports 1 Argentina",
+    "4884": "TyC Sports HD",
+    "5980": "Fox Sports 1 HD",
     "4881": "Fox Sports 2 Argentina",
     "4882": "Fox Sports 3 Argentina",
     "30326": "ESPN 1 HD",
@@ -48,7 +49,7 @@ OFFICIAL_CHANNELS = {
     "34051": "ESPN Extra HD",
     # Colombia
     "33945": "Win Sports+ HD (Colombia)",
-    "33944": "Win Sports Colombia",
+    "33943": "Win Sports Colombia",
     "33933": "DIRECTV Sports 1 HD (DSports)",
     "33932": "DIRECTV Sports 2 HD (DSports 2)",
     "33931": "DIRECTV Sports Plus HD (DSports+)",
@@ -57,13 +58,21 @@ OFFICIAL_CHANNELS = {
     "985726": "(ViX) TUDN",
     "3987": "Canal 5 México FHD",
     "34041": "Fox Sports 1 México",
+    "34042": "Fox Sports 2 México",
+    "34043": "Fox Sports 3 México",
+    "1453276": "Fox Sports Premium MX",
     # Inglaterra / Internacional
     "29016": "Sky Sports Premier League",
     "1256711": "Sky Sports Main Events",
+    "29017": "Sky Sports Football",
+    "29019": "TNT Sports 1 UK",
+    # Italia / Serie A
+    "8806": "DAZN Zona Serie A",
+    "164069": "Sky Sport Uno (Serie A)",
+    "171524": "Sky Sport Calcio (Serie A)",
     "8805": "DAZN Juventus",
-    "8804": "DAZN Inter",
-    "8803": "DAZN AC Milan",
-    "8802": "DAZN Napoli"
+    "34583": "Inter TV HD",
+    "34582": "Milan Channel HD"
 }
 
 def load_config():
@@ -139,12 +148,18 @@ def resolve_channel_input(raw_input):
         "espn3": ("3411", "ESPN 3 HD"),
         "espn4": ("1453275", "ESPN 4 HD"),
         "espnextra": ("34051", "ESPN Extra HD"),
-        "tyc": ("30365", "TyC Sports HD"),
+        "tyc": ("4884", "TyC Sports HD"),
+        "tnt": ("4883", "TNT Sports Argentina"),
         "dsports": ("33933", "DIRECTV Sports 1 HD (DSports)"),
         "directv": ("33933", "DIRECTV Sports 1 HD (DSports)"),
         "tudn": ("1288338", "TUDN MX"),
-        "fox": ("4880", "Fox Sports 1 Argentina"),
-        "premier": ("29016", "Sky Sports Premier League")
+        "vix": ("985726", "(ViX) TUDN"),
+        "fox": ("5980", "Fox Sports 1 HD"),
+        "fox1": ("5980", "Fox Sports 1 HD"),
+        "fox2": ("4881", "Fox Sports 2 HD"),
+        "fox3": ("4882", "Fox Sports 3 HD"),
+        "premier": ("29016", "Sky Sports Premier League"),
+        "champions": ("30906", "Movistar Liga de Campeones FHD")
     }
     
     if clean in aliases:
@@ -178,8 +193,8 @@ def smart_match_channel_resolver(title, channels_raw):
             matched_channels.append(("33945", "Win Sports+ HD"))
         elif "espn premium" in c_low:
             matched_channels.append(("4883", "ESPN Premium HD"))
-        elif "tyc" in c_low or "tnt" in c_low:
-            matched_channels.append(("30365", "TyC Sports HD"))
+        elif "tyc" in c_low:
+            matched_channels.append(("4884", "TyC Sports HD"))
         elif "dsports" in c_low or "directv" in c_low:
             matched_channels.append(("33933", "DSports 1 HD"))
         elif "tudn" in c_low:
@@ -190,14 +205,8 @@ def smart_match_channel_resolver(title, channels_raw):
     # 2. Si no hubo coincidencia o el scraper no tenía canales específicos, asignar por LIGA / EQUIPOS:
     if not matched_channels:
         if "serie a" in title_lower or "italia" in title_lower:
-            if "inter" in title_lower:
-                matched_channels.append(("8804", "DAZN Inter"))
-            elif "milan" in title_lower:
-                matched_channels.append(("8803", "DAZN AC Milan"))
-            elif "juventus" in title_lower or "juve" in title_lower:
-                matched_channels.append(("8805", "DAZN Juventus"))
-            elif "napoli" in title_lower:
-                matched_channels.append(("8802", "DAZN Napoli"))
+            matched_channels.append(("8806", "DAZN Zona Serie A"))
+            matched_channels.append(("164069", "Sky Sport Uno (Serie A)"))
             matched_channels.append(("30327", "ESPN 2 HD (Serie A)"))
             matched_channels.append(("3411", "ESPN 3 HD"))
             
@@ -220,12 +229,12 @@ def smart_match_channel_resolver(title, channels_raw):
             
         elif "colombia" in title_lower:
             matched_channels.append(("33945", "Win Sports+ HD (Colombia)"))
-            matched_channels.append(("33944", "Win Sports Colombia"))
+            matched_channels.append(("33943", "Win Sports Colombia"))
             
         elif "argentina" in title_lower or "copa de la liga" in title_lower or "profesional" in title_lower:
             matched_channels.append(("4883", "ESPN Premium HD (Argentina)"))
-            matched_channels.append(("30365", "TyC Sports HD"))
-            matched_channels.append(("4880", "Fox Sports 1 Argentina"))
+            matched_channels.append(("4884", "TyC Sports HD"))
+            matched_channels.append(("5980", "Fox Sports 1 HD"))
             
         elif "mexico" in title_lower or "liga mx" in title_lower:
             matched_channels.append(("1288338", "TUDN MX"))
@@ -533,16 +542,17 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream 224832 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream 224831 {curr_key}</code>\n"
         f"• ⚽ <b>LaLiga Hypermotion (2da):</b> <code>/stream 6560 {curr_key}</code>\n"
+        f"• ⚽ <b>Movistar Liga de Campeones:</b> <code>/stream 30906 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN 1 España:</b> <code>/stream 91781 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN 2 España:</b> <code>/stream 91782 {curr_key}</code>\n"
         f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream 30907 {curr_key}</code>\n"
         f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 1349240 {curr_key}</code>\n\n"
         "🇦🇷 <b>ARGENTINA & CONMEBOL (LIGA PROFESIONAL & LIBERTADORES):</b>\n"
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
-        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 30365 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 1 Argentina:</b> <code>/stream 4880 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 Argentina:</b> <code>/stream 4881 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 3 Argentina:</b> <code>/stream 4882 {curr_key}</code>\n"
+        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 4884 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 5980 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 HD:</b> <code>/stream 4881 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 HD:</b> <code>/stream 4882 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 30326 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 30327 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
@@ -552,7 +562,7 @@ def get_sports_menu_messages(curr_key):
     msg2 = (
         "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (DSPORTS & WIN SPORTS):</b>\n"
         f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream 33945 {curr_key}</code>\n"
-        f"• ⚽ <b>Win Sports Colombia:</b> <code>/stream 33944 {curr_key}</code>\n"
+        f"• ⚽ <b>Win Sports Colombia:</b> <code>/stream 33943 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream 33933 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 33932 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports Plus HD:</b> <code>/stream 33931 {curr_key}</code>\n\n"
@@ -560,15 +570,20 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>TUDN MX:</b> <code>/stream 1288338 {curr_key}</code>\n"
         f"• ⚽ <b>(ViX) TUDN:</b> <code>/stream 985726 {curr_key}</code>\n"
         f"• ⚽ <b>Canal 5 México FHD:</b> <code>/stream 3987 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 1 México:</b> <code>/stream 34041 {curr_key}</code>\n\n"
+        f"• ⚽ <b>Fox Sports 1 México:</b> <code>/stream 34041 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports Premium MX:</b> <code>/stream 1453276 {curr_key}</code>\n\n"
         "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA):</b>\n"
         f"• ⚽ <b>Sky Sports Premier League:</b> <code>/stream 29016 {curr_key}</code>\n"
-        f"• ⚽ <b>Sky Sports Main Events:</b> <code>/stream 1256711 {curr_key}</code>\n\n"
+        f"• ⚽ <b>Sky Sports Main Events:</b> <code>/stream 1256711 {curr_key}</code>\n"
+        f"• ⚽ <b>Sky Sports Football:</b> <code>/stream 29017 {curr_key}</code>\n"
+        f"• ⚽ <b>TNT Sports 1 UK:</b> <code>/stream 29019 {curr_key}</code>\n\n"
         "🇮🇹 <b>SERIE A (ITALIA):</b>\n"
+        f"• ⚽ <b>DAZN Zona Serie A:</b> <code>/stream 8806 {curr_key}</code>\n"
+        f"• ⚽ <b>Sky Sport Uno (Serie A):</b> <code>/stream 164069 {curr_key}</code>\n"
+        f"• ⚽ <b>Sky Sport Calcio (Serie A):</b> <code>/stream 171524 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN Juventus:</b> <code>/stream 8805 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN Inter:</b> <code>/stream 8804 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN AC Milan:</b> <code>/stream 8803 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN Napoli:</b> <code>/stream 8802 {curr_key}</code>\n\n"
+        f"• ⚽ <b>Inter TV HD:</b> <code>/stream 34583 {curr_key}</code>\n"
+        f"• ⚽ <b>Milan Channel HD:</b> <code>/stream 34582 {curr_key}</code>\n\n"
         "🔍 <i>¿Buscas otro canal específico?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
