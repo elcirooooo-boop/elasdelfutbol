@@ -193,13 +193,21 @@ def start_single_stream(raw_channel, stream_key):
     destination = RTMP_SERVER + stream_key
 
     with stream_lock:
-        for sid, info in list(active_streams.items()):
-            if info["key"] == stream_key:
-                stop_single_stream(sid)
+        # Liberar la conexión previa de la cuenta IPTV (límite: 1 conexión)
+        for sid in list(active_streams.keys()):
+            stop_single_stream(sid)
+        time.sleep(0.5)
 
-        stream_id = get_next_stream_id()
-        channel_id, channel_display = resolve_channel_input(raw_channel)
-        source_url, headers, is_ok = get_iptv_stream_url(channel_id)
+        stream_id = "1"
+        if raw_channel.startswith("http://") or raw_channel.startswith("https://"):
+            source_url = raw_channel
+            headers = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\nReferer: https://istreameast.cx/\r\n"
+            channel_display = "Enlace Directo StreamEast / Web"
+            channel_id = "direct"
+            is_ok = True
+        else:
+            channel_id, channel_display = resolve_channel_input(raw_channel)
+            source_url, headers, is_ok = get_iptv_stream_url(channel_id)
 
         if not is_ok or not source_url:
             return False, stream_id, f"No se pudo conectar al canal '{raw_channel}' en el servidor IPTV."
