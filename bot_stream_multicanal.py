@@ -171,100 +171,165 @@ def resolve_channel_input(raw_input):
 
     return "30905", "Movistar LaLiga FHD"
 
-def smart_match_channel_resolver(title, channels_raw):
-    title_lower = title.lower()
-    matched_channels = []
+def resolve_channel_from_raw(slug, cname):
+    txt = f"{slug} {cname}".lower()
     
-    # 1. Si los canales vienen especificados en el scraper
-    for slug, cname in channels_raw:
-        c_low = f"{slug} {cname}".lower()
-        if "movistar" in c_low or "la liga" in c_low or "laliga" in c_low:
-            if "hyper" in c_low or "2" in c_low:
-                matched_channels.append(("6560", "LaLiga Hypermotion HD"))
-            else:
-                matched_channels.append(("30905", "Movistar LaLiga FHD"))
-        elif "dazn la liga" in c_low or "dazn laliga" in c_low:
-            matched_channels.append(("224832", "DAZN LaLiga 1 FHD"))
-        elif "dazn f1" in c_low or "formula" in c_low:
-            matched_channels.append(("30907", "DAZN F1 España"))
-        elif "moto" in c_low:
-            matched_channels.append(("1349240", "DAZN MotoGP"))
-        elif "win" in c_low:
-            matched_channels.append(("33945", "Win Sports+ HD"))
-        elif "espn premium" in c_low:
-            matched_channels.append(("4883", "ESPN Premium HD"))
-        elif "tyc" in c_low:
-            matched_channels.append(("4884", "TyC Sports HD"))
-        elif "dsports" in c_low or "directv" in c_low:
-            matched_channels.append(("33933", "DSports 1 HD"))
-        elif "tudn" in c_low:
-            matched_channels.append(("1288338", "TUDN MX"))
-        elif "sky" in c_low or "premier" in c_low:
-            matched_channels.append(("29016", "Sky Sports Premier League"))
+    # Hypermotion / 2da División
+    if "hyper" in txt or "segunda" in txt or "la liga 2" in txt or "laliga 2" in txt or "laliga2" in txt:
+        return "6560", "LaLiga Hypermotion HD"
+        
+    # Movistar LaLiga
+    if "movistar" in txt or "la liga tv" in txt or "laliga tv" in txt or "laliga uhd" in txt:
+        if "campeones" in txt or "champions" in txt:
+            return "30906", "Movistar Liga de Campeones"
+        return "30905", "Movistar LaLiga FHD"
+        
+    # DAZN
+    if "dazn" in txt:
+        if "f1" in txt or "formula" in txt:
+            return "30907", "DAZN F1 España"
+        if "moto" in txt:
+            return "1349240", "DAZN MotoGP"
+        if "la liga 2" in txt or "laliga 2" in txt or "laliga2" in txt:
+            return "224831", "DAZN LaLiga 2 FHD"
+        if "la liga" in txt or "laliga" in txt:
+            return "224832", "DAZN LaLiga 1 FHD"
+        if "zona" in txt or "serie a" in txt:
+            return "8806", "DAZN Zona Serie A"
+        if "2" in txt:
+            return "91782", "DAZN 2 España"
+        return "91781", "DAZN 1 España"
+        
+    # ESPN
+    if "espn" in txt or "disney" in txt:
+        if "deportes" in txt:
+            return "32038", "ESPN Deportes USA"
+        if "prem" in txt:
+            return "4883", "ESPN Premium HD"
+        if "extra" in txt:
+            if "2" in txt:
+                return "32148", "ESPN College Extra 2"
+            if "3" in txt:
+                return "32149", "ESPN College Extra 3"
+            return "34051", "ESPN Extra HD"
+        if "plus" in txt:
+            if "2" in txt:
+                return "32148", "ESPN+ 2 (College Extra 2)"
+            if "3" in txt:
+                return "32149", "ESPN+ 3 (College Extra 3)"
+            return "32147", "ESPN+ 1 (College Extra 1)"
+        if "4" in txt or "sur" in txt:
+            return "1453275", "ESPN 4 SUR HD"
+        if "3" in txt:
+            return "3411", "ESPN 3 HD"
+        if "2" in txt:
+            return "30327", "ESPN 2 HD"
+        return "30326", "ESPN 1 HD"
+        
+    # DIRECTV / DSports
+    if "dsport" in txt or "directv" in txt:
+        if "2" in txt:
+            return "33932", "DSports 2 HD"
+        if "plus" in txt or "+" in txt:
+            return "33931", "DSports+ HD"
+        return "33933", "DSports 1 HD"
+        
+    # Win Sports
+    if "win" in txt:
+        if "+" in txt or "plus" in txt or "online" in txt:
+            return "33945", "Win Sports+ HD (Colombia)"
+        return "33943", "Win Sports Colombia"
+        
+    # Argentina & Conmebol
+    if "tyc" in txt:
+        return "4884", "TyC Sports HD"
+    if "tnt" in txt:
+        return "4883", "TNT Sports Argentina"
+        
+    # Mexico
+    if "tudn" in txt:
+        return "1288338", "TUDN MX"
+    if "vix" in txt:
+        return "985726", "(ViX) TUDN"
+    if "canal 5" in txt or "canal 6" in txt:
+        return "3987", "Canal 5 México FHD"
+        
+    # Fox Sports
+    if "fox" in txt:
+        if "prem" in txt:
+            return "1453276", "Fox Sports Premium MX"
+        if "3" in txt:
+            return "4882", "Fox Sports 3 HD"
+        if "2" in txt:
+            return "4881", "Fox Sports 2 HD"
+        if "mx" in txt or "mex" in txt:
+            return "34041", "Fox Sports 1 México"
+        return "5980", "Fox Sports 1 HD"
+        
+    # Sky Sports / Premier Sports UK
+    if "sky" in txt or "premier sports" in txt or "premier league" in txt:
+        if "main" in txt:
+            return "1256711", "Sky Sports Main Events"
+        if "foot" in txt:
+            return "29017", "Sky Sports Football"
+        return "29016", "Sky Sports Premier League"
+        
+    if "tnt sports" in txt:
+        return "29019", "TNT Sports 1 UK"
+        
+    return None, None
 
-    # 2. Si no hubo coincidencia o el scraper no tenía canales específicos, asignar por LIGA / EQUIPOS:
-    if not matched_channels:
-        if "serie a" in title_lower or "italia" in title_lower:
-            matched_channels.append(("8806", "DAZN Zona Serie A"))
-            matched_channels.append(("164069", "Sky Sport Uno (Serie A)"))
-            matched_channels.append(("30327", "ESPN 2 HD (Serie A)"))
-            matched_channels.append(("3411", "ESPN 3 HD"))
-            
-        elif "premier" in title_lower or "inglaterra" in title_lower:
-            matched_channels.append(("29016", "Sky Sports Premier League"))
-            matched_channels.append(("30326", "ESPN 1 HD (Premier)"))
-            matched_channels.append(("1256711", "Sky Sports Main Events"))
-            
-        elif "ligue 1" in title_lower or "francia" in title_lower:
-            matched_channels.append(("30327", "ESPN 2 HD (Ligue 1)"))
-            matched_channels.append(("3411", "ESPN 3 HD"))
-            
-        elif "bundesliga" in title_lower or "alemania" in title_lower:
-            matched_channels.append(("30327", "ESPN 2 HD (Bundesliga)"))
-            matched_channels.append(("1256711", "Sky Sports Main Events"))
-            
-        elif "laliga" in title_lower or "la liga" in title_lower or "espana" in title_lower or "españa" in title_lower:
-            matched_channels.append(("30905", "Movistar LaLiga FHD"))
-            matched_channels.append(("224832", "DAZN LaLiga 1 FHD"))
-            
-        elif "colombia" in title_lower:
-            matched_channels.append(("33945", "Win Sports+ HD (Colombia)"))
-            matched_channels.append(("33943", "Win Sports Colombia"))
-            
-        elif "argentina" in title_lower or "copa de la liga" in title_lower or "profesional" in title_lower:
-            matched_channels.append(("4883", "ESPN Premium HD (Argentina)"))
-            matched_channels.append(("4884", "TyC Sports HD"))
-            matched_channels.append(("5980", "Fox Sports 1 HD"))
-            
-        elif "mexico" in title_lower or "liga mx" in title_lower:
-            matched_channels.append(("1288338", "TUDN MX"))
-            matched_channels.append(("3987", "Canal 5 México FHD"))
-            matched_channels.append(("34041", "Fox Sports 1 México"))
-            
-        elif "uruguay" in title_lower or "paraguay" in title_lower or "chile" in title_lower or "peru" in title_lower or "sudameric" in title_lower:
-            matched_channels.append(("1453275", "ESPN 4 HD"))
-            matched_channels.append(("33933", "DIRECTV Sports (DSports)"))
-            matched_channels.append(("3411", "ESPN 3 HD"))
-            
-        elif "f1" in title_lower or "formula" in title_lower:
-            matched_channels.append(("30907", "DAZN F1 España"))
-            
-        elif "moto" in title_lower:
-            matched_channels.append(("1349240", "DAZN MotoGP"))
-            
-        else:
-            matched_channels.append(("30326", "ESPN 1 HD"))
-            matched_channels.append(("30327", "ESPN 2 HD"))
-            matched_channels.append(("30905", "Movistar LaLiga FHD"))
-
-    # Eliminar duplicados manteniendo orden
+def smart_match_channel_resolver(title, channels_raw):
+    matched_channels = []
     seen = set()
-    unique = []
-    for cid, cname in matched_channels:
+    
+    # 1. Resolver todos los canales especificados en la web
+    for slug, cname in channels_raw:
+        cid, cdisplay = resolve_channel_from_raw(slug, cname)
+        if cid and cid not in seen:
+            seen.add(cid)
+            matched_channels.append({"id": cid, "name": cdisplay})
+            
+    # 2. Agregar los canales oficiales principales de la liga si no estaban presentes
+    title_lower = title.lower()
+    extra = []
+    if "serie a" in title_lower or "italia" in title_lower:
+        extra = [("8806", "DAZN Zona Serie A"), ("164069", "Sky Sport Uno (Serie A)"), ("30327", "ESPN 2 HD (Serie A)"), ("3411", "ESPN 3 HD")]
+    elif "premier" in title_lower or "inglaterra" in title_lower:
+        extra = [("29016", "Sky Sports Premier League"), ("30326", "ESPN 1 HD (Premier)"), ("1256711", "Sky Sports Main Events")]
+    elif "ligue 1" in title_lower or "francia" in title_lower:
+        extra = [("30327", "ESPN 2 HD (Ligue 1)"), ("3411", "ESPN 3 HD")]
+    elif "bundesliga" in title_lower or "alemania" in title_lower:
+        extra = [("30327", "ESPN 2 HD (Bundesliga)"), ("1256711", "Sky Sports Main Events")]
+    elif "laliga" in title_lower or "la liga" in title_lower or "espana" in title_lower or "españa" in title_lower:
+        if "hyper" in title_lower or "2" in title_lower:
+            extra = [("6560", "LaLiga Hypermotion HD")]
+        else:
+            extra = [("30905", "Movistar LaLiga FHD"), ("224832", "DAZN LaLiga 1 FHD")]
+    elif "colombia" in title_lower:
+        extra = [("33945", "Win Sports+ HD (Colombia)"), ("33943", "Win Sports Colombia")]
+    elif "argentina" in title_lower or "copa de la liga" in title_lower or "profesional" in title_lower:
+        extra = [("4883", "ESPN Premium HD (Argentina)"), ("4884", "TyC Sports HD"), ("5980", "Fox Sports 1 HD")]
+    elif "mexico" in title_lower or "liga mx" in title_lower:
+        extra = [("1288338", "TUDN MX"), ("3987", "Canal 5 México FHD"), ("34041", "Fox Sports 1 México")]
+    elif "uruguay" in title_lower or "paraguay" in title_lower or "chile" in title_lower or "peru" in title_lower or "sudameric" in title_lower:
+        extra = [("1453275", "ESPN 4 SUR HD"), ("33933", "DIRECTV Sports (DSports)"), ("3411", "ESPN 3 HD")]
+    elif "f1" in title_lower or "formula" in title_lower:
+        extra = [("30907", "DAZN F1 España")]
+    elif "moto" in title_lower:
+        extra = [("1349240", "DAZN MotoGP")]
+
+    for cid, cname in extra:
         if cid not in seen:
             seen.add(cid)
-            unique.append({"id": cid, "name": cname})
-    return unique
+            matched_channels.append({"id": cid, "name": cname})
+
+    if not matched_channels:
+        matched_channels.append({"id": "30326", "name": "ESPN 1 HD"})
+        matched_channels.append({"id": "30327", "name": "ESPN 2 HD"})
+        matched_channels.append({"id": "30905", "name": "Movistar LaLiga FHD"})
+
+    return matched_channels
 
 def resolve_to_iptv(slug, cname):
     txt = f"{slug} {cname}".lower()
@@ -513,7 +578,7 @@ def get_live_matches_agenda(curr_key):
                 current_msg = "⚽ <b>AGENDA DE PARTIDOS DE HOY (CON CANAL DIRECTO 1-CLICK)</b>\n\n"
                 for ev in parsed_events:
                     block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b>\n"
-                    for ch in ev["channels"][:3]:
+                    for ch in ev["channels"]:
                         block += f"• 📺 <i>{html.escape(ch['name'])}:</i>\n  <code>/stream {ch['id']} {curr_key}</code>\n"
                     block += "\n"
                     
