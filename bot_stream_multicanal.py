@@ -335,18 +335,20 @@ def get_next_stream_id():
     return str(len(active_streams) + 1)
 
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
-    # Configuración de Buffer HLS idéntica a los navegadores web (Hls.js / Clappr)
-    # -live_start_index -3: Mantiene un colchón de seguridad de 3 segmentos (12s) para absorber cualquier latencia de red
-    # -http_persistent 1 + -multiple_requests 1: Mantiene la conexión HTTP viva y estable
+    # Motor de Transmisión Profesional Ultra-Fluido
+    # -rtmp_buffer 3000: Buffer RTMP de 3 segundos para absorber cualquier fluctuación de red con Telegram
+    # -max_interleave_delta 0: Elimina cualquier retraso de intercalado entre audio y video
+    # -max_muxing_queue_size 16384: Cola ampliada para cero pérdidas de fotogramas
     cmd = [
         "ffmpeg",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
-        "-rw_timeout", "10000000",
-        "-fflags", "+genpts+igndts+discardcorrupt",
-        "-analyzeduration", "2000000",
-        "-probesize", "2000000"
+        "-rw_timeout", "15000000",
+        "-correct_ts_overflow", "1",
+        "-fflags", "+genpts+igndts+discardcorrupt+fastseek",
+        "-analyzeduration", "5000000",
+        "-probesize", "5000000"
     ]
 
     if ".m3u8" in source_url.lower():
@@ -361,7 +363,9 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-bsf:v", "dump_extra=freq=keyframe",
         "-bsf:a", "aac_adtstoasc",
         "-avoid_negative_ts", "make_zero",
-        "-max_muxing_queue_size", "8192",
+        "-max_interleave_delta", "0",
+        "-max_muxing_queue_size", "16384",
+        "-rtmp_buffer", "3000",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
