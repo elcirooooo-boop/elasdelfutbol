@@ -72,7 +72,17 @@ OFFICIAL_CHANNELS = {
     "171524": "Sky Sport Calcio (Serie A)",
     "8805": "DAZN Juventus",
     "34583": "Inter TV HD",
-    "34582": "Milan Channel HD"
+    "34582": "Milan Channel HD",
+    # Centroamérica, Perú, Ecuador, Uruguay
+    "173315": "FUTV HD (Costa Rica)",
+    "173323": "Teletica 7 (Costa Rica)",
+    "28931": "Canal 4 HD (El Salvador)",
+    "1067841": "Liga 1 MAX (Perú)",
+    "29848": "Gol Perú HD",
+    "1169162": "Zapping Sports (Ecuador)",
+    "192215": "Ecuavisa (Ecuador)",
+    "97818": "VTV Plus HD (Uruguay)",
+    "29714": "VTV HD (Uruguay)"
 }
 
 def load_config():
@@ -174,6 +184,38 @@ def resolve_channel_input(raw_input):
 def resolve_channel_from_raw(slug, cname):
     txt = f"{slug} {cname}".lower()
     
+    # Costa Rica
+    if "futv" in txt:
+        return "173315", "FUTV HD (Costa Rica)"
+    if "teletica" in txt or "td+" in txt:
+        return "173323", "Teletica 7 (Costa Rica)"
+    if "repretel" in txt:
+        return "173322", "Repretel 6 (Costa Rica)"
+        
+    # El Salvador
+    if "canal 4" in txt or "tcs" in txt:
+        return "28931", "Canal 4 (El Salvador)"
+    if "tigo" in txt:
+        return "28931", "Tigo Sports / Canal 4 (El Salvador)"
+        
+    # Peru
+    if "liga 1" in txt or "l1 max" in txt or "l1max" in txt:
+        return "1067841", "Liga 1 MAX (Perú)"
+    if "gol peru" in txt or "golperu" in txt:
+        return "29848", "Gol Perú HD"
+        
+    # Ecuador
+    if "zapping" in txt:
+        return "1169162", "Zapping Sports (Ecuador)"
+    if "ecuavisa" in txt:
+        return "192215", "Ecuavisa (Ecuador)"
+        
+    # Uruguay
+    if "vtv plus" in txt or "vtv+" in txt:
+        return "97818", "VTV Plus HD (Uruguay)"
+    if "vtv" in txt or "tenfield" in txt:
+        return "29714", "VTV HD (Uruguay)"
+        
     # Hypermotion / 2da División
     if "hyper" in txt or "segunda" in txt or "la liga 2" in txt or "laliga 2" in txt or "laliga2" in txt:
         return "6560", "LaLiga Hypermotion HD"
@@ -282,6 +324,7 @@ def resolve_channel_from_raw(slug, cname):
 def smart_match_channel_resolver(title, channels_raw):
     matched_channels = []
     seen = set()
+    title_lower = title.lower()
     
     # 1. Resolver todos los canales especificados en la web
     for slug, cname in channels_raw:
@@ -290,10 +333,19 @@ def smart_match_channel_resolver(title, channels_raw):
             seen.add(cid)
             matched_channels.append({"id": cid, "name": cdisplay})
             
-    # 2. Agregar los canales oficiales principales de la liga si no estaban presentes
-    title_lower = title.lower()
+    # 2. Asignar los canales exactos según los equipos o liga
     extra = []
-    if "serie a" in title_lower or "italia" in title_lower:
+    if "fas" in title_lower or "firpo" in title_lower or "salvador" in title_lower or "águila" in title_lower or "alianza fc" in title_lower:
+        extra = [("28931", "Canal 4 HD (El Salvador)")]
+    elif "saprissa" in title_lower or "alajuelense" in title_lower or "herediano" in title_lower or "costa rica" in title_lower or "escorpiones" in title_lower:
+        extra = [("173315", "FUTV HD (Costa Rica)"), ("173323", "Teletica 7 (Costa Rica)")]
+    elif "cienciano" in title_lower or "cusco" in title_lower or "universitario" in title_lower or "alianza lima" in title_lower or "liga 1" in title_lower or "peru" in title_lower or "perú" in title_lower:
+        extra = [("1067841", "Liga 1 MAX (Perú)"), ("29848", "Gol Perú HD")]
+    elif "ecuador" in title_lower or "barcelona sc" in title_lower or "emelec" in title_lower or "liga de quito" in title_lower:
+        extra = [("1169162", "Zapping Sports (Ecuador)"), ("192215", "Ecuavisa (Ecuador)")]
+    elif "peñarol" in title_lower or "nacional" in title_lower or "uruguay" in title_lower:
+        extra = [("97818", "VTV Plus HD (Uruguay)"), ("29714", "VTV HD (Uruguay)")]
+    elif "serie a" in title_lower or "italia" in title_lower:
         extra = [("8806", "DAZN Zona Serie A"), ("164069", "Sky Sport Uno (Serie A)"), ("30327", "ESPN 2 HD (Serie A)"), ("3411", "ESPN 3 HD")]
     elif "premier" in title_lower or "inglaterra" in title_lower:
         extra = [("29016", "Sky Sports Premier League"), ("30326", "ESPN 1 HD (Premier)"), ("1256711", "Sky Sports Main Events")]
@@ -312,8 +364,6 @@ def smart_match_channel_resolver(title, channels_raw):
         extra = [("4883", "ESPN Premium HD (Argentina)"), ("4884", "TyC Sports HD"), ("5980", "Fox Sports 1 HD")]
     elif "mexico" in title_lower or "liga mx" in title_lower:
         extra = [("1288338", "TUDN MX"), ("3987", "Canal 5 México FHD"), ("34041", "Fox Sports 1 México")]
-    elif "uruguay" in title_lower or "paraguay" in title_lower or "chile" in title_lower or "peru" in title_lower or "sudameric" in title_lower:
-        extra = [("1453275", "ESPN 4 SUR HD"), ("33933", "DIRECTV Sports (DSports)"), ("3411", "ESPN 3 HD")]
     elif "f1" in title_lower or "formula" in title_lower:
         extra = [("30907", "DAZN F1 España")]
     elif "moto" in title_lower:
@@ -325,9 +375,8 @@ def smart_match_channel_resolver(title, channels_raw):
             matched_channels.append({"id": cid, "name": cname})
 
     if not matched_channels:
-        matched_channels.append({"id": "30326", "name": "ESPN 1 HD"})
-        matched_channels.append({"id": "30327", "name": "ESPN 2 HD"})
-        matched_channels.append({"id": "30905", "name": "Movistar LaLiga FHD"})
+        matched_channels.append({"id": "1453275", "name": "ESPN 4 SUR HD"})
+        matched_channels.append({"id": "33933", "name": "DSports 1 HD"})
 
     return matched_channels
 
