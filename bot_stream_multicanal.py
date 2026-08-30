@@ -11,7 +11,7 @@ import threading
 import concurrent.futures
 
 # ==============================================================================
-# 1. CONFIGURACIÓN DEL BOT (100% NATIVO TARJETAROJA.MY + STREAMXHD + SERVIDOR DEDICADO)
+# 1. CONFIGURACIÓN DEL BOT (100% NATIVO TARJETAROJA.MY + STREAMXHD EN ESPAÑOL)
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
@@ -92,47 +92,53 @@ def classify_event(desc):
             return cat_name, priority
     return '🏆 <b>MÁS EVENTOS DEPORTIVOS</b>', 999
 
-# DICCIONARIO DIRECTO DE CANALES
+def channel_stability_score(ch_name, slug):
+    n = ch_name.lower()
+    s = slug.lower()
+    # Prioridad: Disney / Star+ > ESPN > Max > Movistar / DAZN > Fox Sports > TUDN
+    if "disney" in n or "disney" in s:
+        return 1
+    if "espn" in n or "espn" in s:
+        return 2
+    if "max" in n or "max" in s:
+        return 3
+    if "movistar" in n or "laliga" in n:
+        return 4
+    if "dazn" in n:
+        return 5
+    if "fox" in n:
+        return 6
+    if "tudn" in n:
+        return 7
+    return 10
+
+# CANALES DEDICADOS EN ESPAÑOL (LATINOAMÉRICA / ESPAÑA)
 TARJETAROJA_FALLBACKS = {
-    # ESPN / Disney
-    "espn": "32114", "espn1": "32114", "espn2": "32164", "espn3": "32112", "espn4": "32111", "espn7": "32138",
-    "espnextra": "32138", "espnplus1": "32114", "espn-deportes": "32038", "espndeportes": "32038",
-    "disney-1": "32114", "disney-2": "32164", "disney-3": "32112", "disney-4": "32111", "disney-5": "32138",
-    "disney-6": "32114", "disney-7": "32164", "disney8": "32112", "disney12": "32114",
-    "disney1": "32114", "disney2": "32164", "disney3": "32112", "disney4": "32111",
-    
-    # Fox Sports / TUDN / Max / Universo
+    "espn": "32164", "espn1": "32164", "espn2": "32164", "espn3": "32112", "espn4": "32111", "espn7": "32138",
+    "espnextra": "32138", "espnplus1": "32164", "espn-deportes": "32038", "espndeportes": "32038",
+    "disney-1": "32164", "disney-2": "32164", "disney-3": "32112", "disney-4": "32111", "disney-5": "32138",
     "foxone": "6873", "foxone3": "6872", "fox1ar": "6873", "foxsports": "6873",
     "tudn_usa": "32040", "tudn": "32040", "max1": "239671", "max": "239671",
     "universo_usa": "32162", "universo": "32162", "canal5": "3987",
-    
-    # Paramount
     "paramount1": "29016", "paramount2": "29043", "paramount3": "29044", "stp-paramount1": "29016",
-    
-    # Serie A / Juventus / Directv / Win / TyC
     "juventus": "8805", "juve": "8805", "seriea": "8805", "parma": "8805",
     "dsports": "33933", "dsports1": "33933", "directv": "33933", "dsportsar": "33933",
     "dsports2": "33932", "dsportsplus": "33931",
     "winsports": "33945", "win": "33945", "wincolombia": "33944",
     "tyc": "30365", "tycsports": "30365",
-    
-    # LaLiga / Premier / Motorsport
     "laliga": "30905", "movistarlaliga": "30905", "m+laliga": "30905", "laligatv": "33866",
-    "premier2uk": "29044", "premier": "29016", "premiersports": "29043",
     "dazn": "224832", "daznlaliga": "224832",
-    "f1": "30907", "daznf1": "30907", "motogp": "1349240",
-    "champions": "239671", "eurosport": "30911", "eurosport1": "30911", "eurosport2": "30912",
-    "nfl": "32121", "redzone": "32121", "nba": "32106"
+    "f1": "30907", "daznf1": "30907", "motogp": "1349240"
 }
 
-# EXTRACTOR DE M3U8 DE STREAMXHD (DISNEY, STAR, DAZN, ESPN)
+# EXTRACTOR DE M3U8 DE STREAMXHD (DISNEY, STAR, MAX, PEACOCK, ESPN EN ESPAÑOL)
 def extract_from_streamxhd(stream_url):
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://tarjetaroja.my/"
         }
-        r = requests.get(stream_url, headers=headers, timeout=5)
+        r = requests.get(stream_url, headers=headers, timeout=4)
         html_txt = r.text
         
         m_var = re.search(r'([a-zA-Z0-9_]+)\.forEach\([^}]*playbackURL\+=', html_txt)
@@ -170,36 +176,56 @@ def extract_from_streamxhd(stream_url):
         if playbackURL.startswith("http"):
             return playbackURL, f"Referer: {stream_url}\r\nUser-Agent: Mozilla/5.0\r\n", True
     except Exception as e:
-        print(f"Error decodificando StreamXHD: {e}")
+        print(f"Error decodificando StreamXHD ({stream_url}): {e}")
     return None, None, False
 
-# RESOLVER DE SEÑAL EXACTA DE TARJETAROJA.MY
+# RESOLVER DE SEÑAL EXACTA EN ESPAÑOL DE TARJETAROJA.MY
 def resolve_tarjetaroja_stream(channel_name):
-    ch_raw = str(channel_name).strip().lower()
-    ch_slug = ch_raw.replace("stp-", "").strip()
+    ch_raw = str(channel_name).strip().lower().replace("stp-", "")
+    ch_nodash = ch_raw.replace("-", "")
     
     # 1. Consultar la página exacta del stream en https://tarjetaroja.my/stream/<ch>
-    page_url = f"https://tarjetaroja.my/stream/{ch_raw}"
-    try:
-        r_page = requests.get(page_url, headers=HTTP_HEADERS, timeout=4)
-        if r_page.status_code == 200:
-            iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r_page.text)
-            if iframes:
-                ifr_url = iframes[0]
-                if ifr_url.startswith("//"):
-                    ifr_url = "https:" + ifr_url
-                print(f"Iframe detectado para '{ch_raw}': {ifr_url}")
-                
-                # Caso StreamXHD (ej. disney21, disney2, paramount1, max1, etc.)
-                if "streamxhd.com" in ifr_url:
-                    m3u8, hdrs, ok = extract_from_streamxhd(ifr_url)
-                    if ok:
-                        return m3u8, hdrs, True
-    except Exception as e:
-        print(f"Error consultando {page_url}: {e}")
+    for test_slug in [ch_raw, ch_nodash]:
+        page_url = f"https://tarjetaroja.my/stream/{test_slug}"
+        try:
+            r_page = requests.get(page_url, headers=HTTP_HEADERS, timeout=3.5)
+            if r_page.status_code == 200:
+                iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r_page.text)
+                if iframes:
+                    ifr_url = iframes[0]
+                    if ifr_url.startswith("//"):
+                        ifr_url = "https:" + ifr_url
+                    if "streamxhd.com" in ifr_url:
+                        m3u8, hdrs, ok = extract_from_streamxhd(ifr_url)
+                        if ok:
+                            return m3u8, hdrs, True
+        except Exception:
+            pass
 
-    # 2. Servidor dedicado para ESPN, Fox, Win, TyC, Directv, Juventus, etc.
-    stream_id = TARJETAROJA_FALLBACKS.get(ch_slug, TARJETAROJA_FALLBACKS.get(ch_raw, "32114"))
+    # 2. Consultar directamente en StreamXHD (donde están todos los canales latinos en español)
+    for s_name in [ch_nodash, ch_raw]:
+        for live_p in ["live1", "live2"]:
+            u = f"https://streamxhd.com/{live_p}.php?stream={s_name}"
+            m3u8, hdrs, ok = extract_from_streamxhd(u)
+            if ok:
+                return m3u8, hdrs, True
+
+    # 3. Mapeo de alias a StreamXHD
+    aliases = {
+        "peacocktv": "peacock1", "peacock": "peacock1",
+        "espn1": "espn", "espn": "espn", "espn2": "espn2", "espn3": "espn3", "espn4": "espn4",
+        "foxsports1": "foxsports", "fox1ar": "foxsports", "max": "max1"
+    }
+    if ch_raw in aliases or ch_nodash in aliases:
+        target_alias = aliases.get(ch_raw, aliases.get(ch_nodash))
+        for live_p in ["live1", "live2"]:
+            u = f"https://streamxhd.com/{live_p}.php?stream={target_alias}"
+            m3u8, hdrs, ok = extract_from_streamxhd(u)
+            if ok:
+                return m3u8, hdrs, True
+
+    # 4. Servidor dedicado en español para ESPN Sur, Fox, Win, TyC, Directv, Juventus, etc.
+    stream_id = TARJETAROJA_FALLBACKS.get(ch_raw, TARJETAROJA_FALLBACKS.get(ch_nodash, "32164"))
     for host in IPTV_HOSTS:
         try:
             req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
@@ -225,7 +251,7 @@ def resolve_tarjetaroja_stream(channel_name):
 
     return None, None, False
 
-# AGENDA EXTRAÍDA 100% DE HTTPS://TARJETAROJA.MY/
+# AGENDA EXTRAÍDA 100% DE HTTPS://TARJETAROJA.MY/ (CON CANAL MÁS ESTABLE PRIMERO)
 def get_tarjetaroja_agenda_messages(curr_key):
     try:
         r = requests.get(AGENDA_URL, headers=HTTP_HEADERS, timeout=8)
@@ -259,6 +285,9 @@ def get_tarjetaroja_agenda_messages(curr_key):
                 ch_slug = href.split("/stream/")[-1].strip()
                 channels.append((html.escape(ch_name.strip()), ch_slug))
 
+            # Ordenar canales para que la opción más estable (Disney / Star+ / ESPN / Max) esté siempre primero
+            channels.sort(key=lambda x: channel_stability_score(x[0], x[1]))
+
             cat_header, prio = classify_event(clean_title)
             if (prio, cat_header) not in groups:
                 groups[(prio, cat_header)] = []
@@ -281,10 +310,17 @@ def get_tarjetaroja_agenda_messages(curr_key):
             for event_time, clean_title, channels in event_list:
                 partido_block = f"⚽ <b>{clean_title}</b> (<code>{event_time}</code>)\n"
                 if not channels:
-                    partido_block += f"  • ▶ <b>ESPN:</b>\n  <code>/stream espn {curr_key}</code>\n"
+                    partido_block += f"  ⭐ <b>MÁS ESTABLE (ESPN en Español):</b>\n  <code>/stream espn {curr_key}</code>\n"
                 else:
-                    for ch_name, ch_slug in channels:
-                        partido_block += f"  • ▶ <b>{ch_name}:</b>\n  <code>/stream {ch_slug} {curr_key}</code>\n"
+                    # Canal principal recomendado / más estable
+                    top_name, top_slug = channels[0]
+                    partido_block += f"  ⭐ <b>MÁS ESTABLE ({top_name} en Español):</b>\n  <code>/stream {top_slug} {curr_key}</code>\n"
+                    
+                    # Canales alternativos
+                    if len(channels) > 1:
+                        partido_block += "  <i>Alternativas:</i>\n"
+                        for alt_name, alt_slug in channels[1:]:
+                            partido_block += f"  • ▶ <b>{alt_name}:</b> <code>/stream {alt_slug} {curr_key}</code>\n"
                 partido_block += "\n"
 
                 if len(current_msg) + len(partido_block) > 2800:
@@ -446,7 +482,7 @@ def stop_all_streams():
             count += 1
     return count
 
-# WATCHDOG EN SEGUNDO PLANO (RECONEXIÓN RÁPIDA EN 1S)
+# WATCHDOG EN SEGUNDO PLANO (RECONEXIÓN RÁPIDA EN 1.5S)
 def stream_watchdog():
     while True:
         try:
@@ -509,13 +545,11 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (ULTRA-ROBUSTO / BAJA LATENCIA)</b>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA EN ESPAÑOL</b>\n\n"
             "📋 <b>AGENDA DE PARTIDOS:</b>\n"
-            "• <code>/partidos</code> $\\rightarrow$ Ver todos los partidos en vivo de <b>https://tarjetaroja.my/</b>\n\n"
-            "📺 <b>TRANSMITIR CUALQUIER SEÑAL:</b>\n"
-            "• <code>/stream disney21</code> | <code>/stream disney-2</code>\n"
-            "• <code>/stream espn</code> | <code>/stream espn2</code> | <code>/stream espn4</code>\n"
-            "• <code>/stream foxone</code> | <code>/stream tudn_usa</code> | <code>/stream max1</code>\n"
+            "• <code>/partidos</code> $\\rightarrow$ Ver partidos en vivo con la <b>Opción Más Estable</b> de primero.\n\n"
+            "📺 <b>TRANSMITIR CUALQUIER SEÑAL (EN ESPAÑOL):</b>\n"
+            "• <code>/stream disney-4</code> | <code>/stream espn</code> | <code>/stream max1</code>\n"
             "• <code>/stream &lt;CANAL_O_SLUG&gt; [STREAM_KEY]</code>\n\n"
             "🛑 <b>DETENER TRANSMISIONES:</b>\n"
             "• <code>/stop</code> $\\rightarrow$ Detener la transmisión activa\n"
@@ -545,17 +579,17 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_SLUG&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream disney21</code> o <code>/stream espn</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_SLUG&gt;</code> o <code>/stream &lt;CANAL&gt; &lt;STREAM_KEY&gt;</code>\nEjemplo: <code>/stream disney-4</code> o <code>/stream espn</code>")
             return
         
         raw_url = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Conectando a la señal exacta de {html.escape(raw_url)} en https://tarjetaroja.my/...</b>")
+        send_msg(chat_id, f"⏳ <b>Conectando a la señal en español de {html.escape(raw_url)} en https://tarjetaroja.my/...</b>")
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión ACTIVA y ULTRA-ESTABLE!</b> 🚀\n\n"
+                f"✅ <b>¡Transmisión ACTIVA (100% en Español)!</b> 🚀\n\n"
                 f"📺 <b>Canal #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
                 f"📡 <b>Fuente:</b> https://tarjetaroja.my/stream/{html.escape(raw_url)}\n"
@@ -621,7 +655,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot 100% TarjetaRoja.my (Ultra-Robusto, Sin Pantalla Negra & A/V Sync Lock) listo...")
+    print("🤖 Bot 100% TarjetaRoja.my (Español Nativo & Canal Más Estable Primero) listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
