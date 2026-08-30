@@ -217,6 +217,7 @@ def resolve_tarjetaroja_stream(channel_name):
     # 3. PRIORIDAD 3: Mapeo de alias a StreamXHD
     aliases = {
         "peacocktv": "peacock1", "peacock": "peacock1",
+        "espnplus1": "espn", "espnplus2": "espn2", "espnplus3": "espn3", "espnplus4": "espn4",
         "espn1": "espn", "espn": "espn", "espn2": "espn2", "espn3": "espn3", "espn4": "espn4",
         "foxsports1": "foxsports", "fox1ar": "foxsports", "max": "max1"
     }
@@ -361,12 +362,10 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
 
     cmd.extend([
         "-i", source_url,
-        "-copyts",
-        "-start_at_zero",
         "-c", "copy",
         "-bsf:v", "dump_extra=freq=keyframe",
         "-bsf:a", "aac_adtstoasc",
-        "-avoid_negative_ts", "disabled",
+        "-avoid_negative_ts", "make_zero",
         "-max_muxing_queue_size", "8192",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
