@@ -183,26 +183,16 @@ def extract_from_streamxhd(stream_url):
         print(f"Error decodificando StreamXHD ({stream_url}): {e}")
     return None, None, False
 
-# RESOLVER DE SEÑAL ULTRA-ESTABLE (PRIORIDAD ALTA VELOCIDAD GIGABIT)
+# RESOLVER DE SEÑAL 100% NATIVA DIRECTA DE TARJETAROJA.MY / STREAMXHD
 def resolve_tarjetaroja_stream(channel_name):
     ch_raw = str(channel_name).strip().lower().replace("stp-", "")
     ch_nodash = ch_raw.replace("-", "")
     
-    # 1. PRIORIDAD 1: Servidor dedicado de ultra-alta velocidad (0% rate limiting / 0% congelamientos)
-    if ch_raw in TARJETAROJA_FALLBACKS or ch_nodash in TARJETAROJA_FALLBACKS:
-        stream_id = TARJETAROJA_FALLBACKS.get(ch_raw, TARJETAROJA_FALLBACKS.get(ch_nodash))
-        for host in IPTV_HOSTS:
-            try:
-                req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
-                return req_url, "User-Agent: IPTVSmartersPro\r\n", True
-            except Exception:
-                pass
-
-    # 2. PRIORIDAD 2: Consultar la página exacta del stream en https://tarjetaroja.my/stream/<ch>
+    # 1. PRIORIDAD 1: Consultar la página exacta del stream en https://tarjetaroja.my/stream/<ch>
     for test_slug in [ch_raw, ch_nodash]:
         page_url = f"https://tarjetaroja.my/stream/{test_slug}"
         try:
-            r_page = requests.get(page_url, headers=HTTP_HEADERS, timeout=3)
+            r_page = requests.get(page_url, headers=HTTP_HEADERS, timeout=3.5)
             if r_page.status_code == 200:
                 iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r_page.text)
                 if iframes:
@@ -211,26 +201,42 @@ def resolve_tarjetaroja_stream(channel_name):
                         ifr_url = "https:" + ifr_url
                     if "streamxhd.com" in ifr_url:
                         m3u8, hdrs, ok = extract_from_streamxhd(ifr_url)
-                        if ok:
+                        if ok and m3u8:
                             return m3u8, hdrs, True
         except Exception:
             pass
 
-    # 3. PRIORIDAD 3: Consultar directamente en StreamXHD
+    # 2. PRIORIDAD 2: Consultar directamente en StreamXHD (live1 y live2)
     for s_name in [ch_nodash, ch_raw]:
         for live_p in ["live1", "live2"]:
             u = f"https://streamxhd.com/{live_p}.php?stream={s_name}"
             m3u8, hdrs, ok = extract_from_streamxhd(u)
-            if ok:
+            if ok and m3u8:
                 return m3u8, hdrs, True
 
-    # 4. Fallback general a servidor dedicado ESPN
-    for host in IPTV_HOSTS:
-        try:
-            req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"
-            return req_url, "User-Agent: IPTVSmartersPro\r\n", True
-        except Exception:
-            pass
+    # 3. PRIORIDAD 3: Mapeo de alias a StreamXHD
+    aliases = {
+        "peacocktv": "peacock1", "peacock": "peacock1",
+        "espn1": "espn", "espn": "espn", "espn2": "espn2", "espn3": "espn3", "espn4": "espn4",
+        "foxsports1": "foxsports", "fox1ar": "foxsports", "max": "max1"
+    }
+    if ch_raw in aliases or ch_nodash in aliases:
+        target_alias = aliases.get(ch_raw, aliases.get(ch_nodash))
+        for live_p in ["live1", "live2"]:
+            u = f"https://streamxhd.com/{live_p}.php?stream={target_alias}"
+            m3u8, hdrs, ok = extract_from_streamxhd(u)
+            if ok and m3u8:
+                return m3u8, hdrs, True
+
+    # 4. Fallback a servidor dedicado solo si no se encuentra en tarjetaroja.my
+    if ch_raw in TARJETAROJA_FALLBACKS or ch_nodash in TARJETAROJA_FALLBACKS:
+        stream_id = TARJETAROJA_FALLBACKS.get(ch_raw, TARJETAROJA_FALLBACKS.get(ch_nodash))
+        for host in IPTV_HOSTS:
+            try:
+                req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
+                return req_url, "User-Agent: IPTVSmartersPro\r\n", True
+            except Exception:
+                pass
 
     return None, None, False
 
@@ -355,13 +361,8 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
 
     cmd.extend([
         "-i", source_url,
-        "-c:v", "copy",
+        "-c", "copy",
         "-bsf:v", "dump_extra=freq=keyframe",
-        "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-ar", "44100",
-        "-ac", "2",
         "-bsf:a", "aac_adtstoasc",
         "-avoid_negative_ts", "make_zero",
         "-max_muxing_queue_size", "8192",
