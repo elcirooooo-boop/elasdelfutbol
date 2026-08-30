@@ -160,8 +160,15 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
 
     cmd.extend([
         "-i", source_url,
-        "-c:v", "copy",
-        "-bsf:v", "dump_extra=freq=keyframe",
+        "-vf", "bwdif=mode=send_field:parity=auto:deint=all,fps=50,scale=1280:720",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
+        "-b:v", "3000k",
+        "-maxrate", "3500k",
+        "-bufsize", "6000k",
+        "-g", "50",
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "128k",
         "-ar", "44100",
