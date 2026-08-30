@@ -361,10 +361,12 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
 
     cmd.extend([
         "-i", source_url,
+        "-copyts",
+        "-start_at_zero",
         "-c", "copy",
         "-bsf:v", "dump_extra=freq=keyframe",
         "-bsf:a", "aac_adtstoasc",
-        "-avoid_negative_ts", "make_zero",
+        "-avoid_negative_ts", "disabled",
         "-max_muxing_queue_size", "8192",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
