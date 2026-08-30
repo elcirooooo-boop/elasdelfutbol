@@ -9,16 +9,61 @@ import html
 import threading
 
 # ==============================================================================
-# CONFIGURACIÓN DEDICADA 100% STREAMEAST (https://istreameast.cx/)
+# CONFIGURACIÓN GENERAL DEL BOT Y SERVIDOR IPTV
 # ==============================================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
 
-STREAMEAST_BASE = "https://istreameast.cx"
-STREAMEAST_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Referer": "https://istreameast.cx/"
+IPTV_USER = "BE15ERDV"
+IPTV_PASS = "PXELERB9"
+IPTV_HOSTS = [
+    "http://evestv.leptis.live",
+    "http://evestv.ptjfj.com",
+    "http://tv.rmhat.com"
+]
+IPTV_HEADERS = {"User-Agent": "IPTVSmartersPro"}
+
+# Canales principales pre-mapeados
+OFFICIAL_CHANNELS = {
+    # España
+    "30905": "Movistar LaLiga FHD",
+    "224832": "DAZN LaLiga 1 FHD",
+    "224831": "DAZN LaLiga 2 FHD",
+    "6560": "LaLiga Hypermotion HD (2da División)",
+    "91781": "DAZN 1 España",
+    "91782": "DAZN 2 España",
+    "30907": "DAZN F1 España",
+    "1349240": "DAZN MotoGP",
+    # Argentina / Sudamérica
+    "4883": "ESPN Premium HD (Argentina)",
+    "30365": "TyC Sports HD",
+    "4880": "Fox Sports 1 Argentina",
+    "4881": "Fox Sports 2 Argentina",
+    "4882": "Fox Sports 3 Argentina",
+    "30326": "ESPN 1 HD",
+    "30327": "ESPN 2 HD",
+    "30328": "ESPN 3 HD",
+    "1453275": "ESPN 4 HD",
+    "30329": "ESPN Extra HD",
+    # Colombia
+    "33945": "Win Sports+ HD (Colombia)",
+    "33944": "Win Sports Colombia",
+    "33933": "DIRECTV Sports 1 HD (DSports)",
+    "33932": "DIRECTV Sports 2 HD (DSports 2)",
+    "33931": "DIRECTV Sports Plus HD (DSports+)",
+    # México
+    "1288338": "TUDN MX",
+    "985726": "(ViX) TUDN",
+    "3987": "Canal 5 México FHD",
+    "34041": "Fox Sports 1 México",
+    # Inglaterra / Internacional
+    "29016": "Sky Sports Premier League",
+    "1256711": "Sky Sports Main Events",
+    "8805": "DAZN Juventus",
+    "8804": "DAZN Inter",
+    "8803": "DAZN AC Milan",
+    "8802": "DAZN Napoli"
 }
 
 def load_config():
@@ -44,131 +89,97 @@ ADMIN_USER_ID = None
 active_streams = {}
 stream_lock = threading.Lock()
 
-# Caché de eventos de StreamEast
-STREAMEAST_CACHE = {"timestamp": 0, "events": []}
+def get_iptv_stream_url(stream_id):
+    clean_id = str(stream_id).strip()
+    headers_str = "User-Agent: IPTVSmartersPro\r\n"
+    for host in IPTV_HOSTS:
+        url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{clean_id}.ts"
+        return url, headers_str, True
+    return None, None, False
 
-def fetch_streameast_events():
-    global STREAMEAST_CACHE
-    now = time.time()
-    if now - STREAMEAST_CACHE.get("timestamp", 0) < 180 and STREAMEAST_CACHE.get("events"):
-        return STREAMEAST_CACHE["events"]
-
-    schedule_urls = [
-        ("Fútbol", f"{STREAMEAST_BASE}/schedule/soccer"),
-        ("UFC / MMA", f"{STREAMEAST_BASE}/schedule/ufc"),
-        ("Motorsport / F1", f"{STREAMEAST_BASE}/schedule/f1"),
-        ("Boxeo", f"{STREAMEAST_BASE}/schedule/boxing"),
-        ("NBA / Baloncesto", f"{STREAMEAST_BASE}/schedule/nba"),
-        ("NFL", f"{STREAMEAST_BASE}/schedule/nfl"),
-        ("MLB", f"{STREAMEAST_BASE}/schedule/mlb"),
-        ("En Vivo", f"{STREAMEAST_BASE}/")
-    ]
-
-    all_events = []
-    seen_slugs = set()
-
-    for cat_name, url in schedule_urls:
-        try:
-            r = requests.get(url, headers=STREAMEAST_HEADERS, timeout=6)
-            if r.status_code == 200:
-                cards = re.findall(r'<div class="event-card"[^>]*onclick="window\.location\.href=[\'"]/links/([^\'"]+)[\'"][^>]*>(.*?)</div>\s*</div>\s*</div>', r.text, re.DOTALL)
-                for slug, inner in cards:
-                    if slug in seen_slugs:
-                        continue
-                    seen_slugs.add(slug)
-                    
-                    title_m = re.search(r'<div class="event-title">([^<]+)</div>', inner)
-                    time_m = re.search(r'<div class="event-datetime">([^<]+)</div>', inner)
-                    league_m = re.search(r'<div class="event-league">\s*([A-Za-z0-9\s]+)', inner)
-                    status_m = re.search(r'class="event-status[^"]*">([^<]+)<', inner)
-                    
-                    title = title_m.group(1).strip() if title_m else slug.replace("-", " ").title()
-                    time_str = time_m.group(1).strip() if time_m else ""
-                    league = league_m.group(1).strip() if league_m else cat_name
-                    status = status_m.group(1).strip() if status_m else "Programado"
-                    
-                    all_events.append({
-                        "slug": slug,
-                        "title": title,
-                        "time": time_str,
-                        "league": league,
-                        "sport_cat": cat_name,
-                        "status": status,
-                        "url": f"{STREAMEAST_BASE}/links/{slug}"
-                    })
-        except Exception:
-            pass
-
-    if all_events:
-        STREAMEAST_CACHE["timestamp"] = now
-        STREAMEAST_CACHE["events"] = all_events
-        return all_events
-    return STREAMEAST_CACHE.get("events", [])
-
-def resolve_streameast_stream(query):
-    q = query.strip()
+def resolve_channel_input(raw_input):
+    clean = str(raw_input).strip().lower()
     
-    # 1. Si el usuario pasa directamente un link m3u8 o http/https
-    if q.startswith("http://") or q.startswith("https://"):
-        if ".m3u8" in q or "workers.dev" in q or "stream" in q:
-            return q, "Enlace Directo StreamEast (.m3u8)", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\nReferer: https://istreameast.cx/\r\n", True
+    if clean.isdigit() and clean in OFFICIAL_CHANNELS:
+        return clean, OFFICIAL_CHANNELS[clean]
+    if clean.isdigit():
+        return clean, f"Canal ID #{clean}"
+
+    aliases = {
+        "laliga": ("30905", "Movistar LaLiga FHD"),
+        "movistar": ("30905", "Movistar LaLiga FHD"),
+        "dazn": ("224832", "DAZN LaLiga 1 FHD"),
+        "dazn1": ("224832", "DAZN LaLiga 1 FHD"),
+        "dazn2": ("224831", "DAZN LaLiga 2 FHD"),
+        "daznf1": ("30907", "DAZN F1 España"),
+        "f1": ("30907", "DAZN F1 España"),
+        "motogp": ("1349240", "DAZN MotoGP"),
+        "win": ("33945", "Win Sports+ HD (Colombia)"),
+        "win+": ("33945", "Win Sports+ HD (Colombia)"),
+        "winsports": ("33945", "Win Sports+ HD (Colombia)"),
+        "espn": ("4883", "ESPN Premium HD"),
+        "espnpremium": ("4883", "ESPN Premium HD"),
+        "espn1": ("30326", "ESPN 1 HD"),
+        "espn2": ("30327", "ESPN 2 HD"),
+        "espn3": ("30328", "ESPN 3 HD"),
+        "espn4": ("1453275", "ESPN 4 HD"),
+        "tyc": ("30365", "TyC Sports HD"),
+        "dsports": ("33933", "DIRECTV Sports 1 HD (DSports)"),
+        "directv": ("33933", "DIRECTV Sports 1 HD (DSports)"),
+        "tudn": ("1288338", "TUDN MX"),
+        "fox": ("4880", "Fox Sports 1 Argentina"),
+        "premier": ("29016", "Sky Sports Premier League")
+    }
+    
+    if clean in aliases:
+        return aliases[clean]
         
-        # Si es una URL de página de StreamEast: https://istreameast.cx/links/<slug>
-        slug_m = re.search(r'/links/([^\s/?#]+)', q)
-        if slug_m:
-            q = slug_m.group(1)
+    for k, v in OFFICIAL_CHANNELS.items():
+        if clean in v.lower():
+            return k, v
 
-    # 2. Buscar en los eventos de StreamEast por slug o por nombre
-    events = fetch_streameast_events()
-    target_event = None
+    return "30905", "Movistar LaLiga FHD"
+
+def resolve_to_iptv(slug, cname):
+    txt = f"{slug} {cname}".lower()
     
-    # Coincidencia exacta de slug
-    for ev in events:
-        if ev["slug"].lower() == q.lower() or q.lower() in ev["slug"].lower():
-            target_event = ev
-            break
-            
-    # Coincidencia por palabras del título
-    if not target_event:
-        q_words = [w for w in re.split(r'[\s\-_]+', q.lower()) if len(w) > 2]
-        for ev in events:
-            if all(w in ev["title"].lower() or w in ev["slug"].lower() for w in q_words):
-                target_event = ev
-                break
-
-    if not target_event and events:
-        target_event = events[0] # Por defecto primer partido en vivo
-
-    if target_event:
-        match_url = target_event["url"]
-        try:
-            r = requests.get(match_url, headers=STREAMEAST_HEADERS, timeout=10)
-            if r.status_code == 200:
-                # Buscar embeds de reproducción
-                iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', r.text)
-                server_btns = re.findall(r'class="server-btn[^"]*"[^>]+data-src=["\']([^"\']+)["\']', r.text)
-                
-                embed_urls = iframes + server_btns
-                for eu in embed_urls:
-                    if "embed" in eu:
-                        # Intentar extraer m3u8 del embed
-                        try:
-                            r_emb = requests.get(eu, headers=STREAMEAST_HEADERS, timeout=8)
-                            m3u8_m = re.findall(r'(https?://[^\s"\'<>]+\.m3u8[^\s"\'<>]*)', r_emb.text)
-                            if m3u8_m:
-                                return m3u8_m[0], f"{target_event['title']} (StreamEast)", f"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\nReferer: {eu}\r\n", True
-                        except Exception:
-                            pass
-
-                # Si no se pudo resolver el embed automáticamente, devolver instrucciones
-                return None, target_event['title'], match_url, False
-        except Exception as e:
-            print(f"Error resolviendo match {match_url}: {e}")
-
-    return None, q, None, False
+    if "movistar" in txt or "la liga" in txt or "laliga" in txt:
+        if "hyper" in txt or "2" in txt or "segunda" in txt:
+            return "6560", "LaLiga Hypermotion"
+        return "30905", "Movistar LaLiga FHD"
+    if "dazn" in txt:
+        if "f1" in txt or "formula" in txt:
+            return "30907", "DAZN F1"
+        if "moto" in txt:
+            return "1349240", "DAZN MotoGP"
+        return "224832", "DAZN LaLiga 1 FHD"
+    if "win" in txt:
+        return "33945", "Win Sports+ HD"
+    if "espn" in txt:
+        if "prem" in txt:
+            return "4883", "ESPN Premium HD"
+        if "4" in txt:
+            return "1453275", "ESPN 4 HD"
+        if "2" in txt:
+            return "30327", "ESPN 2 HD"
+        if "3" in txt:
+            return "30328", "ESPN 3 HD"
+        return "30326", "ESPN 1 HD"
+    if "tyc" in txt or "tnt" in txt:
+        return "30365", "TyC/TNT Sports HD"
+    if "dsports" in txt or "directv" in txt:
+        return "33933", "DSports 1 HD"
+    if "tudn" in txt or "vix" in txt:
+        return "1288338", "TUDN MX"
+    if "fox" in txt:
+        return "4880", "Fox Sports 1"
+    if "sky" in txt or "premier" in txt:
+        return "29016", "Sky Sports Premier"
+        
+    return "30905", "Movistar LaLiga FHD"
 
 # ==============================================================================
-# MOTOR DE TRANSMISIÓN TELEGRAM (ULTRA-BAJA LATENCIA / 50-60 FPS SUAVE)
+# MOTOR DE TRANSMISIÓN EN DIRECTO (0% LAG / ULTRA BAJA LATENCIA)
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -226,24 +237,26 @@ def start_single_stream(raw_channel, stream_key):
     destination = RTMP_SERVER + stream_key
 
     with stream_lock:
+        # Liberar la conexión previa de inmediato para evitar límite de cupo (401)
         for sid in list(active_streams.keys()):
             stop_single_stream(sid)
         time.sleep(0.5)
 
         stream_id = "1"
-        source_url, title_display, hdrs_or_link, is_ok = resolve_streameast_stream(raw_channel)
+        if raw_channel.startswith("http://") or raw_channel.startswith("https://"):
+            source_url = raw_channel
+            headers = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n"
+            channel_display = "Enlace Directo Stream"
+            channel_id = "direct"
+            is_ok = True
+        else:
+            channel_id, channel_display = resolve_channel_input(raw_channel)
+            source_url, headers, is_ok = get_iptv_stream_url(channel_id)
 
         if not is_ok or not source_url:
-            err_msg = (
-                f"ℹ️ <b>Partido:</b> {html.escape(title_display)}\n\n"
-                f"Para emitir este partido directo desde StreamEast sin límites:\n"
-                f"1. Abre en tu navegador: <code>{html.escape(str(hdrs_or_link))}</code>\n"
-                f"2. En DevTools (F12 $\\rightarrow$ Network) copia el enlace <b>mono.ts.m3u8</b>.\n"
-                f"3. Envía: <code>/stream &lt;URL_M3U8&gt; {stream_key}</code>"
-            )
-            return False, stream_id, err_msg
+            return False, stream_id, f"No se pudo conectar al canal '{raw_channel}'."
 
-        proc, out_f, log_file = launch_ffmpeg_process(source_url, hdrs_or_link, destination, stream_id)
+        proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
         
         time.sleep(3.0)
         if proc.poll() is not None:
@@ -264,16 +277,17 @@ def start_single_stream(raw_channel, stream_key):
             "process": proc,
             "log_file": out_f,
             "log_path": log_file,
-            "raw_name": title_display,
+            "raw_name": channel_display,
+            "channel_id": channel_id,
             "url": source_url,
-            "headers": hdrs_or_link,
+            "headers": headers,
             "destination": destination,
             "key": stream_key,
             "start_time": now,
             "auto_restart": True,
             "restart_count": 0
         }
-        return True, stream_id, title_display
+        return True, stream_id, channel_display
 
 def stop_single_stream(identifier):
     ident = str(identifier).strip().lower()
@@ -315,7 +329,7 @@ def stop_all_streams():
     return count
 
 # ==============================================================================
-# COMANDOS Y MENÚS DE TELEGRAM (STREAMEAST)
+# AGENDA DINÁMICA DE PARTIDOS 100% AUTOMATIZADA
 # ==============================================================================
 def send_msg(chat_id, text, parse_mode="HTML"):
     try:
@@ -330,57 +344,112 @@ def send_msg(chat_id, text, parse_mode="HTML"):
     except Exception as e:
         print(f"Error enviando mensaje: {e}")
 
-def get_streameast_agenda_messages(curr_key):
-    events = fetch_streameast_events()
-    if not events:
-        return ["⚠️ No se pudieron cargar los eventos de StreamEast en este momento. Intenta de nuevo en unos segundos."]
+MATCHES_AGENDA_CACHE = {"timestamp": 0, "messages": []}
 
-    messages = []
+def get_live_matches_agenda(curr_key):
+    global MATCHES_AGENDA_CACHE
+    now = time.time()
     
-    # 1. Separar los eventos en vivo
-    live_events = [e for e in events if "LIVE" in e.get("status", "").upper()]
-    upcoming_events = [e for e in events if "LIVE" not in e.get("status", "").upper()]
+    if now - MATCHES_AGENDA_CACHE.get("timestamp", 0) < 180 and MATCHES_AGENDA_CACHE.get("messages"):
+        cached_msgs = []
+        for m in MATCHES_AGENDA_CACHE["messages"]:
+            cached_msgs.append(re.sub(r'(/stream \w+) [\w\-_:]+', rf'\1 {curr_key}', m))
+        return cached_msgs
 
-    current_msg = "🔥 <b>AGENDA COMPLETA STREAMEAST (https://istreameast.cx/)</b>\n\n"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    try:
+        r = requests.get("https://tarjetaroja.my/", headers=headers, timeout=6)
+        if r.status_code == 200:
+            page_html = r.text
+            articles = re.findall(r'<article class="tr-event"[^>]*>(.*?)</article>', page_html, re.DOTALL)
+            parsed_events = []
+            for art in articles:
+                time_m = re.search(r'<span class="tr-event-time[^"]*">([^<]+)</span>', art)
+                time_str = time_m.group(1).strip() if time_m else ""
+                
+                title_m = re.search(r'<span class="tr-event-title">(.*?)</span>\s*<span class="tr-event-chevron"', art, re.DOTALL)
+                if title_m:
+                    title_raw = title_m.group(1)
+                    title_clean = re.sub(r'<[^>]+>', ' ', title_raw).strip()
+                    title_clean = re.sub(r'\s+', ' ', title_clean)
+                else:
+                    ds_m = re.search(r'data-search="([^"]+)"', art)
+                    title_clean = ds_m.group(1) if ds_m else "Evento Deportivo"
+                    
+                channels_raw = re.findall(r'<a class="tr-event-channel"[^>]*href="[^"]*stream/([^"]+)"[^>]*>([^<]+)</a>', art)
+                
+                iptv_options = []
+                seen_ids = set()
+                for slug, cname in channels_raw:
+                    iptv_id, iptv_display = resolve_to_iptv(slug, cname)
+                    if iptv_id not in seen_ids:
+                        seen_ids.add(iptv_id)
+                        iptv_options.append({"id": iptv_id, "name": iptv_display})
+                        
+                if iptv_options:
+                    parsed_events.append({
+                        "time": time_str,
+                        "title": title_clean,
+                        "channels": iptv_options
+                    })
+                    
+            if parsed_events:
+                messages = []
+                current_msg = "⚽ <b>AGENDA DE PARTIDOS DE HOY (CON CANAL DIRECTO 1-CLICK)</b>\n\n"
+                for ev in parsed_events:
+                    block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b>\n"
+                    for ch in ev["channels"][:3]:
+                        block += f"• 📺 <i>{html.escape(ch['name'])}:</i>\n  <code>/stream {ch['id']} {curr_key}</code>\n"
+                    block += "\n"
+                    
+                    if len(current_msg) + len(block) > 3500:
+                        messages.append(current_msg)
+                        current_msg = block
+                    else:
+                        current_msg += block
+                        
+                if current_msg:
+                    messages.append(current_msg)
+                    
+                MATCHES_AGENDA_CACHE["timestamp"] = now
+                MATCHES_AGENDA_CACHE["messages"] = messages
+                return messages
+    except Exception as e:
+        print("Error obteniendo agenda dinámica:", e)
 
-    if live_events:
-        current_msg += "🔴 <b>PARTIDOS EN DIRECTO AHORA MISMO (LIVE NOW):</b>\n"
-        for ev in live_events:
-            current_msg += (
-                f"• ⚽ <b>{html.escape(ev['title'])}</b> ({html.escape(ev['league'])})\n"
-                f"  <code>/stream {ev['slug']} {curr_key}</code>\n"
-            )
-        current_msg += "\n"
+    return get_sports_menu_messages(curr_key)
 
-    # Agrupar por deporte / liga los demás partidos
-    by_league = {}
-    for ev in upcoming_events:
-        lg = ev.get("league", "Otros Deportes")
-        if lg not in by_league:
-            by_league[lg] = []
-        by_league[lg].append(ev)
-
-    for lg, ev_list in by_league.items():
-        block = f"🏆 <b>{html.escape(lg).upper()} ({len(ev_list)} Partidos):</b>\n"
-        for ev in ev_list:
-            st = ev.get("status", "")
-            block += (
-                f"• ⏰ <b>{html.escape(ev['title'])}</b>\n"
-                f"  ⏱️ <i>{html.escape(ev['time'])}</i>\n"
-                f"  <code>/stream {ev['slug']} {curr_key}</code>\n"
-            )
-        block += "\n"
-
-        if len(current_msg) + len(block) > 3500:
-            messages.append(current_msg)
-            current_msg = block
-        else:
-            current_msg += block
-
-    if current_msg:
-        messages.append(current_msg)
-
-    return messages
+def get_sports_menu_messages(curr_key):
+    msg1 = (
+        "🏆 <b>CANALES DEPORTIVOS OFICIALES (100% DIRECTO GIGABIT)</b>\n\n"
+        "🇪🇸 <b>ESPAÑA (LALIGA & DAZN):</b>\n"
+        f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream 30905 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream 224832 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream 224831 {curr_key}</code>\n"
+        f"• ⚽ <b>LaLiga Hypermotion (2da):</b> <code>/stream 6560 {curr_key}</code>\n"
+        f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream 30907 {curr_key}</code>\n"
+        f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 1349240 {curr_key}</code>\n\n"
+        "🇦🇷 <b>ARGENTINA (LIGA PROFESIONAL & CONMEBOL):</b>\n"
+        f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
+        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 30365 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 30326 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 30327 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 30328 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
+    )
+    msg2 = (
+        "🇨🇴 <b>COLOMBIA & SUDAMÉRICA:</b>\n"
+        f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream 33945 {curr_key}</code>\n"
+        f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream 33933 {curr_key}</code>\n"
+        f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 33932 {curr_key}</code>\n\n"
+        "🇲🇽 <b>MÉXICO (LIGA MX & TUDN):</b>\n"
+        f"• ⚽ <b>TUDN MX:</b> <code>/stream 1288338 {curr_key}</code>\n"
+        f"• ⚽ <b>Canal 5 México FHD:</b> <code>/stream 3987 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 México:</b> <code>/stream 34041 {curr_key}</code>\n\n"
+        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE:</b>\n"
+        f"• ⚽ <b>Sky Sports Premier League:</b> <code>/stream 29016 {curr_key}</code>\n"
+    )
+    return [msg1, msg2]
 
 def handle_message(msg):
     global CONFIG
@@ -396,46 +465,39 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "🔥 <b>BOT DE TRANSMISIÓN DEDICADO 100% A STREAMEAST</b>\n"
-            "🌐 Fuente Oficial: <code>https://istreameast.cx/</code>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DE FÚTBOL Y DEPORTES 100% AUTOMÁTICO</b>\n\n"
             "📋 <b>COMANDOS DISPONIBLES:</b>\n"
-            "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver todos los partidos de StreamEast en vivo\n"
-            "• <code>/stream &lt;SLUG_O_M3U8&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión\n"
-            "• <code>/buscar &lt;equipo&gt;</code> $\\rightarrow$ Buscar partido en StreamEast\n"
-            "• <code>/stop</code> o <code>/stopall</code> $\\rightarrow$ Detener transmisión\n"
+            "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver todos los partidos de hoy con su canal listo\n"
+            "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión directa\n"
+            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar un canal deportivo\n"
+            "• <code>/stop</code> $\\rightarrow$ Detener transmisión\n"
             "• <code>/status</code> $\\rightarrow$ Ver estado de emisión\n"
             f"• <code>/key &lt;NUEVA_KEY&gt;</code> $\\rightarrow$ Cambiar clave por defecto"
         )
         send_msg(chat_id, help_text)
 
     elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy") or text.startswith("/canales"):
-        send_msg(chat_id, "⏳ <b>Cargando todos los partidos y directos de StreamEast...</b>")
-        msgs = get_streameast_agenda_messages(curr_key)
+        send_msg(chat_id, "⏳ <b>Cargando todos los partidos de hoy con canales listos en 1-click...</b>")
+        msgs = get_live_matches_agenda(curr_key)
         for m in msgs:
             send_msg(chat_id, m)
 
     elif text.startswith("/buscar"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_o_equipo&gt;</code>\nEjemplo: <code>/buscar chelsea</code> o <code>/buscar madrid</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_de_canal&gt;</code>\nEjemplo: <code>/buscar laliga</code> o <code>/buscar espn</code>")
             return
         
         query = parts[1].strip().lower()
-        events = fetch_streameast_events()
-        matches = [e for e in events if query in e["title"].lower() or query in e["slug"].lower()]
+        matches = [(k, v) for k, v in OFFICIAL_CHANNELS.items() if query in v.lower()]
         
         if not matches:
-            send_msg(chat_id, f"❌ No se encontró ningún partido en StreamEast con: <b>{html.escape(query)}</b>")
+            send_msg(chat_id, f"❌ No se encontró ningún canal con: <b>{html.escape(query)}</b>")
             return
 
-        res = f"🔍 <b>RESULTADOS EN STREAMEAST PARA '{html.escape(query)}':</b>\n\n"
-        for ev in matches[:10]:
-            st = ev.get("status", "")
-            res += (
-                f"• ⚽ <b>{html.escape(ev['title'])}</b> ({html.escape(ev['league'])})\n"
-                f"  ⏱️ {html.escape(st)}\n"
-                f"  <code>/stream {ev['slug']} {curr_key}</code>\n\n"
-            )
+        res = f"🔍 <b>CANALES ENCONTRADOS PARA '{html.escape(query)}':</b>\n\n"
+        for cid, cname in matches[:10]:
+            res += f"• 📺 <b>{html.escape(cname)}:</b>\n  <code>/stream {cid} {curr_key}</code>\n\n"
         send_msg(chat_id, res)
 
     elif text.startswith("/key") or text.startswith("/setkey"):
@@ -451,21 +513,21 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;SLUG_O_M3U8&gt; [STREAM_KEY]</code>\nEjemplo: <code>/stream chelsea-vs-brighton-and-hove-albion-2494014</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_ID&gt; [STREAM_KEY]</code>\nEjemplo: <code>/stream 30905</code> o <code>/stream laliga</code>")
             return
         
         raw_ch = clean_arg(parts[1])
         stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
         
-        send_msg(chat_id, f"⏳ <b>Conectando a la señal de StreamEast ({html.escape(raw_ch[:35])})...</b>")
+        send_msg(chat_id, f"⏳ <b>Conectando al canal {html.escape(raw_ch)} en servidor Gigabit dedicado...</b>")
         ok, sid, res = start_single_stream(raw_ch, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión ACTIVA desde StreamEast!</b> 🚀\n\n"
-                f"📺 <b>Partido:</b> <code>{html.escape(res)}</code>\n"
+                f"✅ <b>¡Transmisión ACTIVA y 100% DIRECTA!</b> 🚀\n\n"
+                f"📺 <b>Canal:</b> <code>{html.escape(res)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"📡 <b>Fuente:</b> https://istreameast.cx/\n"
-                f"⚡ <b>Formato:</b> 50 FPS Sedoso / Baja Latencia en Vivo\n\n"
+                f"⚡ <b>Formato:</b> 50 FPS Suave Progresivo / Cero Lag\n"
+                f"🔊 <b>Audio:</b> AAC Estéreo 100% Sincronizado\n\n"
                 f"🛑 <b>Detener:</b> <code>/stop</code>"
             ))
         else:
@@ -489,7 +551,7 @@ def handle_message(msg):
             mins = elapsed // 60
             secs = elapsed % 60
             status_text += (
-                f"📺 <b>Partido:</b> <code>{html.escape(info['raw_name'])}</code>\n"
+                f"📺 <b>Canal:</b> <code>{html.escape(info['raw_name'])}</code>\n"
                 f"• ⏱️ Tiempo: <code>{mins}m {secs}s</code>\n"
                 f"• 📡 Key: <code>{info['key'][:8]}...</code>\n"
                 f"• 🛑 <b>Detener:</b> <code>/stop</code>\n"
@@ -497,7 +559,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot 100% StreamEast (https://istreameast.cx/) listo...")
+    print("🤖 Bot Deportivo 100% Automatizado listo...")
     offset = 0
     while True:
         try:
