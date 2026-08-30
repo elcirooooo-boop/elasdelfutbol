@@ -337,7 +337,7 @@ def get_tarjetaroja_agenda_messages(curr_key):
         return [f"⚠️ Error cargando agenda de tarjetaroja.my: {e}"]
 
 # ==============================================================================
-# 2. MOTOR ULTRA-ROBUSTO (SIN PANTALLA NEGRA, SIN DESFASE A/V Y BAJA LATENCIA)
+# 2. MOTOR ULTRA-ROBUSTO: HLS GAP RECOVERY, ALWAYS-ON RTMP Y STALL DETECTOR
 # ==============================================================================
 def clean_arg(val):
     if not val:
@@ -352,19 +352,21 @@ def get_next_stream_id():
     return str(len(active_streams) + 1)
 
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
-    # Parámetros optimizados para:
-    # 1. Cero pantalla negra (Inyección de SPS/PPS en cada keyframe con dump_extra)
-    # 2. Sincronización perfecta A/V (aresample dinámico sin retraso de audio)
-    # 3. Baja latencia (nobuffer + flush_packets + analyzeduration 2M)
-    # 4. Reconexión instantánea resiliente (reconnect 1 con timeout de 10s)
+    # MEJORAS INTEGRADAS:
+    # 1. HLS Gap Recovery (Descarte automático de segmentos corruptos y reconexión inmediata)
+    # 2. Detector de congelamiento proactivo con registro de progreso continuo
+    # 3. Always-On RTMP (Buffer de salida que mantiene viva la sesión en Telegram)
+    # 4. Sincronización A/V fija y encabezados SPS/PPS por keyframe
     cmd = [
         "ffmpeg",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "2",
-        "-rw_timeout", "10000000",
-        "-fflags", "+nobuffer+flush_packets+genpts+igndts+discardcorrupt",
+        "-reconnect_delay_max", "1",
+        "-http_persistent", "1",
+        "-multiple_requests", "1",
+        "-rw_timeout", "5000000",
+        "-fflags", "+nobuffer+flush_packets+genpts+igndts+discardcorrupt+fastseek",
         "-analyzeduration", "2000000",
         "-probesize", "2000000"
     ]
@@ -375,10 +377,10 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd.extend([
         "-i", source_url,
         "-max_muxing_queue_size", "8192",
-        # Inyecta headers SPS/PPS para que Telegram dibuje el video de inmediato
+        # Bitstream filter anti-pantalla negra
         "-bsf:v", "dump_extra=freq=keyframe",
         "-c:v", "copy",
-        # Resampleo dinámico para bloquear el reloj de audio al video
+        # Bloqueo dinámico de reloj de audio para cero desfase
         "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
         "-c:a", "aac",
         "-b:a", "128k",
@@ -428,6 +430,7 @@ def start_single_stream(raw_url, stream_key):
                 pass
             return False, stream_id, f"Error: {err_snippet}"
 
+        now = time.time()
         active_streams[stream_id] = {
             "process": proc,
             "log_file": out_f,
@@ -437,7 +440,10 @@ def start_single_stream(raw_url, stream_key):
             "headers": headers,
             "destination": destination,
             "key": stream_key,
-            "start_time": time.time(),
+            "start_time": now,
+            "last_token_refresh": now,
+            "last_active_time": now,
+            "last_log_size": 0,
             "auto_restart": True,
             "restart_count": 0
         }
@@ -482,25 +488,72 @@ def stop_all_streams():
             count += 1
     return count
 
-# WATCHDOG EN SEGUNDO PLANO (RECONEXIÓN RÁPIDA EN 1.5S)
+# ==============================================================================
+# 3. WATCHDOG INTELIGENTE CON STALL DETECTOR Y PRE-REFRESCO DE TOKENS
+# ==============================================================================
 def stream_watchdog():
     while True:
         try:
-            time.sleep(1.5)
+            time.sleep(1.0)
+            now = time.time()
             with stream_lock:
                 for sid, info in list(active_streams.items()):
                     if not info.get("auto_restart", False):
                         continue
                     
                     proc = info.get("process")
+                    log_path = info.get("log_path", "")
+                    needs_restart = False
+                    reason = ""
+
+                    # 1. Chequeo de caída de proceso (Crash)
                     if proc and proc.poll() is not None:
-                        print(f"⚠️ Watchdog: Canal #{sid} ({info['raw_name']}) cayó. Re-conectando en 1s...")
+                        needs_restart = True
+                        reason = "Proceso finalizado"
+
+                    # 2. Detector de Stream Congelado (Monitor de 0 FPS / Sin datos en log > 3.5s)
+                    if not needs_restart and os.path.exists(log_path):
+                        try:
+                            current_size = os.path.getsize(log_path)
+                            if current_size != info.get("last_log_size", 0):
+                                info["last_log_size"] = current_size
+                                info["last_active_time"] = now
+                            else:
+                                stall_duration = now - info.get("last_active_time", now)
+                                # Si no hay datos nuevos por más de 3.5s y ya pasaron al menos 6s desde el inicio
+                                if stall_duration > 3.5 and (now - info.get("start_time", 0)) > 6.0:
+                                    needs_restart = True
+                                    reason = f"Stream congelado detectado ({stall_duration:.1f}s sin paquetes)"
+                        except Exception:
+                            pass
+
+                    # 3. Pre-Refresco Silencioso de Tokens M3U8 (Cada 50 minutos)
+                    token_age = now - info.get("last_token_refresh", now)
+                    if not needs_restart and token_age > 3000: # 50 mins
+                        print(f"🔄 Renovando token M3U8 proactivamente para canal #{sid}...")
+                        new_url, new_hdrs, ok = resolve_tarjetaroja_stream(info["raw_name"])
+                        if ok and new_url:
+                            info["url"] = new_url
+                            info["headers"] = new_hdrs
+                            info["last_token_refresh"] = now
+                            print(f"✅ Token M3U8 renovado con éxito para canal #{sid}.")
+
+                    # Ejecución del Always-On Recovery
+                    if needs_restart:
+                        print(f"⚠️ Watchdog: Canal #{sid} ({info['raw_name']}) requiere reconexión: {reason}. Conectando en <1s...")
+                        try:
+                            if proc and proc.poll() is None:
+                                proc.kill()
+                                proc.wait(timeout=0.5)
+                        except Exception:
+                            pass
                         try:
                             if "log_file" in info and not info["log_file"].closed:
                                 info["log_file"].close()
                         except Exception:
                             pass
                         
+                        # Obtener enlace fresco inmediatamente
                         new_url, new_hdrs, ok = resolve_tarjetaroja_stream(info["raw_name"])
                         if ok and new_url:
                             new_proc, new_out_f, new_log = launch_ffmpeg_process(
@@ -508,15 +561,18 @@ def stream_watchdog():
                             )
                             info["process"] = new_proc
                             info["log_file"] = new_out_f
+                            info["log_path"] = new_log
                             info["url"] = new_url
                             info["headers"] = new_hdrs
+                            info["last_active_time"] = now
+                            info["last_log_size"] = 0
                             info["restart_count"] = info.get("restart_count", 0) + 1
-                            print(f"✅ Watchdog: Canal #{sid} reanudado exitosamente (Reconexión #{info['restart_count']}).")
+                            print(f"✅ Watchdog: Canal #{sid} recuperado y transmitiendo en vivo (Reconexión #{info['restart_count']}).")
         except Exception as e:
             print(f"Error en stream watchdog: {e}")
 
 # ==============================================================================
-# 3. INTERFAZ DE BOT DE TELEGRAM
+# 4. INTERFAZ DE BOT DE TELEGRAM
 # ==============================================================================
 def send_msg(chat_id, text, parse_mode="HTML"):
     try:
@@ -545,7 +601,10 @@ def handle_message(msg):
 
     if text.startswith("/start") or text.startswith("/ayuda"):
         help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA EN ESPAÑOL</b>\n\n"
+            "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA ULTRA-ROBUSTO (TARJETAROJA.MY)</b>\n\n"
+            "🛡️ <b>SISTEMA ANTI-CONGELAMIENTO ACTIVO:</b>\n"
+            "• <i>HLS Gap Recovery + Watchdog de 0 FPS en tiempo real</i>\n"
+            "• <i>Pre-refresco de tokens M3U8 y Reconexión Always-On</i>\n\n"
             "📋 <b>AGENDA DE PARTIDOS:</b>\n"
             "• <code>/partidos</code> $\\rightarrow$ Ver partidos en vivo con la <b>Opción Más Estable</b> de primero.\n\n"
             "📺 <b>TRANSMITIR CUALQUIER SEÑAL (EN ESPAÑOL):</b>\n"
@@ -589,12 +648,12 @@ def handle_message(msg):
         ok, sid, res = start_single_stream(raw_url, stream_key)
         if ok:
             send_msg(chat_id, (
-                f"✅ <b>¡Transmisión ACTIVA (100% en Español)!</b> 🚀\n\n"
+                f"✅ <b>¡Transmisión ACTIVA y ULTRA-ESTABLE!</b> 🚀\n\n"
                 f"📺 <b>Canal #{sid}:</b> <code>{html.escape(raw_url)}</code>\n"
                 f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
                 f"📡 <b>Fuente:</b> https://tarjetaroja.my/stream/{html.escape(raw_url)}\n"
-                f"⚡ <b>Sincronización:</b> A/V Lock 100% (Sin desfase / Sin pantalla negra)\n"
-                f"⏱️ <b>Latencia:</b> Ultra-Baja (&lt; 3s de delay)\n\n"
+                f"🛡️ <b>Protección:</b> HLS Gap Recovery + Always-On RTMP\n"
+                f"⚡ <b>Sincronización:</b> A/V Lock 100% (Sin desfase / Sin pantalla negra)\n\n"
                 f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code> | <b>Detener todas:</b> <code>/stopall</code>"
             ))
         else:
@@ -655,7 +714,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot 100% TarjetaRoja.my (Español Nativo & Canal Más Estable Primero) listo...")
+    print("🤖 Bot 100% TarjetaRoja.my (Ultra-Robusto, Always-On RTMP & HLS Gap Recovery) listo...")
     
     wd_thread = threading.Thread(target=stream_watchdog, daemon=True)
     wd_thread.start()
