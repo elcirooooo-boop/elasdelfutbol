@@ -386,18 +386,22 @@ def start_single_stream(raw_url, stream_key):
 
         proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
         
-        time.sleep(2.0)
+        time.sleep(3.5)
         if proc.poll() is not None:
             out_f.close()
             err_snippet = "No se pudo conectar a la fuente."
             try:
                 with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
-                    lines = f.readlines()
-                    if lines:
-                        err_snippet = lines[-1].strip()
+                    log_text = f.read()
+                    if "Error opening output" in log_text or "I/O error" in log_text:
+                        err_snippet = "Telegram rechazó la Stream Key. Asegúrate de que el directo esté abierto en Telegram y copia la Stream Key actual."
+                    else:
+                        lines = [l.strip() for l in log_text.splitlines() if l.strip()]
+                        if lines:
+                            err_snippet = lines[-1]
             except Exception:
                 pass
-            return False, stream_id, f"Error: {err_snippet}"
+            return False, stream_id, err_snippet
 
         now = time.time()
         active_streams[stream_id] = {
