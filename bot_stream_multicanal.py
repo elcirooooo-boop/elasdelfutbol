@@ -149,9 +149,10 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
         "-rw_timeout", "10000000",
-        "-fflags", "+genpts+igndts+discardcorrupt",
-        "-analyzeduration", "3000000",
-        "-probesize", "3000000"
+        "-flags", "low_delay",
+        "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
+        "-analyzeduration", "1000000",
+        "-probesize", "1000000"
     ]
 
     if headers:
@@ -166,6 +167,8 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-ar", "44100",
         "-ac", "2",
         "-avoid_negative_ts", "make_zero",
+        "-flush_packets", "1",
+        "-max_interleave_delta", "50000",
         "-max_muxing_queue_size", "8192",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
