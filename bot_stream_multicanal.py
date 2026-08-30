@@ -39,8 +39,11 @@ DIRECT_MAP = {
     "espnpremium": "4883", "premium": "4883", "tyc": "30365", "tycsports": "30365",
     "espn": "30326", "espn1": "30326", "espn2": "30327", "espn3": "30328", "espnextra": "30329",
     "espn4": "1453275", "espndeportes": "32038",
+    "espnplus": "30326", "espnplus1": "30326", "espnplus2": "30327", "espnplus3": "30328", "espnplus4": "1453275",
     "foxsports": "4880", "foxsports1": "4880", "foxsports2": "4881", "foxsports3": "4882", "fox1": "4880", "fox2": "4881", "fox3": "4882",
     "disney1": "30326", "disney2": "30327", "disney3": "30328", "disney4": "30329",
+    "max": "239671", "max1": "239671", "max2": "239671",
+    "tntsportschile": "4880", "tntsports": "4880", "fanatiz": "33945", "fanatiz18": "33945",
 
     # 🇨🇴 Colombia & Sudamérica
     "win": "33945", "winsports": "33945", "win+": "33945", "winsports+": "33945", "wincolombia": "33944",
