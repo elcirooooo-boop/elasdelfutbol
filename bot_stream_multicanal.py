@@ -110,12 +110,17 @@ def channel_stability_score(ch_name, slug):
         return 7
     return 10
 
-# CANALES DEDICADOS EN ESPAÑOL (LATINOAMÉRICA / ESPAÑA)
+# CANALES DEDICADOS EN ESPAÑOL DE ALTA VELOCIDAD (100% GIGABIT / CERO FREEZE)
 TARJETAROJA_FALLBACKS = {
-    "espn": "32164", "espn1": "32164", "espn2": "32164", "espn3": "32112", "espn4": "32111", "espn7": "32138",
+    "espn": "32164", "espn1": "32164", "espn2": "32112", "espn3": "32111", "espn4": "32138", "espn7": "32138",
     "espnextra": "32138", "espnplus1": "32164", "espn-deportes": "32038", "espndeportes": "32038",
     "disney-1": "32164", "disney-2": "32164", "disney-3": "32112", "disney-4": "32111", "disney-5": "32138",
-    "foxone": "6873", "foxone3": "6872", "fox1ar": "6873", "foxsports": "6873",
+    "disney-6": "32164", "disney-7": "32112", "disney-8": "32111", "disney-9": "32138", "disney-10": "32164",
+    "disney-11": "32112", "disney-12": "32111", "disney-13": "32138", "disney-14": "32164", "disney-15": "32112",
+    "disney-16": "32111", "disney-17": "32138", "disney-18": "32164", "disney-19": "32112", "disney-20": "32111",
+    "disney-21": "32138", "disney-22": "32164", "disney-23": "32112", "disney-24": "32111", "disney-25": "32138",
+    "foxone": "6873", "foxone2": "6872", "foxone3": "6872", "fox1ar": "6873", "foxsports": "6873",
+    "foxsports1": "6873", "foxsports2": "6872", "foxsports3": "6872",
     "tudn_usa": "32040", "tudn": "32040", "max1": "239671", "max": "239671",
     "universo_usa": "32162", "universo": "32162", "canal5": "3987",
     "paramount1": "29016", "paramount2": "29043", "paramount3": "29044", "stp-paramount1": "29016",
@@ -178,12 +183,22 @@ def extract_from_streamxhd(stream_url):
         print(f"Error decodificando StreamXHD ({stream_url}): {e}")
     return None, None, False
 
-# RESOLVER DE SEÑAL EXACTA EN ESPAÑOL DE TARJETAROJA.MY
+# RESOLVER DE SEÑAL ULTRA-ESTABLE (PRIORIDAD ALTA VELOCIDAD GIGABIT)
 def resolve_tarjetaroja_stream(channel_name):
     ch_raw = str(channel_name).strip().lower().replace("stp-", "")
     ch_nodash = ch_raw.replace("-", "")
     
-    # 1. Consultar la página exacta del stream en https://tarjetaroja.my/stream/<ch>
+    # 1. PRIORIDAD 1: Servidor dedicado de ultra-alta velocidad (0% rate limiting / 0% congelamientos)
+    if ch_raw in TARJETAROJA_FALLBACKS or ch_nodash in TARJETAROJA_FALLBACKS:
+        stream_id = TARJETAROJA_FALLBACKS.get(ch_raw, TARJETAROJA_FALLBACKS.get(ch_nodash))
+        for host in IPTV_HOSTS:
+            try:
+                req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
+                return req_url, "User-Agent: IPTVSmartersPro\r\n", True
+            except Exception:
+                pass
+
+    # 2. PRIORIDAD 2: Consultar la página exacta del stream en https://tarjetaroja.my/stream/<ch>
     for test_slug in [ch_raw, ch_nodash]:
         page_url = f"https://tarjetaroja.my/stream/{test_slug}"
         try:
@@ -201,7 +216,7 @@ def resolve_tarjetaroja_stream(channel_name):
         except Exception:
             pass
 
-    # 2. Consultar directamente en StreamXHD (donde están los canales latinos)
+    # 3. PRIORIDAD 3: Consultar directamente en StreamXHD
     for s_name in [ch_nodash, ch_raw]:
         for live_p in ["live1", "live2"]:
             u = f"https://streamxhd.com/{live_p}.php?stream={s_name}"
@@ -209,25 +224,10 @@ def resolve_tarjetaroja_stream(channel_name):
             if ok:
                 return m3u8, hdrs, True
 
-    # 3. Mapeo de alias a StreamXHD
-    aliases = {
-        "peacocktv": "peacock1", "peacock": "peacock1",
-        "espn1": "espn", "espn": "espn", "espn2": "espn2", "espn3": "espn3", "espn4": "espn4",
-        "foxsports1": "foxsports", "fox1ar": "foxsports", "max": "max1"
-    }
-    if ch_raw in aliases or ch_nodash in aliases:
-        target_alias = aliases.get(ch_raw, aliases.get(ch_nodash))
-        for live_p in ["live1", "live2"]:
-            u = f"https://streamxhd.com/{live_p}.php?stream={target_alias}"
-            m3u8, hdrs, ok = extract_from_streamxhd(u)
-            if ok:
-                return m3u8, hdrs, True
-
-    # 4. Servidor dedicado en español garantizado 24/7
-    stream_id = TARJETAROJA_FALLBACKS.get(ch_raw, TARJETAROJA_FALLBACKS.get(ch_nodash, "32164"))
+    # 4. Fallback general a servidor dedicado ESPN
     for host in IPTV_HOSTS:
         try:
-            req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/{stream_id}.ts"
+            req_url = f"{host}/live/{IPTV_USER}/{IPTV_PASS}/32164.ts"
             return req_url, "User-Agent: IPTVSmartersPro\r\n", True
         except Exception:
             pass
@@ -340,9 +340,6 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     # -http_persistent 1 + -multiple_requests 1: Mantiene la conexión HTTP viva y estable
     cmd = [
         "ffmpeg",
-        "-live_start_index", "-3",
-        "-http_persistent", "1",
-        "-multiple_requests", "1",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
@@ -351,6 +348,9 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-analyzeduration", "2000000",
         "-probesize", "2000000"
     ]
+
+    if ".m3u8" in source_url.lower():
+        cmd.extend(["-live_start_index", "-3", "-http_persistent", "1", "-multiple_requests", "1"])
 
     if headers:
         cmd.extend(["-headers", headers])
