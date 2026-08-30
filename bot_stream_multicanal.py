@@ -526,33 +526,49 @@ def get_live_matches_agenda(curr_key):
 
 def get_sports_menu_messages(curr_key):
     msg1 = (
-        "🏆 <b>CANALES DEPORTIVOS OFICIALES (100% DIRECTO GIGABIT)</b>\n\n"
-        "🇪🇸 <b>ESPAÑA (LALIGA & DAZN):</b>\n"
+        "🏆 <b>DIRECTORIO OFICIAL DE CANALES DEPORTIVOS (GIGABIT DIRECTO)</b>\n\n"
+        "🇪🇸 <b>ESPAÑA (LALIGA, DAZN & MOTOR):</b>\n"
         f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream 30905 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream 224832 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream 224831 {curr_key}</code>\n"
         f"• ⚽ <b>LaLiga Hypermotion (2da):</b> <code>/stream 6560 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN 1 España:</b> <code>/stream 91781 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN 2 España:</b> <code>/stream 91782 {curr_key}</code>\n"
         f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream 30907 {curr_key}</code>\n"
         f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 1349240 {curr_key}</code>\n\n"
-        "🇦🇷 <b>ARGENTINA (LIGA PROFESIONAL & CONMEBOL):</b>\n"
+        "🇦🇷 <b>ARGENTINA & CONMEBOL (LIGA PROFESIONAL & LIBERTADORES):</b>\n"
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
         f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 30365 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 Argentina:</b> <code>/stream 4880 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 Argentina:</b> <code>/stream 4881 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 Argentina:</b> <code>/stream 4882 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 30326 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 30327 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 30328 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 30329 {curr_key}</code>\n"
     )
     msg2 = (
-        "🇨🇴 <b>COLOMBIA & SUDAMÉRICA:</b>\n"
+        "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (DSPORTS & WIN SPORTS):</b>\n"
         f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream 33945 {curr_key}</code>\n"
+        f"• ⚽ <b>Win Sports Colombia:</b> <code>/stream 33944 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream 33933 {curr_key}</code>\n"
-        f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 33932 {curr_key}</code>\n\n"
+        f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 33932 {curr_key}</code>\n"
+        f"• ⚽ <b>DIRECTV Sports Plus HD:</b> <code>/stream 33931 {curr_key}</code>\n\n"
         "🇲🇽 <b>MÉXICO (LIGA MX & TUDN):</b>\n"
         f"• ⚽ <b>TUDN MX:</b> <code>/stream 1288338 {curr_key}</code>\n"
+        f"• ⚽ <b>(ViX) TUDN:</b> <code>/stream 985726 {curr_key}</code>\n"
         f"• ⚽ <b>Canal 5 México FHD:</b> <code>/stream 3987 {curr_key}</code>\n"
         f"• ⚽ <b>Fox Sports 1 México:</b> <code>/stream 34041 {curr_key}</code>\n\n"
-        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE:</b>\n"
+        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA):</b>\n"
         f"• ⚽ <b>Sky Sports Premier League:</b> <code>/stream 29016 {curr_key}</code>\n"
+        f"• ⚽ <b>Sky Sports Main Events:</b> <code>/stream 1256711 {curr_key}</code>\n\n"
+        "🇮🇹 <b>SERIE A (ITALIA):</b>\n"
+        f"• ⚽ <b>DAZN Juventus:</b> <code>/stream 8805 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN Inter:</b> <code>/stream 8804 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN AC Milan:</b> <code>/stream 8803 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN Napoli:</b> <code>/stream 8802 {curr_key}</code>\n\n"
+        "🔍 <i>¿Buscas otro canal específico?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
 
@@ -572,16 +588,23 @@ def handle_message(msg):
         help_text = (
             "⚽ <b>BOT DE TRANSMISIÓN DE FÚTBOL Y DEPORTES 100% AUTOMÁTICO</b>\n\n"
             "📋 <b>COMANDOS DISPONIBLES:</b>\n"
-            "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver todos los partidos de hoy con su canal listo\n"
-            "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión directa\n"
-            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar un canal deportivo\n"
+            "• <code>/canales</code> o <code>/deportes</code> $\\rightarrow$ Ver todos los canales deportivos oficiales\n"
+            "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver los partidos de hoy con canales listos\n"
+            "• <code>/stream &lt;CANAL_O_ID&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión directa\n"
+            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar canal por nombre\n"
             "• <code>/stop</code> $\\rightarrow$ Detener transmisión\n"
-            "• <code>/status</code> $\\rightarrow$ Ver estado de emisión\n"
+            "• <code>/status</code> $\\rightarrow$ Ver estado de transmisión activa\n"
+            "• <code>/cuentas</code> $\\rightarrow$ Ver cuentas IPTV registradas\n"
             f"• <code>/key &lt;NUEVA_KEY&gt;</code> $\\rightarrow$ Cambiar clave por defecto"
         )
         send_msg(chat_id, help_text)
 
-    elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy") or text.startswith("/canales"):
+    elif text.startswith("/canales") or text.startswith("/deportes") or text.startswith("/menu"):
+        msgs = get_sports_menu_messages(curr_key)
+        for m in msgs:
+            send_msg(chat_id, m)
+
+    elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy"):
         send_msg(chat_id, "⏳ <b>Cargando todos los partidos de hoy con canales listos en 1-click...</b>")
         msgs = get_live_matches_agenda(curr_key)
         for m in msgs:
@@ -689,8 +712,25 @@ def handle_message(msg):
         status_text += "🛑 <b>Detener todas:</b> <code>/stopall</code>"
         send_msg(chat_id, status_text)
 
+def set_telegram_commands():
+    try:
+        commands = [
+            {"command": "canales", "description": "🏆 Directorio de todos los canales deportivos"},
+            {"command": "partidos", "description": "⚽ Partidos de hoy con canal listo"},
+            {"command": "stream", "description": "▶️ Iniciar transmisión (/stream CANAL KEY)"},
+            {"command": "buscar", "description": "🔍 Buscar canal deportivo (/buscar nombre)"},
+            {"command": "status", "description": "🟢 Ver estado de transmisiones en vivo"},
+            {"command": "stop", "description": "🛑 Detener transmisión"},
+            {"command": "stopall", "description": "🛑 Detener todas las transmisiones"},
+            {"command": "cuentas", "description": "👥 Ver cuentas IPTV registradas"}
+        ]
+        requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands", json={"commands": commands}, timeout=10)
+    except Exception:
+        pass
+
 def main():
     print("🤖 Bot Deportivo 100% Automatizado listo (Multi-Thread)...")
+    set_telegram_commands()
     offset = 0
     while True:
         try:
