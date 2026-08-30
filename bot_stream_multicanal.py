@@ -50,39 +50,59 @@ STREAMEAST_CACHE = {"timestamp": 0, "events": []}
 def fetch_streameast_events():
     global STREAMEAST_CACHE
     now = time.time()
-    if now - STREAMEAST_CACHE.get("timestamp", 0) < 120 and STREAMEAST_CACHE.get("events"):
+    if now - STREAMEAST_CACHE.get("timestamp", 0) < 180 and STREAMEAST_CACHE.get("events"):
         return STREAMEAST_CACHE["events"]
 
-    try:
-        r = requests.get(f"{STREAMEAST_BASE}/", headers=STREAMEAST_HEADERS, timeout=10)
-        if r.status_code == 200:
-            cards = re.findall(r'<div class="event-card"[^>]*onclick="window\.location\.href=[\'"]/links/([^\'"]+)[\'"][^>]*>(.*?)</div>\s*</div>\s*</div>', r.text, re.DOTALL)
-            events = []
-            for slug, inner in cards:
-                title_m = re.search(r'<div class="event-title">([^<]+)</div>', inner)
-                time_m = re.search(r'<div class="event-datetime">([^<]+)</div>', inner)
-                league_m = re.search(r'<div class="event-league">\s*([A-Za-z0-9\s]+)', inner)
-                status_m = re.search(r'class="event-status[^"]*">([^<]+)<', inner)
-                
-                title = title_m.group(1).strip() if title_m else slug.replace("-", " ").title()
-                time_str = time_m.group(1).strip() if time_m else ""
-                league = league_m.group(1).strip() if league_m else "Deportes"
-                status = status_m.group(1).strip() if status_m else "Programado"
-                
-                events.append({
-                    "slug": slug,
-                    "title": title,
-                    "time": time_str,
-                    "league": league,
-                    "status": status,
-                    "url": f"{STREAMEAST_BASE}/links/{slug}"
-                })
-            if events:
-                STREAMEAST_CACHE["timestamp"] = now
-                STREAMEAST_CACHE["events"] = events
-                return events
-    except Exception as e:
-        print(f"Error raspando StreamEast: {e}")
+    schedule_urls = [
+        ("Fútbol", f"{STREAMEAST_BASE}/schedule/soccer"),
+        ("UFC / MMA", f"{STREAMEAST_BASE}/schedule/ufc"),
+        ("Motorsport / F1", f"{STREAMEAST_BASE}/schedule/f1"),
+        ("Boxeo", f"{STREAMEAST_BASE}/schedule/boxing"),
+        ("NBA / Baloncesto", f"{STREAMEAST_BASE}/schedule/nba"),
+        ("NFL", f"{STREAMEAST_BASE}/schedule/nfl"),
+        ("MLB", f"{STREAMEAST_BASE}/schedule/mlb"),
+        ("En Vivo", f"{STREAMEAST_BASE}/")
+    ]
+
+    all_events = []
+    seen_slugs = set()
+
+    for cat_name, url in schedule_urls:
+        try:
+            r = requests.get(url, headers=STREAMEAST_HEADERS, timeout=6)
+            if r.status_code == 200:
+                cards = re.findall(r'<div class="event-card"[^>]*onclick="window\.location\.href=[\'"]/links/([^\'"]+)[\'"][^>]*>(.*?)</div>\s*</div>\s*</div>', r.text, re.DOTALL)
+                for slug, inner in cards:
+                    if slug in seen_slugs:
+                        continue
+                    seen_slugs.add(slug)
+                    
+                    title_m = re.search(r'<div class="event-title">([^<]+)</div>', inner)
+                    time_m = re.search(r'<div class="event-datetime">([^<]+)</div>', inner)
+                    league_m = re.search(r'<div class="event-league">\s*([A-Za-z0-9\s]+)', inner)
+                    status_m = re.search(r'class="event-status[^"]*">([^<]+)<', inner)
+                    
+                    title = title_m.group(1).strip() if title_m else slug.replace("-", " ").title()
+                    time_str = time_m.group(1).strip() if time_m else ""
+                    league = league_m.group(1).strip() if league_m else cat_name
+                    status = status_m.group(1).strip() if status_m else "Programado"
+                    
+                    all_events.append({
+                        "slug": slug,
+                        "title": title,
+                        "time": time_str,
+                        "league": league,
+                        "sport_cat": cat_name,
+                        "status": status,
+                        "url": f"{STREAMEAST_BASE}/links/{slug}"
+                    })
+        except Exception:
+            pass
+
+    if all_events:
+        STREAMEAST_CACHE["timestamp"] = now
+        STREAMEAST_CACHE["events"] = all_events
+        return all_events
     return STREAMEAST_CACHE.get("events", [])
 
 def resolve_streameast_stream(query):
@@ -316,23 +336,37 @@ def get_streameast_agenda_messages(curr_key):
         return ["⚠️ No se pudieron cargar los eventos de StreamEast en este momento. Intenta de nuevo en unos segundos."]
 
     messages = []
-    current_msg = "🔥 <b>PARTIDOS Y EVENTOS EN VIVO DE STREAMEAST (https://istreameast.cx/)</b>\n\n"
     
-    # Agrupar por deporte / liga
+    # 1. Separar los eventos en vivo
+    live_events = [e for e in events if "LIVE" in e.get("status", "").upper()]
+    upcoming_events = [e for e in events if "LIVE" not in e.get("status", "").upper()]
+
+    current_msg = "🔥 <b>AGENDA COMPLETA STREAMEAST (https://istreameast.cx/)</b>\n\n"
+
+    if live_events:
+        current_msg += "🔴 <b>PARTIDOS EN DIRECTO AHORA MISMO (LIVE NOW):</b>\n"
+        for ev in live_events:
+            current_msg += (
+                f"• ⚽ <b>{html.escape(ev['title'])}</b> ({html.escape(ev['league'])})\n"
+                f"  <code>/stream {ev['slug']} {curr_key}</code>\n"
+            )
+        current_msg += "\n"
+
+    # Agrupar por deporte / liga los demás partidos
     by_league = {}
-    for ev in events:
+    for ev in upcoming_events:
         lg = ev.get("league", "Otros Deportes")
         if lg not in by_league:
             by_league[lg] = []
         by_league[lg].append(ev)
 
     for lg, ev_list in by_league.items():
-        block = f"🏆 <b>{html.escape(lg).upper()} ({len(ev_list)} Eventos):</b>\n"
-        for ev in ev_list[:8]: # Hasta 8 por deporte
+        block = f"🏆 <b>{html.escape(lg).upper()} ({len(ev_list)} Partidos):</b>\n"
+        for ev in ev_list:
             st = ev.get("status", "")
-            status_icon = "🔴" if "LIVE" in st.upper() else "⏰"
             block += (
-                f"• {status_icon} <b>{html.escape(ev['title'])}</b>\n"
+                f"• ⏰ <b>{html.escape(ev['title'])}</b>\n"
+                f"  ⏱️ <i>{html.escape(ev['time'])}</i>\n"
                 f"  <code>/stream {ev['slug']} {curr_key}</code>\n"
             )
         block += "\n"
