@@ -620,6 +620,35 @@ def handle_message(msg):
         for m in msgs:
             send_msg(chat_id, m)
 
+    elif text.startswith("/espn"):
+        espn_msg = (
+            "📺 <b>DIRECTORIO COMPLETO DE SEÑALES ESPN (100% ONLINE HD):</b>\n\n"
+            "🇦🇷 <b>ESPN SUDAMÉRICA / SUR (ARGENTINA, URUGUAY, CHILE):</b>\n"
+            f"• ⚽ <b>ESPN 1 HD (Sur):</b> <code>/stream 30326 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 2 HD (Sur):</b> <code>/stream 30327 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 3 HD (Latino):</b> <code>/stream 3411 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 4 SUR HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n\n"
+            "🇲🇽 <b>ESPN MÉXICO & USA LATINO:</b>\n"
+            f"• ⚽ <b>ESPN HD México:</b> <code>/stream 34050 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 2 HD (Norte):</b> <code>/stream 1453276 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 3 HD (Norte):</b> <code>/stream 1453273 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 32038 {curr_key}</code>\n\n"
+            "🇨🇴 <b>ESPN COLOMBIA:</b>\n"
+            f"• ⚽ <b>ESPN Colombia HD:</b> <code>/stream 33892 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 3 Colombia HD:</b> <code>/stream 33894 {curr_key}</code>\n\n"
+            "🇺🇸 <b>ESPN COLLEGE EXTRA (EVENTOS USA EN VIVO):</b>\n"
+            f"• 🏀 <b>ESPN College 1:</b> <code>/stream 32147 {curr_key}</code>\n"
+            f"• 🏀 <b>ESPN College 2:</b> <code>/stream 32148 {curr_key}</code>\n"
+            f"• 🏀 <b>ESPN College 3:</b> <code>/stream 32149 {curr_key}</code>\n"
+            f"• 🏀 <b>ESPN College 4:</b> <code>/stream 32150 {curr_key}</code>\n"
+            f"• 🏀 <b>ESPN College 5:</b> <code>/stream 32151 {curr_key}</code>\n"
+            f"• 🏀 <b>ESPN College 6:</b> <code>/stream 32152 {curr_key}</code>\n"
+            f"• 🏀 <b>ESPN College 7:</b> <code>/stream 32153 {curr_key}</code>"
+        )
+        send_msg(chat_id, espn_msg)
+
     elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy"):
         send_msg(chat_id, "⏳ <b>Cargando todos los partidos de hoy con canales listos en 1-click...</b>")
         msgs = get_live_matches_agenda(curr_key)
@@ -732,6 +761,7 @@ def set_telegram_commands():
     try:
         commands = [
             {"command": "canales", "description": "🏆 Directorio de todos los canales deportivos"},
+            {"command": "espn", "description": "📺 Todos los canales ESPN (1,2,3,4 Sur, Extra, etc.)"},
             {"command": "partidos", "description": "⚽ Partidos de hoy con canal listo"},
             {"command": "stream", "description": "▶️ Iniciar transmisión (/stream CANAL KEY)"},
             {"command": "buscar", "description": "🔍 Buscar canal deportivo (/buscar nombre)"},
