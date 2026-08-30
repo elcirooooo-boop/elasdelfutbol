@@ -335,11 +335,14 @@ def get_next_stream_id():
     return str(len(active_streams) + 1)
 
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
-    # Pipeline con ritmo nativo en tiempo real (-re) y buffer de estabilización
-    # Elimina los parones causados por descargas en ráfagas de HLS
+    # Configuración de Buffer HLS idéntica a los navegadores web (Hls.js / Clappr)
+    # -live_start_index -3: Mantiene un colchón de seguridad de 3 segmentos (12s) para absorber cualquier latencia de red
+    # -http_persistent 1 + -multiple_requests 1: Mantiene la conexión HTTP viva y estable
     cmd = [
         "ffmpeg",
-        "-re",
+        "-live_start_index", "-3",
+        "-http_persistent", "1",
+        "-multiple_requests", "1",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
@@ -359,7 +362,6 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-bsf:a", "aac_adtstoasc",
         "-avoid_negative_ts", "make_zero",
         "-max_muxing_queue_size", "8192",
-        "-rtmp_live", "live",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
