@@ -690,7 +690,7 @@ def handle_message(msg):
         send_msg(chat_id, status_text)
 
 def main():
-    print("🤖 Bot Deportivo 100% Automatizado listo...")
+    print("🤖 Bot Deportivo 100% Automatizado listo (Multi-Thread)...")
     offset = 0
     while True:
         try:
@@ -700,9 +700,10 @@ def main():
                 for update in resp.get("result", []):
                     offset = update["update_id"] + 1
                     if "message" in update:
-                        handle_message(update["message"])
+                        # Procesar en hilo independiente para no bloquear el bot
+                        threading.Thread(target=handle_message, args=(update["message"],), daemon=True).start()
         except Exception as e:
-            time.sleep(3)
+            time.sleep(1)
 
 if __name__ == "__main__":
     main()
