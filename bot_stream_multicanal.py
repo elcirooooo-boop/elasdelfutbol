@@ -43,9 +43,9 @@ OFFICIAL_CHANNELS = {
     "4882": "Fox Sports 3 Argentina",
     "30326": "ESPN 1 HD",
     "30327": "ESPN 2 HD",
-    "30328": "ESPN 3 HD",
+    "3411": "ESPN 3 HD",
     "1453275": "ESPN 4 HD",
-    "30329": "ESPN Extra HD",
+    "34051": "ESPN Extra HD",
     # Colombia
     "33945": "Win Sports+ HD (Colombia)",
     "33944": "Win Sports Colombia",
@@ -136,8 +136,9 @@ def resolve_channel_input(raw_input):
         "espnpremium": ("4883", "ESPN Premium HD"),
         "espn1": ("30326", "ESPN 1 HD"),
         "espn2": ("30327", "ESPN 2 HD"),
-        "espn3": ("30328", "ESPN 3 HD"),
+        "espn3": ("3411", "ESPN 3 HD"),
         "espn4": ("1453275", "ESPN 4 HD"),
+        "espnextra": ("34051", "ESPN Extra HD"),
         "tyc": ("30365", "TyC Sports HD"),
         "dsports": ("33933", "DIRECTV Sports 1 HD (DSports)"),
         "directv": ("33933", "DIRECTV Sports 1 HD (DSports)"),
@@ -198,7 +199,7 @@ def smart_match_channel_resolver(title, channels_raw):
             elif "napoli" in title_lower:
                 matched_channels.append(("8802", "DAZN Napoli"))
             matched_channels.append(("30327", "ESPN 2 HD (Serie A)"))
-            matched_channels.append(("30328", "ESPN 3 HD"))
+            matched_channels.append(("3411", "ESPN 3 HD"))
             
         elif "premier" in title_lower or "inglaterra" in title_lower:
             matched_channels.append(("29016", "Sky Sports Premier League"))
@@ -207,7 +208,7 @@ def smart_match_channel_resolver(title, channels_raw):
             
         elif "ligue 1" in title_lower or "francia" in title_lower:
             matched_channels.append(("30327", "ESPN 2 HD (Ligue 1)"))
-            matched_channels.append(("30328", "ESPN 3 HD"))
+            matched_channels.append(("3411", "ESPN 3 HD"))
             
         elif "bundesliga" in title_lower or "alemania" in title_lower:
             matched_channels.append(("30327", "ESPN 2 HD (Bundesliga)"))
@@ -234,7 +235,7 @@ def smart_match_channel_resolver(title, channels_raw):
         elif "uruguay" in title_lower or "paraguay" in title_lower or "chile" in title_lower or "peru" in title_lower or "sudameric" in title_lower:
             matched_channels.append(("1453275", "ESPN 4 HD"))
             matched_channels.append(("33933", "DIRECTV Sports (DSports)"))
-            matched_channels.append(("30328", "ESPN 3 HD"))
+            matched_channels.append(("3411", "ESPN 3 HD"))
             
         elif "f1" in title_lower or "formula" in title_lower:
             matched_channels.append(("30907", "DAZN F1 España"))
@@ -544,9 +545,9 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>Fox Sports 3 Argentina:</b> <code>/stream 4882 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 30326 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 30327 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 30328 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 30329 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
     )
     msg2 = (
         "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (DSPORTS & WIN SPORTS):</b>\n"
