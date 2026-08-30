@@ -340,7 +340,6 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd = [
         "ffmpeg",
         "-reconnect", "1",
-        "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
         "-rw_timeout", "10000000",
