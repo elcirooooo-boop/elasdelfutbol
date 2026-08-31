@@ -74,7 +74,7 @@ OFFICIAL_CHANNELS = {
     "8805": "DAZN Juventus",
     "34583": "Inter TV HD",
     "34582": "Milan Channel HD",
-    # Centroamérica, Perú, Ecuador, Uruguay
+    # Centroamérica, Perú, Ecuador, Uruguay & Venezuela
     "173315": "FUTV HD (Costa Rica)",
     "173323": "Teletica 7 (Costa Rica)",
     "28931": "Canal 4 HD (El Salvador)",
@@ -83,7 +83,11 @@ OFFICIAL_CHANNELS = {
     "1169162": "Zapping Sports (Ecuador)",
     "192215": "Ecuavisa (Ecuador)",
     "97818": "VTV Plus HD (Uruguay)",
-    "29714": "VTV HD (Uruguay)"
+    "29714": "VTV HD (Uruguay)",
+    "1165419": "IVC Network HD (Venezuela)",
+    "4778": "Venevisión HD",
+    "1165420": "Globovisión",
+    "1382291": "Venevisión Plus"
 }
 
 def load_config():
@@ -224,11 +228,15 @@ def resolve_channel_input(raw_input):
         return "192215", "Ecuavisa (Ecuador)"
     if "vtv" in clean:
         return "97818", "VTV Plus HD (Uruguay)"
-    if "venevision" in clean:
+    if "ivc" in clean:
+        return "1165419", "IVC Network HD (Venezuela)"
+    if "venevision" in clean or "venevisión" in clean:
+        if "plus" in clean:
+            return "1382291", "Venevisión Plus"
         return "4778", "Venevisión HD"
     if "televen" in clean:
-        return "1165419", "Televen"
-    if "globovision" in clean:
+        return "1165419", "IVC / Televen Feed (Canal 1165419)"
+    if "globovision" in clean or "globovisión" in clean:
         return "1165420", "Globovisión"
 
     for k, v in OFFICIAL_CHANNELS.items():
