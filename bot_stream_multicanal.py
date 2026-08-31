@@ -62,6 +62,13 @@ IPTV_DIRECT_CHANNELS = {
     "hypermotion1": {"id": "6560", "name": "LaLiga TV Hypermotion FHD"},
     "campeones": {"id": "33682", "name": "Movistar Liga de Campeones 1 FHD"},
     
+    # Premier League (UK & USA)
+    "skysportspremier": {"id": "29016", "name": "Sky Sports Premier League FHD"},
+    "skysportsmain": {"id": "1256711", "name": "Sky Sports Main Events FHD"},
+    "skysportsfootball": {"id": "29018", "name": "Sky Sports Football FHD"},
+    "nbcsports": {"id": "18849", "name": "NBC Sports FHD"},
+    "usanetwork": {"id": "2213", "name": "USA Network HD"},
+
     # Perú & México & USA
     "liga1max": {"id": "1067841", "name": "Liga 1 MAX (Perú)"},
     "golperu": {"id": "29848", "name": "Gol Perú HD"},
@@ -481,43 +488,110 @@ def resolve_channel_from_raw(slug, cname=""):
 
     return slug_clean, f"Canal [{slug_clean}]"
 
-def smart_match_channel_resolver(title, channels_raw):
-    matched_channels = []
-    seen = set()
+def smart_match_channel_resolver(title, channels_raw=None):
+    """
+    Asigna ÚNICAMENTE canales oficiales de IPTV verificados para cada partido / evento.
+    Nunca entrega enlaces web secundarios como disney-6, canal-7 o foxone.
+    """
     title_lower = title.lower()
+    channels = []
     
-    # 1. Resolver todos los canales especificados en la web
-    for slug, cname in channels_raw:
-        cid, cdisplay = resolve_channel_from_raw(slug, cname)
-        if cid and cid not in seen:
-            seen.add(cid)
-            matched_channels.append({"id": cid, "name": cdisplay})
-            
-    # 2. Respaldo inteligente si no viniera canal en el artículo
-    if not matched_channels:
-        if "costa rica" in title_lower or "saprissa" in title_lower:
-            matched_channels.append({"id": "fut", "name": "FUTV HD (Costa Rica)"})
-        elif "argentina" in title_lower or "profesional" in title_lower:
-            matched_channels.append({"id": "tntsports", "name": "TNT Sports HD"})
-            matched_channels.append({"id": "espnpremium", "name": "ESPN Premium HD"})
-        elif "colombia" in title_lower or "millonarios" in title_lower or "cali" in title_lower:
-            matched_channels.append({"id": "winplus", "name": "Win Sports+ HD (Colombia)"})
-        elif "laliga" in title_lower or "barcelona" in title_lower:
-            matched_channels.append({"id": "movistarlaliga", "name": "Movistar LaLiga FHD"})
-            matched_channels.append({"id": "daznlaliga", "name": "DAZN LaLiga 1 FHD"})
-        elif "premier" in title_lower:
-            matched_channels.append({"id": "espn", "name": "ESPN 1 HD"})
-        elif "open" in title_lower or "tenis" in title_lower:
-            matched_channels.append({"id": "espn2", "name": "ESPN 2 HD (US Open)"})
-            matched_channels.append({"id": "espn3", "name": "ESPN 3 HD (US Open)"})
-        elif "mexico" in title_lower or "liga mx" in title_lower:
-            matched_channels.append({"id": "tudn_usa", "name": "TUDN USA"})
-            matched_channels.append({"id": "vix1", "name": "(ViX) TUDN Deportes"})
-        else:
-            matched_channels.append({"id": "espn", "name": "ESPN 1 HD"})
-            matched_channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+    # 1. Premier League (Inglaterra)
+    if "premier" in title_lower or any(team in title_lower for team in ["arsenal", "aston villa", "chelsea", "liverpool", "manchester", "tottenham", "newcastle", "brighton", "west ham", "fulham", "wolves", "everton"]):
+        channels.append({"id": "espn", "name": "ESPN 1 HD (Sur/Argentina)"})
+        channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+        channels.append({"id": "skysportspremier", "name": "Sky Sports Premier League FHD"})
+        channels.append({"id": "daznlaliga", "name": "DAZN / M+ Deportes FHD"})
+        return channels
 
-    return matched_channels
+    # 2. LaLiga Española
+    if "laliga" in title_lower or "espana" in title_lower or any(team in title_lower for team in ["barcelona", "real madrid", "atletico", "rayo vallecano", "sevilla", "betis", "valencia", "villarreal", "athletic", "sociedad", "girona"]):
+        channels.append({"id": "movistarlaliga", "name": "Movistar LaLiga HD"})
+        channels.append({"id": "daznlaliga", "name": "DAZN LaLiga 1 FHD"})
+        channels.append({"id": "daznlaliga2", "name": "DAZN LaLiga 2 FHD"})
+        channels.append({"id": "espn-deportes", "name": "ESPN Deportes USA"})
+        return channels
+
+    # 3. Champions League / Europa League / Conference
+    if "champions" in title_lower or "europa league" in title_lower or "conference" in title_lower:
+        channels.append({"id": "campeones", "name": "Movistar Liga de Campeones 1 FHD"})
+        channels.append({"id": "espn", "name": "ESPN 1 HD"})
+        channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+        channels.append({"id": "foxsports", "name": "Fox Sports 1 (Argentina)"})
+        return channels
+
+    # 4. Liga Profesional Argentina / Copa Argentina
+    if any(k in title_lower for k in ["argentina", "boca", "river", "racing", "san lorenzo", "independiente", "velez", "rosario central", "newell", "talleres", "estudiantes", "gimnasia", "huracan"]):
+        channels.append({"id": "espnpremium", "name": "ESPN Premium HD (Argentina)"})
+        channels.append({"id": "tntsports", "name": "TNT Sports HD (Argentina)"})
+        channels.append({"id": "tycsports", "name": "TyC Sports HD (Argentina)"})
+        return channels
+
+    # 5. Colombia (Liga BetPlay / Copa Colombia)
+    if any(k in title_lower for k in ["colombia", "millonarios", "santa fe", "junior", "nacional", "cali", "america de cali", "medellin", "tolima", "bucaramanga", "pereira", "once caldas"]):
+        channels.append({"id": "winplus", "name": "Win Sports+ HD (Colombia)"})
+        channels.append({"id": "winsports", "name": "Win Sports Colombia HD"})
+        return channels
+
+    # 6. Perú (Liga 1 Te Apuesto)
+    if any(k in title_lower for k in ["peru", "perú", "alianza lima", "universitario", "sporting cristal", "melgar", "cienciano", "vallejo", "cusco"]):
+        channels.append({"id": "liga1max", "name": "Liga 1 MAX (Perú)"})
+        channels.append({"id": "golperu", "name": "Gol Perú HD"})
+        return channels
+
+    # 7. Chile (Campeonato Nacional)
+    if any(k in title_lower for k in ["chile", "colo colo", "universidad de chile", "universidad catolica", "cobreloa", "union espanola", "coquimbo", "audax"]):
+        channels.append({"id": "tntsportschile", "name": "TNT Sports Chile HD"})
+        return channels
+
+    # 8. México (Liga MX)
+    if any(k in title_lower for k in ["mexico", "méxico", "liga mx", "america", "chivas", "cruz azul", "pumas", "tigres", "monterrey", "toluca", "pachuca", "santos"]):
+        channels.append({"id": "tudn_usa", "name": "TUDN USA HD"})
+        channels.append({"id": "vix1", "name": "ViX+ TUDN Deportes 1"})
+        channels.append({"id": "foxpremium", "name": "Fox Sports Premium HD"})
+        return channels
+
+    # 9. Tenis (Grand Slams / US Open / ATP)
+    if any(k in title_lower for k in ["open", "tenis", "tennis", "alcaraz", "sinner", "djokovic", "us open", "wimbledon", "roland garros", "atp"]):
+        channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+        channels.append({"id": "espn3", "name": "ESPN 3 HD"})
+        channels.append({"id": "espnextra", "name": "ESPN Extra HD"})
+        return channels
+
+    # 10. Fórmula 1 & MotoGP
+    if any(k in title_lower for k in ["formula 1", "f1", "gran premio", "motogp", "moto gp", "verstappen", "hamilton", "alonso", "sainz", "leclerc", "norris"]):
+        channels.append({"id": "foxsports", "name": "Fox Sports 1 (Argentina)"})
+        channels.append({"id": "foxpremium", "name": "Fox Sports Premium HD"})
+        channels.append({"id": "daznlaliga", "name": "DAZN 1 FHD"})
+        return channels
+
+    # 11. Serie A / Serie B / Copa Italia
+    if any(k in title_lower for k in ["serie a", "italia", "juventus", "inter", "milan", "roma", "napoli", "lazio", "atalanta", "fiorentina"]):
+        channels.append({"id": "espn", "name": "ESPN 1 HD"})
+        channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+        channels.append({"id": "espn3", "name": "ESPN 3 HD"})
+        return channels
+
+    # 12. Bundesliga (Alemania)
+    if any(k in title_lower for k in ["bundesliga", "bayern", "dortmund", "leverkusen", "leipzig", "frankfurt", "stuttgart"]):
+        channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+        channels.append({"id": "espn4", "name": "ESPN 4 HD"})
+        channels.append({"id": "campeones", "name": "Movistar Liga de Campeones FHD"})
+        return channels
+
+    # 13. Conmebol Libertadores / Sudamericana / Liga de Portugal
+    if any(k in title_lower for k in ["libertadores", "sudamericana", "portugal", "benfica", "porto", "sporting lisboa", "flamengo", "palmeiras", "fluminense", "gremio"]):
+        channels.append({"id": "dsports", "name": "DIRECTV Sports 1 HD (DSports)"})
+        channels.append({"id": "dsports2", "name": "DIRECTV Sports 2 HD (DSports 2)"})
+        channels.append({"id": "espn", "name": "ESPN 1 HD"})
+        channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+        return channels
+
+    # Respaldo general: Canales principales IPTV
+    channels.append({"id": "espn", "name": "ESPN 1 HD (Sur/Argentina)"})
+    channels.append({"id": "espn2", "name": "ESPN 2 HD"})
+    channels.append({"id": "dsports", "name": "DIRECTV Sports 1 HD (DSports)"})
+    return channels
 
 # ==============================================================================
 # MOTOR DE TRANSMISIÓN EN DIRECTO (0% LAG / ULTRA BAJA LATENCIA Y AV SYNC)
