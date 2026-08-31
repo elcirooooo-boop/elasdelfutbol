@@ -23,18 +23,15 @@ IPTV_USER = os.environ.get("IPTV_USER", "BE15ERDV")
 IPTV_PASS = os.environ.get("IPTV_PASS", "PXELERB9")
 HEADERS_IPTV = {"User-Agent": "IPTVSmartersPro"}
 
-# Canales deportivos con enlace IPTV directo (.ts) de ultra alta velocidad
+# Canales deportivos con enlace IPTV directo (.ts) de ultra alta velocidad y 100% verificados
 IPTV_DIRECT_CHANNELS = {
     # Suite ESPN
-    "espn": {"id": "34050", "name": "ESPN 1 HD (Sur/Principal)"},
-    "espn2": {"id": "32164", "name": "ESPN 2 HD"},
-    "espn3": {"id": "34049", "name": "ESPN 3 HD"},
+    "espn": {"id": "30326", "name": "ESPN 1 HD (Sur/Argentina)"},
+    "espn2": {"id": "33893", "name": "ESPN 2 HD"},
+    "espn3": {"id": "30328", "name": "ESPN 3 HD"},
     "espn4": {"id": "1201550", "name": "ESPN 4 HD"},
-    "espn5": {"id": "1348532", "name": "ESPN 5 HD"},
-    "espn6": {"id": "1348532", "name": "ESPN 6 HD"},
-    "espn7": {"id": "1348532", "name": "ESPN 7 HD"},
     "espnpremium": {"id": "4883", "name": "ESPN Premium HD (Argentina)"},
-    "espnextra": {"id": "34051", "name": "ESPN Extra HD"},
+    "espnextra": {"id": "30329", "name": "ESPN Extra HD"},
     "espn-deportes": {"id": "32038", "name": "ESPN Deportes USA"},
     
     # Directv Sports (DSPORTS)
@@ -42,30 +39,35 @@ IPTV_DIRECT_CHANNELS = {
     "dsports2": {"id": "33932", "name": "DIRECTV Sports 2 HD (DSports 2)"},
     "dsportsplus": {"id": "33931", "name": "DIRECTV Sports+ HD (DSports+)"},
     
-    # Argentina & Conmebol
+    # Argentina & Conmebol & Chile
     "tycsports": {"id": "30365", "name": "TyC Sports HD (Argentina)"},
-    "tntsports": {"id": "5987", "name": "TNT Sports HD"},
+    "tntsports": {"id": "30362", "name": "TNT Sports HD (Argentina)"},
+    "tntsportschile": {"id": "97901", "name": "TNT Sports Chile HD"},
     
     # Fox Sports Suite
-    "foxsports": {"id": "34041", "name": "Fox Sports 1 FHD"},
-    "foxsports2": {"id": "34042", "name": "Fox Sports 2 FHD"},
-    "foxsports3": {"id": "34043", "name": "Fox Sports 3 HD"},
-    "foxone": {"id": "34041", "name": "Fox Sports 1 FHD"},
+    "foxsports": {"id": "4880", "name": "Fox Sports 1 (Argentina)"},
+    "foxsports2": {"id": "4881", "name": "Fox Sports 2 (Argentina)"},
+    "foxsports3": {"id": "4882", "name": "Fox Sports 3 (Argentina)"},
+    "foxone": {"id": "4880", "name": "Fox Sports 1 (Argentina)"},
+    "foxpremium": {"id": "1024956", "name": "Fox Sports Premium HD"},
 
     # Colombia
     "winplus": {"id": "33945", "name": "Win Sports+ HD (Colombia)"},
     "winsports": {"id": "33944", "name": "Win Sports Colombia HD"},
 
-    # España & LaLiga
+    # España & LaLiga & Champions
+    "movistarlaliga": {"id": "30974", "name": "Movistar LaLiga HD"},
     "daznlaliga": {"id": "224832", "name": "DAZN LaLiga 1 FHD"},
-    "daznlaliga2": {"id": "224834", "name": "DAZN LaLiga 2 HD"},
-    "movistarlaliga": {"id": "33866", "name": "LaLiga TV FHD (Movistar)"},
-    "hypermotion1": {"id": "33672", "name": "LaLiga Hypermotion HD"},
+    "daznlaliga2": {"id": "224831", "name": "DAZN LaLiga 2 FHD"},
+    "hypermotion1": {"id": "6560", "name": "LaLiga TV Hypermotion FHD"},
+    "campeones": {"id": "33682", "name": "Movistar Liga de Campeones 1 FHD"},
     
-    # México & USA
+    # Perú & México & USA
+    "liga1max": {"id": "1067841", "name": "Liga 1 MAX (Perú)"},
+    "golperu": {"id": "29848", "name": "Gol Perú HD"},
     "tudn_usa": {"id": "31987", "name": "TUDN USA HD"},
-    "vix1": {"id": "3893", "name": "ViX+ Deportes 1"},
-    "vix2": {"id": "3894", "name": "ViX+ Deportes 2"}
+    "vix1": {"id": "985726", "name": "ViX+ TUDN Deportes 1"},
+    "vix2": {"id": "985722", "name": "ViX+ Zona TUDN"}
 }
 
 HEADERS_WEB = {
@@ -971,40 +973,43 @@ def get_live_matches_agenda(curr_key):
 def get_sports_menu_messages(curr_key):
     msg1 = (
         "🏆 <b>DIRECTORIO DE CANALES DEPORTIVOS (IPTV DEDICADO - 0% LAG)</b>\n\n"
-        "🇪🇸 <b>ESPAÑA & LALIGA (FHD):</b>\n"
-        f"• ⚽ <b>LaLiga TV FHD (Movistar):</b> <code>/stream movistarlaliga {curr_key}</code>\n"
+        "🇪🇸 <b>ESPAÑA, LALIGA & CHAMPIONS (FHD):</b>\n"
+        f"• ⚽ <b>Movistar LaLiga HD:</b> <code>/stream movistarlaliga {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream daznlaliga {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN LaLiga 2 HD:</b> <code>/stream daznlaliga2 {curr_key}</code>\n"
-        f"• ⚽ <b>LaLiga Hypermotion HD:</b> <code>/stream hypermotion1 {curr_key}</code>\n\n"
+        f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream daznlaliga2 {curr_key}</code>\n"
+        f"• ⚽ <b>LaLiga TV Hypermotion FHD:</b> <code>/stream hypermotion1 {curr_key}</code>\n"
+        f"• ⚽ <b>Movistar Liga de Campeones FHD:</b> <code>/stream campeones {curr_key}</code>\n\n"
         "🇦🇷 <b>ARGENTINA & CONMEBOL (FÚTBOL PROFESIONAL):</b>\n"
-        f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream espnpremium {curr_key}</code>\n"
-        f"• ⚽ <b>TNT Sports HD:</b> <code>/stream tntsports {curr_key}</code>\n"
-        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream tycsports {curr_key}</code>\n\n"
+        f"• ⚽ <b>ESPN Premium HD (Argentina):</b> <code>/stream espnpremium {curr_key}</code>\n"
+        f"• ⚽ <b>TNT Sports HD (Argentina):</b> <code>/stream tntsports {curr_key}</code>\n"
+        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream tycsports {curr_key}</code>\n"
+        f"• ⚽ <b>TNT Sports Chile HD:</b> <code>/stream tntsportschile {curr_key}</code>\n\n"
         "🦊 <b>SUITE FOX SPORTS (HD/FHD):</b>\n"
-        f"• ⚽ <b>Fox Sports 1 FHD:</b> <code>/stream foxsports {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 FHD:</b> <code>/stream foxsports2 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 3 HD:</b> <code>/stream foxsports3 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 (Argentina):</b> <code>/stream foxsports {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 (Argentina):</b> <code>/stream foxsports2 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 (Argentina):</b> <code>/stream foxsports3 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports Premium HD:</b> <code>/stream foxpremium {curr_key}</code>\n"
     )
     msg2 = (
         "🌎 <b>SUITE COMPLETA ESPN (IPTV DEDICADO):</b>\n"
-        f"• ⚽ <b>ESPN 1 HD (Sur/Principal):</b> <code>/stream espn {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 1 HD (Sur/Argentina):</b> <code>/stream espn {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream espn2 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream espn3 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream espn4 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 5 HD:</b> <code>/stream espn5 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 6 HD:</b> <code>/stream espn6 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream espnextra {curr_key}</code>\n"
         f"• 🇺🇸 <b>ESPN Deportes USA:</b> <code>/stream espn-deportes {curr_key}</code>\n\n"
-        "🇨🇴 <b>COLOMBIA & DIRECTV (WIN SPORTS & DSPORTS):</b>\n"
+        "🇨🇴 <b>COLOMBIA, PERÚ & DIRECTV (DSPORTS & WIN):</b>\n"
         f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream dsports {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 2 HD (DSports 2):</b> <code>/stream dsports2 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports+ HD (DSports+):</b> <code>/stream dsportsplus {curr_key}</code>\n"
         f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream winplus {curr_key}</code>\n"
-        f"• ⚽ <b>Win Sports Colombia HD:</b> <code>/stream winsports {curr_key}</code>\n\n"
+        f"• ⚽ <b>Win Sports Colombia HD:</b> <code>/stream winsports {curr_key}</code>\n"
+        f"• ⚽ <b>Liga 1 MAX (Perú):</b> <code>/stream liga1max {curr_key}</code>\n"
+        f"• ⚽ <b>Gol Perú HD:</b> <code>/stream golperu {curr_key}</code>\n\n"
         "🇲🇽 <b>MÉXICO & USA:</b>\n"
         f"• 🇲🇽 <b>TUDN USA HD:</b> <code>/stream tudn_usa {curr_key}</code>\n"
-        f"• 🇲🇽 <b>ViX+ Deportes 1:</b> <code>/stream vix1 {curr_key}</code>\n"
-        f"• 🇲🇽 <b>ViX+ Deportes 2:</b> <code>/stream vix2 {curr_key}</code>\n\n"
+        f"• 🇲🇽 <b>ViX+ TUDN Deportes 1:</b> <code>/stream vix1 {curr_key}</code>\n"
+        f"• 🇲🇽 <b>ViX+ Zona TUDN:</b> <code>/stream vix2 {curr_key}</code>\n\n"
         "🔍 <i>Buscar entre +27,000 canales IPTV:</i> <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
