@@ -531,7 +531,11 @@ def start_single_stream(channel_input, stream_key, chat_id):
     clean_key = clean_arg(stream_key)
 
     resolved_slug, channel_name = resolve_channel_input(clean_channel_input)
-    destination = f"rtmps://dc4-1.rtmp.t.me/s/{clean_key}"
+    
+    if clean_key.startswith("rtmp://") or clean_key.startswith("rtmps://"):
+        destination = clean_key
+    else:
+        destination = f"rtmps://dc4-1.rtmp.t.me/s/{clean_key}"
 
     with stream_lock:
         for sid, info in active_streams.items():
@@ -552,7 +556,7 @@ def start_single_stream(channel_input, stream_key, chat_id):
                 del active_streams[sid]
                 break
 
-    # 1. Extraer stream HLS directo (.m3u8) desde servidores StreamTP / RojaDirecta
+    # 1. Extraer stream HLS directo (.m3u8) desde servidores StreamXHD / RojaDirecta / StreamTP
     m3u8_url, headers_str, ok = extract_web_m3u8(resolved_slug)
     if not ok or not m3u8_url:
         return False, f"❌ No se pudo conectar al stream en vivo de <b>{html.escape(channel_name)}</b>. Intenta nuevamente o usa <code>/canales</code>."
@@ -570,17 +574,18 @@ def start_single_stream(channel_input, stream_key, chat_id):
         try:
             out_f.close()
             with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
-                logs = f.read()[-500:]
+                logs = f.read()[-600:]
         except Exception:
             logs = "Sin logs"
 
-        if "Connection to tcp://live.telegram.org:1935" in logs or "Error number -138" in logs:
+        if "Input/output error" in logs or "Error opening output" in logs or "Error number -138" in logs or "Connection to tcp://" in logs:
             return False, (
-                "⚠️ <b>Telegram no está recibiendo la señal de transmisión.</b>\n\n"
-                "👉 <b>Pasos obligatorios para transmitir en Telegram:</b>\n"
+                "⚠️ <b>Telegram rechazó la conexión de transmisión.</b>\n\n"
+                "👉 <b>Motivo:</b> La transmisión en vivo no ha sido iniciada en tu canal o la clave es incorrecta.\n\n"
+                "<b>Pasos obligatorios para transmitir en Telegram:</b>\n"
                 "1. Abre tu canal o grupo de Telegram.\n"
                 "2. Toca en el menú de arriba (los 3 puntos <code>...</code>) $\rightarrow$ <b>\"Iniciar transmisión en vivo\"</b> o <b>\"Transmitir con...\"</b>.\n"
-                "3. Verifica que la ventana diga <i>\"Esperando señal...\"</i>.\n"
+                "3. Mantén abierta la ventana que dice <i>\"Listo para transmitir\"</i> o <i>\"Esperando señal...\"</i>.\n"
                 "4. Vuelve a enviar el comando: <code>/stream " + resolved_slug + " " + clean_key + "</code>"
             )
 
