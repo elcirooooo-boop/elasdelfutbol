@@ -924,7 +924,7 @@ def get_live_matches_agenda(curr_key):
                 current_msg = ""
                 
                 if live_events:
-                    current_msg += "🔴 <b>PARTIDOS EN VIVO AHORA MISMO (ROJADIRECTA.CEO):</b>\n\n"
+                    current_msg += "🔴 <b>PARTIDOS EN VIVO AHORA MISMO (IPTV DEDICADO - 0% LAG):</b>\n\n"
                     for ev in live_events:
                         block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b> {ev['status_tag']}\n"
                         for ch in ev["channels"]:
@@ -938,7 +938,7 @@ def get_live_matches_agenda(curr_key):
                             current_msg += block
                             
                 if upcoming_events:
-                    up_header = "\n⏰ <b>PRÓXIMOS PARTIDOS DE HOY (ROJADIRECTA.CEO):</b>\n\n"
+                    up_header = "\n⏰ <b>PRÓXIMOS PARTIDOS DE HOY (IPTV DEDICADO):</b>\n\n"
                     if len(current_msg) + len(up_header) > 3500:
                         messages.append(current_msg)
                         current_msg = up_header
@@ -970,47 +970,42 @@ def get_live_matches_agenda(curr_key):
 
 def get_sports_menu_messages(curr_key):
     msg1 = (
-        "🏆 <b>DIRECTORIO DE CANALES DEPORTIVOS (ROJADIRECTA.CEO / STREAMTP)</b>\n\n"
-        "🇪🇸 <b>ESPAÑA & MOTOR (LALIGA, F1 & MOTOGP):</b>\n"
-        f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream movistarlaliga {curr_key}</code>\n"
+        "🏆 <b>DIRECTORIO DE CANALES DEPORTIVOS (IPTV DEDICADO - 0% LAG)</b>\n\n"
+        "🇪🇸 <b>ESPAÑA & LALIGA (FHD):</b>\n"
+        f"• ⚽ <b>LaLiga TV FHD (Movistar):</b> <code>/stream movistarlaliga {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream daznlaliga {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream daznlaliga2 {curr_key}</code>\n"
-        f"• ⚽ <b>LaLiga Hypermotion:</b> <code>/stream hypermotion1 {curr_key}</code>\n"
-        f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream daznf1 {curr_key}</code>\n"
-        f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream daznmotogp {curr_key}</code>\n\n"
+        f"• ⚽ <b>DAZN LaLiga 2 HD:</b> <code>/stream daznlaliga2 {curr_key}</code>\n"
+        f"• ⚽ <b>LaLiga Hypermotion HD:</b> <code>/stream hypermotion1 {curr_key}</code>\n\n"
         "🇦🇷 <b>ARGENTINA & CONMEBOL (FÚTBOL PROFESIONAL):</b>\n"
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream espnpremium {curr_key}</code>\n"
         f"• ⚽ <b>TNT Sports HD:</b> <code>/stream tntsports {curr_key}</code>\n"
-        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream tycsports {curr_key}</code>\n"
-        f"• ⚽ <b>TNT Sports Chile:</b> <code>/stream tntsportschile {curr_key}</code>\n\n"
-        "🦊 <b>SUITE FOX SPORTS (HD EN VIVO):</b>\n"
-        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream foxsports {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 HD:</b> <code>/stream foxsports2 {curr_key}</code>\n"
+        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream tycsports {curr_key}</code>\n\n"
+        "🦊 <b>SUITE FOX SPORTS (HD/FHD):</b>\n"
+        f"• ⚽ <b>Fox Sports 1 FHD:</b> <code>/stream foxsports {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 FHD:</b> <code>/stream foxsports2 {curr_key}</code>\n"
         f"• ⚽ <b>Fox Sports 3 HD:</b> <code>/stream foxsports3 {curr_key}</code>\n"
     )
     msg2 = (
-        "🌎 <b>SUITE COMPLETA ESPN (SEÑALES 1 AL 7):</b>\n"
-        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream espn {curr_key}</code>\n"
+        "🌎 <b>SUITE COMPLETA ESPN (IPTV DEDICADO):</b>\n"
+        f"• ⚽ <b>ESPN 1 HD (Sur/Principal):</b> <code>/stream espn {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream espn2 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream espn3 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream espn4 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 5 HD:</b> <code>/stream espn5 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 6 HD:</b> <code>/stream espn6 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 7 HD:</b> <code>/stream espn7 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream espnextra {curr_key}</code>\n"
         f"• 🇺🇸 <b>ESPN Deportes USA:</b> <code>/stream espn-deportes {curr_key}</code>\n\n"
         "🇨🇴 <b>COLOMBIA & DIRECTV (WIN SPORTS & DSPORTS):</b>\n"
-        f"• ⚽ <b>Win Sports+ HD:</b> <code>/stream winplus {curr_key}</code>\n"
-        f"• ⚽ <b>Win Sports Colombia:</b> <code>/stream winsports {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream dsports {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 2 HD (DSports 2):</b> <code>/stream dsports2 {curr_key}</code>\n"
-        f"• ⚽ <b>DIRECTV Sports+ HD:</b> <code>/stream dsportsplus {curr_key}</code>\n"
-        f"• ⚽ <b>Liga 1 MAX (Perú):</b> <code>/stream liga1max {curr_key}</code>\n\n"
-        "🇲🇽 <b>MÉXICO & CENTROAMÉRICA:</b>\n"
-        f"• 🇲🇽 <b>TUDN USA:</b> <code>/stream tudn_usa {curr_key}</code>\n"
-        f"• 🇲🇽 <b>(ViX) TUDN Deportes 1:</b> <code>/stream vix1 {curr_key}</code>\n"
-        f"• 🇲🇽 <b>(ViX) TUDN Deportes 2:</b> <code>/stream vix2 {curr_key}</code>\n"
-        f"• 🇨🇷 <b>FUTV HD (Costa Rica):</b> <code>/stream fut {curr_key}</code>\n\n"
-        "🔍 <i>Para transmitir cualquier evento usa:</i> <code>/stream &lt;canal&gt;</code>"
+        f"• ⚽ <b>DIRECTV Sports+ HD (DSports+):</b> <code>/stream dsportsplus {curr_key}</code>\n"
+        f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream winplus {curr_key}</code>\n"
+        f"• ⚽ <b>Win Sports Colombia HD:</b> <code>/stream winsports {curr_key}</code>\n\n"
+        "🇲🇽 <b>MÉXICO & USA:</b>\n"
+        f"• 🇲🇽 <b>TUDN USA HD:</b> <code>/stream tudn_usa {curr_key}</code>\n"
+        f"• 🇲🇽 <b>ViX+ Deportes 1:</b> <code>/stream vix1 {curr_key}</code>\n"
+        f"• 🇲🇽 <b>ViX+ Deportes 2:</b> <code>/stream vix2 {curr_key}</code>\n\n"
+        "🔍 <i>Buscar entre +27,000 canales IPTV:</i> <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
 
