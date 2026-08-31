@@ -16,78 +16,44 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CONFIG_FILE = "config_stream.json"
 
-IPTV_USER = "BE15ERDV"
-IPTV_PASS = "PXELERB9"
+IPTV_USER = "4645904a05"
+IPTV_PASS = "5ebc71b005"
 IPTV_HOSTS = [
-    "http://evestv.leptis.live",
-    "http://evestv.ptjfj.com",
-    "http://tv.rmhat.com"
+    "http://line.trex4k.top"
 ]
 IPTV_HEADERS = {"User-Agent": "IPTVSmartersPro"}
 
-# Canales principales pre-mapeados
+# Canales principales pre-mapeados (Trex IPTV 53,766 Canales 4K/FHD)
 OFFICIAL_CHANNELS = {
     # España
-    "30905": "Movistar LaLiga FHD",
-    "224832": "DAZN LaLiga 1 FHD",
-    "224831": "DAZN LaLiga 2 FHD",
-    "6560": "LaLiga Hypermotion HD (2da División)",
-    "30906": "Movistar Liga de Campeones FHD",
-    "91781": "DAZN 1 España",
-    "91782": "DAZN 2 España",
-    "30907": "DAZN F1 España",
-    "1349240": "DAZN MotoGP",
-    # Argentina & Sudamérica (ESPN 1 al 7 & Fox Sports)
-    "4883": "ESPN Premium HD",
-    "4884": "TyC Sports HD",
-    "34041": "Fox Sports 1 México",
-    "4881": "Fox Sports 2 / ESPN 5 HD",
-    "4882": "Fox Sports 3 / ESPN 6 HD",
-    "34050": "ESPN 1 HD",
-    "3412": "ESPN 2 HD",
-    "3411": "ESPN 3 HD",
-    "1453275": "ESPN 4 SUR HD",
-    "34051": "ESPN 7 / ESPN Extra HD",
-    # Colombia
-    "33945": "Win Sports+ HD (Colombia)",
-    "33943": "Win Sports Colombia",
-    "33933": "DIRECTV Sports 1 HD (DSports)",
-    "33932": "DIRECTV Sports 2 HD (DSports 2)",
-    "33931": "DIRECTV Sports Plus HD (DSports+)",
-    # México
-    "1288338": "TUDN MX",
-    "985726": "(ViX) TUDN",
-    "3987": "Canal 5 México FHD",
-    "34041": "Fox Sports 1 México",
-    "34042": "Fox Sports 2 México",
-    "34043": "Fox Sports 3 México",
-    "1453276": "Fox Sports Premium MX",
-    # Inglaterra / Internacional
-    "29016": "Sky Sports Premier League",
-    "1256711": "Sky Sports Main Events",
-    "29017": "Sky Sports Football",
-    "29019": "TNT Sports 1 UK",
-    # Italia / Serie A
-    "8806": "DAZN Zona Serie A",
-    "164069": "Sky Sport Uno (Serie A)",
-    "171524": "Sky Sport Calcio (Serie A)",
-    "8805": "DAZN Juventus",
-    "34583": "Inter TV HD",
-    "34582": "Milan Channel HD",
-    # Centroamérica, Perú, Ecuador, Uruguay & Venezuela
-    "173315": "FUTV HD (Costa Rica)",
-    "173323": "Teletica 7 (Costa Rica)",
-    "28931": "Canal 4 HD (El Salvador)",
-    "1067841": "Liga 1 MAX (Perú)",
-    "29848": "Gol Perú HD",
-    "1169162": "Zapping Sports (Ecuador)",
-    "192215": "Ecuavisa (Ecuador)",
-    "97818": "VTV Plus HD (Uruguay)",
-    "29714": "VTV HD (Uruguay)",
-    "1165419": "IVC Network HD (Venezuela)",
-    "4778": "Venevisión HD",
-    "1165420": "Globovisión",
-    "1382291": "Venevisión Plus"
+    "1972995": "Movistar LaLiga FHD",
+    "2068331": "DAZN LaLiga 1 FHD",
+    "2068330": "DAZN LaLiga 2 FHD",
+    "2068307": "Movistar Liga de Campeones",
+    "2068325": "DAZN F1 España",
+    "2137697": "DAZN MotoGP",
+    # Argentina & Sudamérica
+    "1358601": "ESPN Premium HD",
+    "79284": "TyC Sports HD",
+    "45579": "ESPN 1 HD",
+    "1358604": "ESPN 2 HD",
+    "1358603": "ESPN 3 HD",
+    "1870845": "ESPN 4 HD",
+    "1358602": "ESPN Extra HD",
+    "1921358": "ESPN Deportes 60fps",
+    # Colombia & Sudamérica
+    "145416": "Win Sports+ HD (Colombia)",
+    "25338": "Win Sports Colombia",
+    "656326": "DIRECTV Sports 1 HD (DSports)",
+    "656327": "DIRECTV Sports 2 HD (DSports 2)",
+    # Venezuela
+    "1370773": "Televen",
+    "1912051": "IVC Network HD",
+    "529670": "Venevisión HD",
+    "1838655": "Globovisión",
+    # Centroamérica
+    "558638": "FUTV HD (Costa Rica)",
+    "1166517": "Teletica / TD+ (Costa Rica)"
 }
 
 def load_config():
@@ -167,97 +133,74 @@ def resolve_channel_input(raw_input):
                 return "32148", "ESPN College Extra 2"
             return "32147", "ESPN College Extra 1"
         if "7" in clean:
-            return "34051", "ESPN 7 / ESPN Extra HD"
+            return "1358602", "ESPN Extra HD"
         if "6" in clean:
-            return "4882", "ESPN 6 / Fox Sports 3 HD"
+            return "1972968", "Fox Sports 3 / ESPN 6 HD"
         if "5" in clean:
-            return "4881", "ESPN 5 / Fox Sports 2 HD"
+            return "45570", "Fox Sports 2 / ESPN 5 HD"
         if "4" in clean:
-            return "1453275", "ESPN 4 SUR HD"
+            return "1870845", "ESPN 4 HD"
         if "3" in clean:
-            return "3411", "ESPN 3 HD"
+            return "1358603", "ESPN 3 HD"
         if "2" in clean:
-            return "3412", "ESPN 2 HD"
-        return "34050", "ESPN 1 HD"
+            return "1358604", "ESPN 2 HD"
+        return "45579", "ESPN 1 HD"
         
     if "laliga" in clean or "la liga" in clean or "movistar" in clean:
-        if "hyper" in clean or "2" in clean or "segunda" in clean:
-            return "6560", "LaLiga Hypermotion (2da División)"
         if "campeones" in clean or "champions" in clean:
-            return "30906", "Movistar Liga de Campeones FHD"
-        return "30905", "Movistar LaLiga FHD"
+            return "2068307", "Movistar Liga de Campeones"
+        return "1972995", "Movistar LaLiga FHD"
         
     if "dazn" in clean:
         if "f1" in clean or "formula" in clean:
-            return "30907", "DAZN F1 España"
+            return "2068325", "DAZN F1 España"
         if "moto" in clean:
-            return "1349240", "DAZN MotoGP"
+            return "2137697", "DAZN MotoGP"
         if "2" in clean:
-            return "224831", "DAZN LaLiga 2 FHD"
-        return "224832", "DAZN LaLiga 1 FHD"
+            return "2068330", "DAZN LaLiga 2 FHD"
+        return "2068331", "DAZN LaLiga 1 FHD"
         
     if "win" in clean:
         if "+" in clean or "plus" in clean:
-            return "33945", "Win Sports+ HD (Colombia)"
-        return "33943", "Win Sports Colombia"
+            return "145416", "Win Sports+ HD (Colombia)"
+        return "25338", "Win Sports Colombia"
         
     if "tyc" in clean:
-        return "4884", "TyC Sports HD"
+        return "79284", "TyC Sports HD"
     if "tnt" in clean:
-        return "4883", "TNT Sports Argentina"
+        return "1261564", "TNT Sports 1 UK"
         
     if "dsport" in clean or "directv" in clean:
         if "2" in clean:
-            return "33932", "DSports 2 HD"
-        if "plus" in clean or "+" in clean:
-            return "33931", "DSports+ HD"
-        return "33933", "DSports 1 HD"
+            return "656327", "DIRECTV Sports 2 HD"
+        return "656326", "DIRECTV Sports 1 HD"
         
     if "fox" in clean:
         if "3" in clean:
-            return "4882", "Fox Sports 3 HD"
+            return "1972968", "Fox Sports 3 HD"
         if "2" in clean:
-            return "4881", "Fox Sports 2 HD"
-        if "prem" in clean:
-            return "1453276", "Fox Sports Premium MX"
-        return "34041", "Fox Sports 1 México"
+            return "45570", "Fox Sports 2 HD"
+        return "1931078", "Fox Sports 1 HD"
         
     if "tudn" in clean:
-        return "1288338", "TUDN MX"
+        return "1930896", "TUDN MX"
     if "vix" in clean:
-        return "985726", "(ViX) TUDN"
+        return "1143996", "(ViX) TUDN"
     if "canal 5" in clean:
-        return "3987", "Canal 5 México FHD"
-        
-    if "sky" in clean or "premier" in clean:
-        return "29016", "Sky Sports Premier League"
+        return "1052092", "Canal 5 México FHD"
         
     if "futv" in clean:
-        return "173315", "FUTV HD (Costa Rica)"
-    if "teletica" in clean:
-        return "173323", "Teletica 7 (Costa Rica)"
-    if "canal 4" in clean:
-        return "28931", "Canal 4 HD (El Salvador)"
-    if "liga 1" in clean:
-        return "1067841", "Liga 1 MAX (Perú)"
-    if "gol peru" in clean:
-        return "29848", "Gol Perú HD"
-    if "zapping" in clean:
-        return "1169162", "Zapping Sports (Ecuador)"
-    if "ecuavisa" in clean:
-        return "192215", "Ecuavisa (Ecuador)"
-    if "vtv" in clean:
-        return "97818", "VTV Plus HD (Uruguay)"
+        return "558638", "FUTV HD (Costa Rica)"
+    if "teletica" in clean or "td+" in clean:
+        return "1166517", "Teletica / TD+ (Costa Rica)"
     if "ivc" in clean:
-        return "1165419", "IVC Network HD (Venezuela)"
+        return "1912051", "IVC Network HD"
     if "venevision" in clean or "venevisión" in clean:
-        if "plus" in clean:
-            return "1382291", "Venevisión Plus"
-        return "4778", "Venevisión HD"
+        return "529670", "Venevisión HD"
     if "televen" in clean:
-        return "1165419", "IVC / Televen Feed (Canal 1165419)"
+        return "1370773", "Televen"
     if "globovision" in clean or "globovisión" in clean:
-        return "1165420", "Globovisión"
+        return "1838655", "Globovisión"
 
     for k, v in OFFICIAL_CHANNELS.items():
         if clean in v.lower():
@@ -809,65 +752,45 @@ def get_live_matches_agenda(curr_key):
 
 def get_sports_menu_messages(curr_key):
     msg1 = (
-        "🏆 <b>DIRECTORIO OFICIAL DE CANALES DEPORTIVOS EN IPTV</b>\n\n"
+        "🏆 <b>DIRECTORIO OFICIAL DE CANALES DEPORTIVOS (TREX IPTV 53K CHANNELS)</b>\n\n"
         "🇪🇸 <b>ESPAÑA (LALIGA, DAZN & MOTOR):</b>\n"
-        f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream 30905 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream 224832 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream 224831 {curr_key}</code>\n"
-        f"• ⚽ <b>LaLiga Hypermotion (2da):</b> <code>/stream 6560 {curr_key}</code>\n"
-        f"• ⚽ <b>Movistar Liga de Campeones:</b> <code>/stream 30906 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN 1 España:</b> <code>/stream 91781 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN 2 España:</b> <code>/stream 91782 {curr_key}</code>\n"
-        f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream 30907 {curr_key}</code>\n"
-        f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 1349240 {curr_key}</code>\n\n"
-        "🇦🇷 <b>ARGENTINA (LIGA PROFESIONAL & CONMEBOL):</b>\n"
-        f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
-        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 4884 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 34041 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 / ESPN 5 HD:</b> <code>/stream 4881 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 3 / ESPN 6 HD:</b> <code>/stream 4882 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 34050 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 3412 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 4 SUR HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 7 / ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
+        f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream 1972995 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream 2068331 {curr_key}</code>\n"
+        f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream 2068330 {curr_key}</code>\n"
+        f"• ⚽ <b>Movistar Liga de Campeones:</b> <code>/stream 2068307 {curr_key}</code>\n"
+        f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream 2068325 {curr_key}</code>\n"
+        f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 2137697 {curr_key}</code>\n\n"
+        "🇦🇷 <b>ARGENTINA & SUDAMÉRICA (LIGA PROFESIONAL & CONMEBOL):</b>\n"
+        f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 1358601 {curr_key}</code>\n"
+        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 79284 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 1931078 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 / ESPN 5 HD:</b> <code>/stream 45570 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 / ESPN 6 HD:</b> <code>/stream 1972968 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 45579 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 1358604 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 1358603 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 1870845 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN Extra / ESPN 7 HD:</b> <code>/stream 1358602 {curr_key}</code>\n"
     )
     msg2 = (
         "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (DSPORTS & WIN SPORTS):</b>\n"
-        f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream 33945 {curr_key}</code>\n"
-        f"• ⚽ <b>Win Sports Colombia:</b> <code>/stream 33943 {curr_key}</code>\n"
-        f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream 33933 {curr_key}</code>\n"
-        f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 33932 {curr_key}</code>\n"
-        f"• ⚽ <b>DIRECTV Sports Plus HD:</b> <code>/stream 33931 {curr_key}</code>\n\n"
-        "🌎 <b>CENTROAMÉRICA, PERÚ, ECUADOR & URUGUAY:</b>\n"
-        f"• 🇨🇷 <b>FUTV HD (Costa Rica):</b> <code>/stream 173315 {curr_key}</code>\n"
-        f"• 🇨🇷 <b>Teletica 7 (Costa Rica):</b> <code>/stream 173323 {curr_key}</code>\n"
-        f"• 🇸🇻 <b>Canal 4 HD (El Salvador):</b> <code>/stream 28931 {curr_key}</code>\n"
-        f"• 🇵🇪 <b>Liga 1 MAX (Perú):</b> <code>/stream 1067841 {curr_key}</code>\n"
-        f"• 🇵🇪 <b>Gol Perú HD:</b> <code>/stream 29848 {curr_key}</code>\n"
-        f"• 🇪🇨 <b>Zapping Sports (Ecuador):</b> <code>/stream 1169162 {curr_key}</code>\n"
-        f"• 🇪🇨 <b>Ecuavisa (Ecuador):</b> <code>/stream 192215 {curr_key}</code>\n"
-        f"• 🇺🇾 <b>VTV Plus HD (Uruguay):</b> <code>/stream 97818 {curr_key}</code>\n"
-        f"• 🇺🇾 <b>VTV HD (Uruguay):</b> <code>/stream 29714 {curr_key}</code>\n\n"
-        "🇲🇽 <b>MÉXICO & USA (LIGA MX & TUDN):</b>\n"
-        f"• ⚽ <b>TUDN MX:</b> <code>/stream 1288338 {curr_key}</code>\n"
-        f"• ⚽ <b>(ViX) TUDN:</b> <code>/stream 985726 {curr_key}</code>\n"
-        f"• ⚽ <b>Canal 5 México FHD:</b> <code>/stream 3987 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 1 México:</b> <code>/stream 34041 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports Premium MX:</b> <code>/stream 1453276 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 32038 {curr_key}</code>\n\n"
-        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA):</b>\n"
-        f"• ⚽ <b>Sky Sports Premier League:</b> <code>/stream 29016 {curr_key}</code>\n"
-        f"• ⚽ <b>Sky Sports Main Events:</b> <code>/stream 1256711 {curr_key}</code>\n"
-        f"• ⚽ <b>Sky Sports Football:</b> <code>/stream 29017 {curr_key}</code>\n"
-        f"• ⚽ <b>TNT Sports 1 UK:</b> <code>/stream 29019 {curr_key}</code>\n\n"
-        "🇮🇹 <b>SERIE A (ITALIA):</b>\n"
-        f"• ⚽ <b>DAZN Zona Serie A:</b> <code>/stream 8806 {curr_key}</code>\n"
-        f"• ⚽ <b>Sky Sport Calcio (Serie A):</b> <code>/stream 171524 {curr_key}</code>\n"
-        f"• ⚽ <b>DAZN Juventus:</b> <code>/stream 8805 {curr_key}</code>\n"
-        f"• ⚽ <b>Inter TV HD:</b> <code>/stream 34583 {curr_key}</code>\n"
-        f"• ⚽ <b>Milan Channel HD:</b> <code>/stream 34582 {curr_key}</code>\n\n"
-        "🔍 <i>¿Buscas cualquier otro canal del IPTV?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
+        f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream 145416 {curr_key}</code>\n"
+        f"• ⚽ <b>Win Sports Colombia:</b> <code>/stream 25338 {curr_key}</code>\n"
+        f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream 656326 {curr_key}</code>\n"
+        f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 656327 {curr_key}</code>\n\n"
+        "🇻🇪 <b>VENEZUELA (CANALES NACIONALES & BEISBOL):</b>\n"
+        f"• 📺 <b>Televen:</b> <code>/stream 1370773 {curr_key}</code>\n"
+        f"• 📺 <b>IVC Network HD:</b> <code>/stream 1912051 {curr_key}</code>\n"
+        f"• 📺 <b>Venevisión HD:</b> <code>/stream 529670 {curr_key}</code>\n"
+        f"• 📺 <b>Globovisión:</b> <code>/stream 1838655 {curr_key}</code>\n\n"
+        "🌎 <b>CENTROAMÉRICA & MÉXICO:</b>\n"
+        f"• 🇨🇷 <b>FUTV HD (Costa Rica):</b> <code>/stream 558638 {curr_key}</code>\n"
+        f"• 🇨🇷 <b>Teletica / TD+ (Costa Rica):</b> <code>/stream 1166517 {curr_key}</code>\n"
+        f"• 🇲🇽 <b>TUDN MX:</b> <code>/stream 1930896 {curr_key}</code>\n"
+        f"• 🇲🇽 <b>(ViX) TUDN:</b> <code>/stream 1143996 {curr_key}</code>\n"
+        f"• 🇲🇽 <b>Canal 5 México FHD:</b> <code>/stream 1052092 {curr_key}</code>\n"
+        f"• 🇺🇸 <b>ESPN Deportes 60fps USA:</b> <code>/stream 1921358 {curr_key}</code>\n\n"
+        "🔍 <i>¿Buscas cualquier otro de los 53,766 canales?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
 
