@@ -28,39 +28,42 @@ OFFICIAL_CHANNELS = {
     # España
     "1972995": "Movistar LaLiga FHD",
     "2068331": "DAZN LaLiga 1 FHD",
-    "2068330": "DAZN LaLiga 2 FHD",
-    "2068307": "Movistar Liga de Campeones",
     "2068325": "DAZN F1 España",
     "2137697": "DAZN MotoGP",
-    # Argentina & Sudamérica
+    # Argentina & Conmebol
     "1358601": "ESPN Premium HD",
-    "79284": "TyC Sports HD",
     "25595": "TNT Sports HD (Argentina)",
+    "79284": "TyC Sports HD",
+    # Suite ESPN
     "25511": "ESPN 1 HD",
     "1358604": "ESPN 2 HD",
     "25512": "ESPN 3 HD",
-    "25509": "Fox Sports 2 / ESPN 5 HD",
-    "25508": "Fox Sports 3 / ESPN 6 HD",
-    "75276": "Fox Sports Premium HD",
-    "25510": "Fox Sports 1 HD",
+    "739273": "ESPN 4 HD",
+    "739272": "ESPN 5 HD",
+    "739271": "ESPN 6 HD",
+    "739270": "ESPN 7 HD",
+    "1358602": "ESPN Extra HD",
     "75284": "ESPN Deportes USA",
+    # Suite Fox Sports
+    "25510": "Fox Sports 1 HD",
+    "25509": "Fox Sports 2 HD",
+    "1972968": "Fox Sports 3 HD",
+    "75276": "Fox Sports Premium HD",
     # Colombia & Sudamérica
     "145416": "Win Sports+ HD (Colombia)",
     "25338": "Win Sports Colombia",
     "656326": "DIRECTV Sports 1 HD (DSports)",
     "656327": "DIRECTV Sports 2 HD (DSports 2)",
-    # Venezuela
-    "1370773": "Televen",
-    "1912051": "IVC Network HD",
-    "529670": "Venevisión HD",
-    "1838655": "Globovisión",
-    # México & USA
+    "60107": "Claro Sports HD",
+    "60106": "Claro Sports 2",
+    # México & Centroamérica
     "1930896": "TUDN MX",
-    "1143996": "(ViX) TUDN",
-    "1052092": "Canal 5 México FHD",
-    # Centroamérica
+    "1143996": "(ViX) TUDN Deportes",
     "558638": "FUTV HD (Costa Rica)",
-    "1166517": "Teletica / TD+ (Costa Rica)"
+    "1166517": "Teletica / TD+ (Costa Rica)",
+    "529648": "Tigo Sports (Guatemala)",
+    "389448": "Tigo Sports 1 HD (Bolivia)",
+    "1462539": "Liga 1 MAX (Perú)"
 }
 
 def load_config():
@@ -122,36 +125,31 @@ def resolve_channel_input(raw_input):
         if "prem" in clean:
             return "1358601", "ESPN Premium HD"
         if "extra" in clean:
-            return "75276", "Fox Sports Premium / ESPN Extra"
+            return "1358602", "ESPN Extra HD"
         if "deportes" in clean or "usa" in clean:
             return "75284", "ESPN Deportes USA"
-        if "college" in clean or "plus" in clean:
-            if "7" in clean:
-                return "32153", "ESPN College Extra 7"
-            if "6" in clean:
-                return "32152", "ESPN College Extra 6"
-            if "5" in clean:
-                return "32151", "ESPN College Extra 5"
-            if "4" in clean:
-                return "32150", "ESPN College Extra 4"
-            if "3" in clean:
-                return "32149", "ESPN College Extra 3"
-            if "2" in clean:
-                return "32148", "ESPN College Extra 2"
-            return "32147", "ESPN College Extra 1"
         if "7" in clean:
-            return "75276", "Fox Sports Premium / ESPN Extra"
+            return "739270", "ESPN 7 HD"
         if "6" in clean:
-            return "25508", "Fox Sports 3 / ESPN 6 HD"
+            return "739271", "ESPN 6 HD"
         if "5" in clean:
-            return "25509", "Fox Sports 2 / ESPN 5 HD"
+            return "739272", "ESPN 5 HD"
         if "4" in clean:
-            return "25511", "ESPN 1 HD"
+            return "739273", "ESPN 4 HD"
         if "3" in clean:
             return "25512", "ESPN 3 HD"
         if "2" in clean:
             return "1358604", "ESPN 2 HD"
         return "25511", "ESPN 1 HD"
+
+    if "fox" in clean:
+        if "prem" in clean:
+            return "75276", "Fox Sports Premium HD"
+        if "3" in clean:
+            return "1972968", "Fox Sports 3 HD"
+        if "2" in clean:
+            return "25509", "Fox Sports 2 HD"
+        return "25510", "Fox Sports 1 HD"
         
     if "laliga" in clean or "la liga" in clean or "movistar" in clean:
         if "campeones" in clean or "champions" in clean:
@@ -700,17 +698,23 @@ def get_sports_menu_messages(curr_key):
         "🇦🇷 <b>ARGENTINA & CONMEBOL (FÚTBOL PROFESIONAL):</b>\n"
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 1358601 {curr_key}</code>\n"
         f"• ⚽ <b>TNT Sports HD (Argentina):</b> <code>/stream 25595 {curr_key}</code>\n"
-        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 79284 {curr_key}</code>\n"
+        f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 79284 {curr_key}</code>\n\n"
+        "🦊 <b>SUITE FOX SPORTS (HD EN VIVO):</b>\n"
         f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 25510 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 / ESPN 5 HD:</b> <code>/stream 25509 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 3 / ESPN 6 HD:</b> <code>/stream 25508 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports Premium / Extra:</b> <code>/stream 75276 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 HD:</b> <code>/stream 25509 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 HD:</b> <code>/stream 1972968 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports Premium HD:</b> <code>/stream 75276 {curr_key}</code>\n"
     )
     msg2 = (
-        "🌎 <b>SUITE PANAMERICANA (ESPN & FOX SPORTS):</b>\n"
+        "🌎 <b>SUITE COMPLETA ESPN (SEÑALES 1 AL 7 & EXTRA):</b>\n"
         f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 25511 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 1358604 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 25512 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 739273 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 5 HD:</b> <code>/stream 739272 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 6 HD:</b> <code>/stream 739271 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 7 HD:</b> <code>/stream 739270 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 1358602 {curr_key}</code>\n"
         f"• 🇺🇸 <b>ESPN Deportes USA:</b> <code>/stream 75284 {curr_key}</code>\n\n"
         "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (WIN SPORTS & DSPORTS):</b>\n"
         f"• ⚽ <b>Win Sports+ HD (Colombia):</b> <code>/stream 145416 {curr_key}</code>\n"
@@ -773,7 +777,7 @@ def handle_message(msg):
                 "📋 <b>COMANDOS DISPONIBLES:</b>\n"
                 "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver los partidos de hoy con canales listos\n"
                 "• <code>/canales</code> o <code>/deportes</code> $\\rightarrow$ Ver todos los canales deportivos oficiales\n"
-                "• <code>/espn</code> $\\rightarrow$ Ver señales de ESPN (1, 2, 3, Extra, Premium)\n"
+                "• <code>/espn</code> $\\rightarrow$ Ver señales de ESPN (1 al 7, Extra, Premium)\n"
                 "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión directa\n"
                 "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar canal en vivo\n"
                 "• <code>/status</code> $\\rightarrow$ Ver transmisiones activas simultáneas\n"
@@ -792,18 +796,17 @@ def handle_message(msg):
         elif text.startswith("/espn"):
             espn_msg = (
                 "📺 <b>DIRECTORIO COMPLETO DE SEÑALES ESPN (100% TREX IPTV HD):</b>\n\n"
-                "🇦🇷 <b>ESPN & SUDAMÉRICA:</b>\n"
+                "🇦🇷 <b>SEÑALES ESPN (1 AL 7 & EXTRA):</b>\n"
                 f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 25511 {curr_key}</code>\n"
                 f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 1358604 {curr_key}</code>\n"
                 f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 25512 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN 4 / ESPN 1:</b> <code>/stream 25511 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN 5 (Fox Sports 2):</b> <code>/stream 25509 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN 6 (Fox Sports 3):</b> <code>/stream 25508 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN Extra / Fox Premium:</b> <code>/stream 75276 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 739273 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 5 HD:</b> <code>/stream 739272 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 6 HD:</b> <code>/stream 739271 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 7 HD:</b> <code>/stream 739270 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 1358602 {curr_key}</code>\n"
                 f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 1358601 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 75284 {curr_key}</code>\n"
-                f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 79284 {curr_key}</code>\n"
-                f"• ⚽ <b>TNT Sports HD:</b> <code>/stream 25595 {curr_key}</code>"
+                f"• 🇺🇸 <b>ESPN Deportes USA:</b> <code>/stream 75284 {curr_key}</code>\n"
             )
             send_msg(chat_id, espn_msg)
 
