@@ -98,53 +98,69 @@ stream_lock = threading.Lock()
 # ==============================================================================
 # EXTRACTOR UNIVERSAL DE M3U8 (ROJADIRECTA.CEO / STREAMTP / STREAMXHD)
 # ==============================================================================
+def get_slug_variations(slug):
+    slug_str = str(slug).strip().lower()
+    vars_list = [slug_str]
+    if '-' in slug_str:
+        vars_list.append(slug_str.replace('-', ''))
+    else:
+        m = re.match(r'^([a-zA-Z]+)(\d+)$', slug_str)
+        if m:
+            vars_list.append(f"{m.group(1)}-{m.group(2)}")
+    if "disney" in slug_str:
+        nums = re.findall(r'\d+', slug_str)
+        if nums:
+            vars_list.extend([f"disney{nums[0]}", f"disney-{nums[0]}"])
+    return list(dict.fromkeys(vars_list))
+
 def extract_web_m3u8(channel_slug):
-    slug = str(channel_slug).strip().lower()
+    candidates = get_slug_variations(channel_slug)
     
-    # 1. Intentar extracción directa desde rojadirecta.ceo
-    try:
-        ceo_url = f"https://rojadirecta.ceo/stream/{slug}"
-        r = requests.get(ceo_url, headers=HEADERS_WEB, timeout=3.5)
-        if r.status_code == 200:
-            iframes = re.findall(r'<iframe[^>]*src="([^"]+)"', r.text)
-            for ifr in iframes:
-                ifr_url = ifr if ifr.startswith("http") else f"https://rojadirecta.ceo{ifr}"
-                ifr_r = requests.get(ifr_url, headers=HEADERS_WEB, timeout=3.5)
-                m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
-                if m:
-                    m3u8_url = m.group(1).replace(r'\/', '/')
-                    headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                    return m3u8_url, headers_str, True
-    except Exception:
-        pass
-
-    # 2. Intentar servidores dedicados de StreamTP
-    for base in STREAMTP_SERVERS:
-        player_url = f"{base}{slug}"
+    for slug in candidates:
+        # 1. Intentar extracción directa desde rojadirecta.ceo
         try:
-            r = requests.get(player_url, headers=HEADERS_WEB, timeout=3.5)
+            ceo_url = f"https://rojadirecta.ceo/stream/{slug}"
+            r = requests.get(ceo_url, headers=HEADERS_WEB, timeout=3.0)
             if r.status_code == 200:
-                m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
-                if m:
-                    m3u8_url = m.group(1).replace(r'\/', '/')
-                    headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                    return m3u8_url, headers_str, True
+                iframes = re.findall(r'<iframe[^>]*src="([^"]+)"', r.text)
+                for ifr in iframes:
+                    ifr_url = ifr if ifr.startswith("http") else f"https://rojadirecta.ceo{ifr}"
+                    ifr_r = requests.get(ifr_url, headers=HEADERS_WEB, timeout=3.0)
+                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
+                    if m:
+                        m3u8_url = m.group(1).replace(r'\/', '/')
+                        headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                        return m3u8_url, headers_str, True
         except Exception:
             pass
 
-    # 3. Intentar servidores de StreamXHD
-    for base in STREAMXHD_SERVERS:
-        xhd_url = f"{base}{slug}"
-        try:
-            r = requests.get(xhd_url, headers=HEADERS_WEB, timeout=3.5)
-            if r.status_code == 200:
-                m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
-                if m:
-                    m3u8_url = m.group(1).replace(r'\/', '/')
-                    headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                    return m3u8_url, headers_str, True
-        except Exception:
-            pass
+        # 2. Intentar servidores dedicados de StreamTP
+        for base in STREAMTP_SERVERS:
+            player_url = f"{base}{slug}"
+            try:
+                r = requests.get(player_url, headers=HEADERS_WEB, timeout=3.0)
+                if r.status_code == 200:
+                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
+                    if m:
+                        m3u8_url = m.group(1).replace(r'\/', '/')
+                        headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                        return m3u8_url, headers_str, True
+            except Exception:
+                pass
+
+        # 3. Intentar servidores de StreamXHD
+        for base in STREAMXHD_SERVERS:
+            xhd_url = f"{base}{slug}"
+            try:
+                r = requests.get(xhd_url, headers=HEADERS_WEB, timeout=3.0)
+                if r.status_code == 200:
+                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
+                    if m:
+                        m3u8_url = m.group(1).replace(r'\/', '/')
+                        headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                        return m3u8_url, headers_str, True
+            except Exception:
+                pass
 
     return None, None, False
 
@@ -154,12 +170,57 @@ def resolve_channel_input(raw_input):
     if clean in OFFICIAL_CHANNELS:
         return clean, OFFICIAL_CHANNELS[clean]
 
-    # Reglas por alias de nombre
-    if "espn" in clean or "disney" in clean:
+    # 1. Señales directas Disney / Star / Fanatiz / Eventos (¡SEPARADAS DE ESPN!)
+    if "disney" in clean:
+        nums = re.findall(r'\d+', clean)
+        if nums:
+            num = nums[0]
+            slug = f"disney-{num}" if "-" in clean else f"disney{num}"
+            return slug, f"Disney+ / Star+ (Señal {num})"
+        return "disney1", "Disney+ / Star+ (Señal 1)"
+
+    if "star" in clean and ("+" in clean or "plus" in clean or re.search(r'star\s*[\-_]?\d+', clean)):
+        nums = re.findall(r'\d+', clean)
+        if nums:
+            num = nums[0]
+            slug = f"star-{num}" if "-" in clean else f"star{num}"
+            return slug, f"Star+ (Señal {num})"
+        return "star1", "Star+ (Señal 1)"
+
+    if "fanatiz" in clean:
+        nums = re.findall(r'\d+', clean)
+        if nums:
+            num = nums[0]
+            slug = f"fanatiz-{num}" if "-" in clean else f"fanatiz{num}"
+            return slug, f"Fanatiz HD (Opción {num})"
+        return "fanatiz1", "Fanatiz HD (Opción 1)"
+
+    if "evento" in clean:
+        nums = re.findall(r'\d+', clean)
+        if nums:
+            num = nums[0]
+            slug = f"evento-{num}" if "-" in clean else f"evento{num}"
+            return slug, f"Señal Evento {num}"
+        return "evento1", "Señal Evento 1"
+
+    if "canal-" in clean or ("canal" in clean and re.search(r'canal\s*[\-_]?\d+', clean)):
+        nums = re.findall(r'\d+', clean)
+        if nums:
+            num = nums[0]
+            return f"canal-{num}", f"Canal Alternativo {num}"
+
+    # 2. Reglas específicas para ESPN (solo cuando NO es Disney)
+    if "espn" in clean:
         if "prem" in clean:
             return "espnpremium", "ESPN Premium HD (Argentina)"
         if "deportes" in clean or "usa" in clean:
             return "espn-deportes", "ESPN Deportes USA"
+        if "plus" in clean or "+" in clean:
+            if "2" in clean:
+                return "espnplus2", "ESPN+ USA 2"
+            return "espnplus1", "ESPN+ USA 1"
+        if "extra" in clean:
+            return "espnextra", "ESPN Extra HD"
         if "7" in clean:
             return "espn7", "ESPN 7 HD"
         if "6" in clean:
