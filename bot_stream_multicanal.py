@@ -140,47 +140,102 @@ def resolve_channel_input(raw_input):
     if clean.isdigit():
         return clean, f"Canal ID #{clean}"
 
-    aliases = {
-        "laliga": ("30905", "Movistar LaLiga FHD"),
-        "movistar": ("30905", "Movistar LaLiga FHD"),
-        "dazn": ("224832", "DAZN LaLiga 1 FHD"),
-        "dazn1": ("224832", "DAZN LaLiga 1 FHD"),
-        "dazn2": ("224831", "DAZN LaLiga 2 FHD"),
-        "daznf1": ("30907", "DAZN F1 España"),
-        "f1": ("30907", "DAZN F1 España"),
-        "motogp": ("1349240", "DAZN MotoGP"),
-        "win": ("33945", "Win Sports+ HD (Colombia)"),
-        "win+": ("33945", "Win Sports+ HD (Colombia)"),
-        "winsports": ("33945", "Win Sports+ HD (Colombia)"),
-        "espn": ("4883", "ESPN Premium HD"),
-        "espnpremium": ("4883", "ESPN Premium HD"),
-        "espn1": ("30326", "ESPN 1 HD"),
-        "espn2": ("30327", "ESPN 2 HD"),
-        "espn3": ("3411", "ESPN 3 HD"),
-        "espn4": ("1453275", "ESPN 4 HD"),
-        "espnextra": ("34051", "ESPN Extra HD"),
-        "tyc": ("4884", "TyC Sports HD"),
-        "tnt": ("4883", "TNT Sports Argentina"),
-        "dsports": ("33933", "DIRECTV Sports 1 HD (DSports)"),
-        "directv": ("33933", "DIRECTV Sports 1 HD (DSports)"),
-        "tudn": ("1288338", "TUDN MX"),
-        "vix": ("985726", "(ViX) TUDN"),
-        "fox": ("5980", "Fox Sports 1 HD"),
-        "fox1": ("5980", "Fox Sports 1 HD"),
-        "fox2": ("4881", "Fox Sports 2 HD"),
-        "fox3": ("4882", "Fox Sports 3 HD"),
-        "premier": ("29016", "Sky Sports Premier League"),
-        "champions": ("30906", "Movistar Liga de Campeones FHD")
-    }
-    
-    if clean in aliases:
-        return aliases[clean]
+    # Reglas específicas por nombre de canal
+    if "espn" in clean:
+        if "prem" in clean:
+            return "4883", "ESPN Premium HD"
+        if "extra" in clean:
+            return "34051", "ESPN Extra HD"
+        if "deportes" in clean or "usa" in clean:
+            return "32038", "ESPN Deportes USA"
+        if "4" in clean:
+            return "1453275", "ESPN 4 SUR HD"
+        if "3" in clean:
+            return "3411", "ESPN 3 HD"
+        if "2" in clean:
+            return "30327", "ESPN 2 HD"
+        return "30326", "ESPN 1 HD"
         
+    if "laliga" in clean or "la liga" in clean or "movistar" in clean:
+        if "hyper" in clean or "2" in clean or "segunda" in clean:
+            return "6560", "LaLiga Hypermotion (2da División)"
+        if "campeones" in clean or "champions" in clean:
+            return "30906", "Movistar Liga de Campeones FHD"
+        return "30905", "Movistar LaLiga FHD"
+        
+    if "dazn" in clean:
+        if "f1" in clean or "formula" in clean:
+            return "30907", "DAZN F1 España"
+        if "moto" in clean:
+            return "1349240", "DAZN MotoGP"
+        if "2" in clean:
+            return "224831", "DAZN LaLiga 2 FHD"
+        return "224832", "DAZN LaLiga 1 FHD"
+        
+    if "win" in clean:
+        if "+" in clean or "plus" in clean:
+            return "33945", "Win Sports+ HD (Colombia)"
+        return "33943", "Win Sports Colombia"
+        
+    if "tyc" in clean:
+        return "4884", "TyC Sports HD"
+    if "tnt" in clean:
+        return "4883", "TNT Sports Argentina"
+        
+    if "dsport" in clean or "directv" in clean:
+        if "2" in clean:
+            return "33932", "DSports 2 HD"
+        if "plus" in clean or "+" in clean:
+            return "33931", "DSports+ HD"
+        return "33933", "DSports 1 HD"
+        
+    if "fox" in clean:
+        if "3" in clean:
+            return "4882", "Fox Sports 3 HD"
+        if "2" in clean:
+            return "4881", "Fox Sports 2 HD"
+        if "prem" in clean:
+            return "1453276", "Fox Sports Premium MX"
+        return "34041", "Fox Sports 1 México"
+        
+    if "tudn" in clean:
+        return "1288338", "TUDN MX"
+    if "vix" in clean:
+        return "985726", "(ViX) TUDN"
+    if "canal 5" in clean:
+        return "3987", "Canal 5 México FHD"
+        
+    if "sky" in clean or "premier" in clean:
+        return "29016", "Sky Sports Premier League"
+        
+    if "futv" in clean:
+        return "173315", "FUTV HD (Costa Rica)"
+    if "teletica" in clean:
+        return "173323", "Teletica 7 (Costa Rica)"
+    if "canal 4" in clean:
+        return "28931", "Canal 4 HD (El Salvador)"
+    if "liga 1" in clean:
+        return "1067841", "Liga 1 MAX (Perú)"
+    if "gol peru" in clean:
+        return "29848", "Gol Perú HD"
+    if "zapping" in clean:
+        return "1169162", "Zapping Sports (Ecuador)"
+    if "ecuavisa" in clean:
+        return "192215", "Ecuavisa (Ecuador)"
+    if "vtv" in clean:
+        return "97818", "VTV Plus HD (Uruguay)"
+    if "venevision" in clean:
+        return "4778", "Venevisión HD"
+    if "televen" in clean:
+        return "1165419", "Televen"
+    if "globovision" in clean:
+        return "1165420", "Globovisión"
+
     for k, v in OFFICIAL_CHANNELS.items():
         if clean in v.lower():
             return k, v
 
-    return "30905", "Movistar LaLiga FHD"
+    return "30326", "ESPN 1 HD"
 
 def resolve_channel_from_raw(slug, cname):
     txt = f"{slug} {cname}".lower()
@@ -918,13 +973,31 @@ def handle_message(msg):
     elif text.startswith("/stream"):
         parts = text.split()
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/stream &lt;CANAL_O_ID&gt; [STREAM_KEY]</code>\nEjemplo: <code>/stream 30905</code> o <code>/stream laliga</code>")
+            send_msg(chat_id, (
+                "⚠️ <b>Uso del comando /stream:</b>\n"
+                "Puedes escribir directamente el nombre del canal o su ID:\n\n"
+                "• <code>/stream espn</code> $\\rightarrow$ ESPN 1 HD\n"
+                "• <code>/stream espn 2</code> $\\rightarrow$ ESPN 2 HD\n"
+                "• <code>/stream espn 4</code> $\\rightarrow$ ESPN 4 SUR HD\n"
+                "• <code>/stream laliga</code> $\\rightarrow$ Movistar LaLiga FHD\n"
+                "• <code>/stream dazn</code> $\\rightarrow$ DAZN LaLiga 1 FHD\n"
+                "• <code>/stream dsports</code> $\\rightarrow$ DIRECTV Sports HD\n"
+                "• <code>/stream win</code> $\\rightarrow$ Win Sports+ HD\n"
+                "• <code>/stream tyc</code> $\\rightarrow$ TyC Sports HD\n"
+                "• <code>/stream televen</code> $\\rightarrow$ Televen\n"
+                "• <code>/stream venevision</code> $\\rightarrow$ Venevisión HD"
+            ))
             return
         
-        raw_ch = clean_arg(parts[1])
-        stream_key = clean_arg(parts[2]) if len(parts) >= 3 else curr_key
+        # Detectar si el último argumento es una stream key
+        if len(parts) >= 3 and (":" in parts[-1] and len(parts[-1]) > 15):
+            stream_key = clean_arg(parts[-1])
+            raw_ch = " ".join(parts[1:-1]).strip()
+        else:
+            stream_key = curr_key
+            raw_ch = " ".join(parts[1:]).strip()
         
-        send_msg(chat_id, f"⏳ <b>Conectando al canal {html.escape(raw_ch)} en servidor Gigabit dedicado...</b>")
+        send_msg(chat_id, f"⏳ <b>Conectando al canal '{html.escape(raw_ch)}' en servidor Gigabit dedicado...</b>")
         ok, sid, res = start_single_stream(raw_ch, stream_key)
         if ok:
             send_msg(chat_id, (
