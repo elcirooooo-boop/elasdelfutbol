@@ -10,7 +10,7 @@ import requests
 import datetime
 
 # ==============================================================================
-# CONFIGURACIÓN GENERAL DEL BOT Y SERVIDORES WEB (STREAMTP / ROJADIRECTA / PELOTA LIBRE)
+# CONFIGURACIÓN GENERAL DEL BOT Y SERVIDORES WEB (ROJADIRECTA.CEO / STREAMTP)
 # ==============================================================================
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
@@ -18,7 +18,7 @@ CONFIG_FILE = "stream_config.json"
 
 HEADERS_WEB = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Referer": "https://tarjetaroja.my/"
+    "Referer": "https://rojadirecta.ceo/"
 }
 
 STREAMTP_SERVERS = [
@@ -28,7 +28,8 @@ STREAMTP_SERVERS = [
 ]
 
 STREAMXHD_SERVERS = [
-    "https://streamxhd.com/live1.php?stream="
+    "https://streamxhd.com/live1.php?stream=",
+    "https://streamxhd.com/live2.php?stream="
 ]
 
 # Canales principales pre-mapeados con servidores CDN de alta velocidad
@@ -95,12 +96,29 @@ active_streams = {}
 stream_lock = threading.Lock()
 
 # ==============================================================================
-# EXTRACTOR UNIVERSAL DE M3U8 (STREAMTP / ROJADIRECTA / STREAMXHD / PELOTA LIBRE)
+# EXTRACTOR UNIVERSAL DE M3U8 (ROJADIRECTA.CEO / STREAMTP / STREAMXHD)
 # ==============================================================================
 def extract_web_m3u8(channel_slug):
     slug = str(channel_slug).strip().lower()
     
-    # 1. Intentar servidores dedicados de StreamTP
+    # 1. Intentar extracción directa desde rojadirecta.ceo
+    try:
+        ceo_url = f"https://rojadirecta.ceo/stream/{slug}"
+        r = requests.get(ceo_url, headers=HEADERS_WEB, timeout=3.5)
+        if r.status_code == 200:
+            iframes = re.findall(r'<iframe[^>]*src="([^"]+)"', r.text)
+            for ifr in iframes:
+                ifr_url = ifr if ifr.startswith("http") else f"https://rojadirecta.ceo{ifr}"
+                ifr_r = requests.get(ifr_url, headers=HEADERS_WEB, timeout=3.5)
+                m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
+                if m:
+                    m3u8_url = m.group(1).replace(r'\/', '/')
+                    headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                    return m3u8_url, headers_str, True
+    except Exception:
+        pass
+
+    # 2. Intentar servidores dedicados de StreamTP
     for base in STREAMTP_SERVERS:
         player_url = f"{base}{slug}"
         try:
@@ -114,7 +132,7 @@ def extract_web_m3u8(channel_slug):
         except Exception:
             pass
 
-    # 2. Intentar servidores de StreamXHD
+    # 3. Intentar servidores de StreamXHD
     for base in STREAMXHD_SERVERS:
         xhd_url = f"{base}{slug}"
         try:
@@ -127,22 +145,6 @@ def extract_web_m3u8(channel_slug):
                     return m3u8_url, headers_str, True
         except Exception:
             pass
-
-    # 3. Intentar extracción directa por tarjeta roja
-    try:
-        tr_url = f"https://tarjetaroja.my/stream/{slug}"
-        r = requests.get(tr_url, headers=HEADERS_WEB, timeout=3.5)
-        if r.status_code == 200:
-            iframes = re.findall(r'<iframe[^>]*src="([^"]+)"', r.text)
-            for ifr in iframes:
-                ifr_r = requests.get(ifr, headers=HEADERS_WEB, timeout=3.5)
-                m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
-                if m:
-                    m3u8_url = m.group(1).replace(r'\/', '/')
-                    headers_str = f"Referer: {ifr}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                    return m3u8_url, headers_str, True
-    except Exception:
-        pass
 
     return None, None, False
 
@@ -594,7 +596,7 @@ t_super = threading.Thread(target=supervisor_thread, daemon=True)
 t_super.start()
 
 # ==============================================================================
-# AGENDA DINÁMICA DE PARTIDOS (ROJADIRECTA / TARJETAROJA)
+# AGENDA DINÁMICA DE PARTIDOS (ROJADIRECTA.CEO)
 # ==============================================================================
 MATCHES_AGENDA_CACHE = {"timestamp": 0, "messages": []}
 
@@ -609,30 +611,37 @@ def get_live_matches_agenda(curr_key):
         now_art = now_utc - datetime.timedelta(hours=3) # Referencia horaria
         current_minutes = now_art.hour * 60 + now_art.minute
 
-        r = requests.get("https://tarjetaroja.my/", headers=HEADERS_WEB, timeout=6)
+        r = requests.get("https://rojadirecta.ceo/", headers=HEADERS_WEB, timeout=6)
         if r.status_code == 200:
             page_html = r.text
-            articles = re.findall(r'<article class="tr-event"[^>]*>(.*?)</article>', page_html, re.DOTALL)
+            rows = re.findall(r'<tr>(.*?)</tr>', page_html, re.DOTALL)
             
+            events_dict = {}
+            for row in rows:
+                m = re.search(r'<td>(.*?):<a\s+href="[^"]*stream/([^"]+)"[^>]*><b>(.*?)</b></a></td>.*?<span\s+class="t">([^<]+)</span>', row, re.DOTALL)
+                if m:
+                    league = m.group(1).strip()
+                    slug = m.group(2).strip()
+                    match_title = m.group(3).strip()
+                    time_str = m.group(4).strip()
+                    
+                    full_title = f"{league}: {match_title}"
+                    if full_title not in events_dict:
+                        events_dict[full_title] = {
+                            "time": time_str,
+                            "league": league,
+                            "title": match_title,
+                            "full_title": full_title,
+                            "channels_raw": []
+                        }
+                    events_dict[full_title]["channels_raw"].append((slug, slug))
+
             live_events = []
             upcoming_events = []
             
-            for art in articles:
-                time_m = re.search(r'<span class="tr-event-time[^"]*">([^<]+)</span>', art)
-                time_str = time_m.group(1).strip() if time_m else ""
-                
-                title_m = re.search(r'<span class="tr-event-title">(.*?)</span>\s*<span class="tr-event-chevron"', art, re.DOTALL)
-                if title_m:
-                    title_raw = title_m.group(1)
-                    title_clean = re.sub(r'<[^>]+>', ' ', title_raw).strip()
-                    title_clean = re.sub(r'\s+', ' ', title_clean)
-                else:
-                    ds_m = re.search(r'data-search="([^"]+)"', art)
-                    title_clean = ds_m.group(1) if ds_m else "Evento Deportivo"
-                    
-                channels_raw = re.findall(r'<a class="tr-event-channel"[^>]*href="[^"]*stream/([^"]+)"[^>]*>([^<]+)</a>', art)
-                web_options = smart_match_channel_resolver(title_clean, channels_raw)
-                
+            for full_title, ev_info in events_dict.items():
+                time_str = ev_info["time"]
+                web_options = smart_match_channel_resolver(full_title, ev_info["channels_raw"])
                 if not web_options:
                     continue
 
@@ -658,7 +667,7 @@ def get_live_matches_agenda(curr_key):
                     
                 ev_data = {
                     "time": time_str,
-                    "title": title_clean,
+                    "title": full_title,
                     "status_tag": status_tag,
                     "channels": web_options
                 }
@@ -673,7 +682,7 @@ def get_live_matches_agenda(curr_key):
                 current_msg = ""
                 
                 if live_events:
-                    current_msg += "🔴 <b>PARTIDOS EN VIVO AHORA MISMO (JUGÁNDOSE EN TV):</b>\n\n"
+                    current_msg += "🔴 <b>PARTIDOS EN VIVO AHORA MISMO (ROJADIRECTA.CEO):</b>\n\n"
                     for ev in live_events:
                         block = f"🏆 <b>[{html.escape(ev['time'])}] {html.escape(ev['title'])}</b> {ev['status_tag']}\n"
                         for ch in ev["channels"]:
@@ -687,7 +696,7 @@ def get_live_matches_agenda(curr_key):
                             current_msg += block
                             
                 if upcoming_events:
-                    up_header = "\n⏰ <b>PRÓXIMOS PARTIDOS DE HOY:</b>\n\n"
+                    up_header = "\n⏰ <b>PRÓXIMOS PARTIDOS DE HOY (ROJADIRECTA.CEO):</b>\n\n"
                     if len(current_msg) + len(up_header) > 3500:
                         messages.append(current_msg)
                         current_msg = up_header
@@ -719,7 +728,7 @@ def get_live_matches_agenda(curr_key):
 
 def get_sports_menu_messages(curr_key):
     msg1 = (
-        "🏆 <b>DIRECTORIO DE CANALES DEPORTIVOS (STREAMTP / ROJADIRECTA CDN)</b>\n\n"
+        "🏆 <b>DIRECTORIO DE CANALES DEPORTIVOS (ROJADIRECTA.CEO / STREAMTP)</b>\n\n"
         "🇪🇸 <b>ESPAÑA & MOTOR (LALIGA, F1 & MOTOGP):</b>\n"
         f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream movistarlaliga {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream daznlaliga {curr_key}</code>\n"
