@@ -620,9 +620,9 @@ def get_live_matches_agenda(curr_key):
             for row in rows:
                 m = re.search(r'<td>(.*?):<a\s+href="[^"]*stream/([^"]+)"[^>]*><b>(.*?)</b></a></td>.*?<span\s+class="t">([^<]+)</span>', row, re.DOTALL)
                 if m:
-                    league = m.group(1).strip()
+                    league = html.unescape(m.group(1).strip())
                     slug = m.group(2).strip()
-                    match_title = m.group(3).strip()
+                    match_title = html.unescape(m.group(3).strip())
                     time_str = m.group(4).strip()
                     
                     full_title = f"{league}: {match_title}"
