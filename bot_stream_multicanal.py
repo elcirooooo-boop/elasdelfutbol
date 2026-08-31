@@ -443,16 +443,27 @@ def start_single_stream(channel_input, stream_key, chat_id):
 
     proc, out_f, log_file = launch_ffmpeg_process(m3u8_url, headers_str, destination, stream_id)
 
-    time.sleep(2)
+    time.sleep(3.5)
     poll_res = proc.poll()
     if poll_res is not None:
         try:
             out_f.close()
             with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
-                logs = f.read()[-300:]
+                logs = f.read()[-500:]
         except Exception:
             logs = "Sin logs"
-        return False, f"❌ <b>Error al iniciar FFmpeg</b> (Código: {poll_res})\n\n<code>{html.escape(logs)}</code>"
+
+        if "Connection to tcp://live.telegram.org:1935" in logs or "Error number -138" in logs:
+            return False, (
+                "⚠️ <b>Telegram no está recibiendo la señal de transmisión.</b>\n\n"
+                "👉 <b>Pasos obligatorios para transmitir en Telegram:</b>\n"
+                "1. Abre tu canal o grupo de Telegram.\n"
+                "2. Toca en el menú de arriba (los 3 puntos <code>...</code>) $\rightarrow$ <b>\"Iniciar transmisión en vivo\"</b> o <b>\"Transmitir con...\"</b>.\n"
+                "3. Verifica que la ventana diga <i>\"Esperando señal...\"</i>.\n"
+                "4. Vuelve a enviar el comando: <code>/stream " + resolved_slug + " " + clean_key + "</code>"
+            )
+
+        return False, f"❌ <b>Error al conectar con Telegram RTMP</b> (Código: {poll_res})\n\n<code>{html.escape(logs)}</code>"
 
     with stream_lock:
         active_streams[stream_id] = {
