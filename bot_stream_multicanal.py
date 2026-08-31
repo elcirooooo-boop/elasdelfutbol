@@ -211,164 +211,95 @@ def resolve_channel_input(raw_input):
 def resolve_channel_from_raw(slug, cname):
     txt = f"{slug} {cname}".lower()
     
-    # Apple TV / MLS
-    if "appletv" in txt or "apple" in txt or "mls" in txt:
-        return "32040", "Apple TV / Fox Deportes (MLS)"
-        
     # MLB / Béisbol
     if "mlb" in txt or "béisbol" in txt or "beisbol" in txt:
-        return "1453275", "ESPN 4 SUR (MLB Béisbol)"
+        return "1870845", "ESPN 4 HD (MLB Béisbol)"
         
     # US Open / Tenis
     if "us open" in txt or "tenis" in txt:
-        return "30327", "ESPN 2 HD (US Open)"
+        return "1358604", "ESPN 2 HD (US Open)"
         
     # Costa Rica
     if "fut" in txt or "futv" in txt:
-        return "173315", "FUTV HD (Costa Rica)"
+        return "558638", "FUTV HD (Costa Rica)"
     if "teletica" in txt or "td+" in txt:
-        return "173323", "Teletica 7 (Costa Rica)"
-    if "repretel" in txt:
-        return "173322", "Repretel 6 (Costa Rica)"
+        return "1166517", "Teletica / TD+ (Costa Rica)"
         
-    # El Salvador
-    if "canal 4" in txt or "tcs" in txt:
-        return "28931", "Canal 4 (El Salvador)"
-    if "tigo" in txt:
-        return "28931", "Tigo Sports / Canal 4 (El Salvador)"
-        
-    # Peru
-    if "liga 1" in txt or "l1 max" in txt or "l1max" in txt or "liga1" in txt:
-        return "1067841", "Liga 1 MAX (Perú)"
-    if "movistarper" in txt or "gol peru" in txt or "golperu" in txt:
-        return "29848", "Gol Perú / Movistar Perú"
-        
-    # Ecuador
-    if "zapping" in txt:
-        return "1169162", "Zapping Sports (Ecuador)"
-    if "ecuavisa" in txt:
-        return "192215", "Ecuavisa (Ecuador)"
-        
-    # Uruguay
-    if "vtv plus" in txt or "vtv+" in txt:
-        return "97818", "VTV Plus HD (Uruguay)"
-    if "vtv" in txt or "tenfield" in txt:
-        return "29714", "VTV HD (Uruguay)"
-        
-    # Chile
-    if "tntsportschile" in txt or "chile" in txt:
-        return "4884", "TNT Sports Chile / TyC"
-        
-    # Brasil
-    if "premiere" in txt:
-        return "31210", "Premiere BR / ESPN BR"
-        
-    # Honduras
-    if "tvc" in txt or "honduras" in txt:
-        return "32038", "TVC Deportes / ESPN Deportes"
-        
-    # Hypermotion / 2da División
-    if "hyper" in txt or "segunda" in txt or "la liga 2" in txt or "laliga 2" in txt or "laliga2" in txt:
-        return "6560", "LaLiga Hypermotion HD"
+    # Venezuela
+    if "televen" in txt:
+        return "1370773", "Televen"
+    if "ivc" in txt:
+        return "1912051", "IVC Network HD"
+    if "venevision" in txt:
+        return "529670", "Venevisión HD"
+    if "globovision" in txt:
+        return "1838655", "Globovisión"
         
     # Movistar LaLiga
-    if "movistar" in txt or "la liga tv" in txt or "laliga tv" in txt or "laliga uhd" in txt:
+    if "movistar" in txt or "la liga tv" in txt or "laliga tv" in txt:
         if "campeones" in txt or "champions" in txt:
-            return "30906", "Movistar Liga de Campeones"
-        return "30905", "Movistar LaLiga FHD"
+            return "2068307", "Movistar Liga de Campeones"
+        return "1972995", "Movistar LaLiga FHD"
         
     # DAZN
     if "dazn" in txt:
         if "f1" in txt or "formula" in txt:
-            return "30907", "DAZN F1 España"
+            return "2068325", "DAZN F1 España"
         if "moto" in txt:
-            return "1349240", "DAZN MotoGP"
-        if "la liga 2" in txt or "laliga 2" in txt or "laliga2" in txt:
-            return "224831", "DAZN LaLiga 2 FHD"
-        if "la liga" in txt or "laliga" in txt:
-            return "224832", "DAZN LaLiga 1 FHD"
-        if "zona" in txt or "serie a" in txt:
-            return "8806", "DAZN Zona Serie A"
-        if "2" in txt:
-            return "91782", "DAZN 2 España"
-        return "91781", "DAZN 1 España"
+            return "2137697", "DAZN MotoGP"
+        if "la liga 2" in txt or "laliga 2" in txt:
+            return "2068330", "DAZN LaLiga 2 FHD"
+        return "2068331", "DAZN LaLiga 1 FHD"
         
     # ESPN
     if "espn" in txt:
         if "prem" in txt:
-            return "4883", "ESPN Premium HD"
+            return "1358601", "ESPN Premium HD"
         if "deportes" in txt:
-            return "32038", "ESPN Deportes USA"
-        if "extra" in txt:
-            if "2" in txt:
-                return "32148", "ESPN College Extra 2"
-            if "3" in txt:
-                return "32149", "ESPN College Extra 3"
-            return "34051", "ESPN Extra HD"
-        if "plus" in txt:
-            if "2" in txt:
-                return "32148", "ESPN+ 2 (College Extra 2)"
-            if "3" in txt:
-                return "32149", "ESPN+ 3 (College Extra 3)"
-            return "32147", "ESPN+ 1 (College Extra 1)"
+            return "1921358", "ESPN Deportes 60fps"
+        if "extra" in txt or "7" in txt:
+            return "1358602", "ESPN Extra / 7 HD"
         if "4" in txt or "sur" in txt:
-            return "1453275", "ESPN 4 SUR HD"
+            return "1870845", "ESPN 4 HD"
         if "3" in txt:
-            return "3411", "ESPN 3 HD"
+            return "1358603", "ESPN 3 HD"
         if "2" in txt:
-            return "30327", "ESPN 2 HD"
-        return "30326", "ESPN 1 HD"
+            return "1358604", "ESPN 2 HD"
+        return "45579", "ESPN 1 HD"
         
     # DIRECTV / DSports
     if "dsport" in txt or "directv" in txt:
         if "2" in txt:
-            return "33932", "DSports 2 HD"
-        if "plus" in txt or "+" in txt:
-            return "33931", "DSports+ HD"
-        return "33933", "DSports 1 HD"
+            return "656327", "DIRECTV Sports 2 HD"
+        return "656326", "DIRECTV Sports 1 HD"
         
     # Win Sports
     if "win" in txt:
         if "+" in txt or "plus" in txt or "online" in txt:
-            return "33945", "Win Sports+ HD (Colombia)"
-        return "33943", "Win Sports Colombia"
+            return "145416", "Win Sports+ HD (Colombia)"
+        return "25338", "Win Sports Colombia"
         
     # Argentina & Conmebol
     if "tyc" in txt:
-        return "4884", "TyC Sports HD"
+        return "79284", "TyC Sports HD"
     if "tnt" in txt:
-        return "4883", "TNT Sports Argentina"
+        return "1261564", "TNT Sports 1 UK"
         
     # Mexico
     if "tudn" in txt:
-        return "1288338", "TUDN MX / USA"
+        return "1930896", "TUDN MX"
     if "vix" in txt:
-        return "985726", "(ViX) TUDN"
-    if "canal 5" in txt or "canal 6" in txt:
-        return "3987", "Canal 5 México FHD"
+        return "1143996", "(ViX) TUDN"
+    if "canal 5" in txt:
+        return "1052092", "Canal 5 México FHD"
         
     # Fox Sports
     if "fox" in txt:
-        if "prem" in txt:
-            return "1453276", "Fox Sports Premium MX"
         if "3" in txt:
-            return "4882", "Fox Sports 3 HD"
+            return "1972968", "Fox Sports 3 HD"
         if "2" in txt:
-            return "4881", "Fox Sports 2 HD"
-        if "mx" in txt or "mex" in txt:
-            return "34041", "Fox Sports 1 México"
-        return "5980", "Fox Sports 1 HD"
-        
-    # Sky Sports / Premier Sports UK
-    if "sky" in txt or "premier sports" in txt or "premier league" in txt:
-        if "main" in txt:
-            return "1256711", "Sky Sports Main Events"
-        if "foot" in txt:
-            return "29017", "Sky Sports Football"
-        return "29016", "Sky Sports Premier League"
-        
-    if "tnt sports" in txt:
-        return "29019", "TNT Sports 1 UK"
+            return "45570", "Fox Sports 2 HD"
+        return "1931078", "Fox Sports 1 HD"
         
     return None, None
 
@@ -384,43 +315,27 @@ def smart_match_channel_resolver(title, channels_raw):
             seen.add(cid)
             matched_channels.append({"id": cid, "name": cdisplay})
             
-    # 2. Asignar los canales exactos según los equipos o liga (sin fallback genérico)
+    # 2. Asignar los canales exactos según los equipos o liga
     if not matched_channels:
-        if "mlb" in title_lower or "béisbol" in title_lower or "beisbol" in title_lower or "cubs" in title_lower:
-            matched_channels.append({"id": "1453275", "name": "ESPN 4 SUR HD (MLB Béisbol)"})
-        elif "mls" in title_lower or "dallas" in title_lower or "st. louis" in title_lower:
-            matched_channels.append({"id": "32040", "name": "Apple TV / Fox Deportes (MLS)"})
-        elif "djokovic" in title_lower or "navone" in title_lower:
-            matched_channels.append({"id": "30327", "name": "ESPN 2 HD (US Open)"})
-        elif "svitolina" in title_lower or "sierra" in title_lower:
-            matched_channels.append({"id": "3411", "name": "ESPN 3 HD (US Open)"})
-        elif "fas" in title_lower or "firpo" in title_lower or "salvador" in title_lower or "águila" in title_lower:
-            matched_channels.append({"id": "28931", "name": "Canal 4 HD (El Salvador)"})
-        elif "saprissa" in title_lower or "alajuelense" in title_lower or "herediano" in title_lower or "costa rica" in title_lower or "escorpiones" in title_lower:
-            matched_channels.append({"id": "173315", "name": "FUTV HD (Costa Rica)"})
-        elif "cienciano" in title_lower or "cusco" in title_lower or "universitario" in title_lower or "alianza lima" in title_lower or "liga 1" in title_lower:
-            matched_channels.append({"id": "1067841", "name": "Liga 1 MAX (Perú)"})
-        elif "emelec" in title_lower or "barcelona sc" in title_lower or "ecuador" in title_lower:
-            matched_channels.append({"id": "1169162", "name": "Zapping Sports (Ecuador)"})
-        elif "peñarol" in title_lower or "nacional" in title_lower or "uruguay" in title_lower:
-            matched_channels.append({"id": "97818", "name": "VTV Plus HD (Uruguay)"})
-        elif "serie a" in title_lower or "italia" in title_lower:
-            matched_channels.append({"id": "8806", "name": "DAZN Zona Serie A"})
-            matched_channels.append({"id": "30327", "name": "ESPN 2 HD (Serie A)"})
-        elif "premier" in title_lower or "inglaterra" in title_lower:
-            matched_channels.append({"id": "29016", "name": "Sky Sports Premier League"})
-            matched_channels.append({"id": "30326", "name": "ESPN 1 HD (Premier)"})
+        if "saprissa" in title_lower or "alajuelense" in title_lower or "herediano" in title_lower or "costa rica" in title_lower or "puntarenas" in title_lower or "san carlos" in title_lower:
+            matched_channels.append({"id": "558638", "name": "FUTV HD (Costa Rica)"})
+        elif "mlb" in title_lower or "béisbol" in title_lower or "beisbol" in title_lower or "cubs" in title_lower or "twins" in title_lower:
+            matched_channels.append({"id": "1870845", "name": "ESPN 4 HD (MLB Béisbol)"})
+        elif "djokovic" in title_lower or "navone" in title_lower or "us open" in title_lower:
+            matched_channels.append({"id": "1358604", "name": "ESPN 2 HD (US Open)"})
         elif "laliga" in title_lower or "la liga" in title_lower:
-            matched_channels.append({"id": "30905", "name": "Movistar LaLiga FHD"})
-            matched_channels.append({"id": "224832", "name": "DAZN LaLiga 1 FHD"})
-        elif "colombia" in title_lower:
-            matched_channels.append({"id": "33945", "name": "Win Sports+ HD (Colombia)"})
-        elif "argentina" in title_lower or "profesional" in title_lower:
-            matched_channels.append({"id": "4883", "name": "ESPN Premium HD"})
-            matched_channels.append({"id": "4884", "name": "TyC Sports HD"})
-        elif "mexico" in title_lower or "liga mx" in title_lower:
-            matched_channels.append({"id": "1288338", "name": "TUDN MX"})
-            matched_channels.append({"id": "985726", "name": "(ViX) TUDN"})
+            matched_channels.append({"id": "1972995", "name": "Movistar LaLiga FHD"})
+            matched_channels.append({"id": "2068331", "name": "DAZN LaLiga 1 FHD"})
+        elif "argentina" in title_lower or "independiente" in title_lower or "boca" in title_lower or "river" in title_lower or "gimnasia" in title_lower:
+            matched_channels.append({"id": "1358601", "name": "ESPN Premium HD"})
+            matched_channels.append({"id": "79284", "name": "TyC Sports HD"})
+        elif "colombia" in title_lower or "nacional" in title_lower or "millonarios" in title_lower or "junior" in title_lower:
+            matched_channels.append({"id": "145416", "name": "Win Sports+ HD (Colombia)"})
+        elif "brasil" in title_lower or "brasileir" in title_lower or "bahia" in title_lower or "internacional" in title_lower:
+            matched_channels.append({"id": "145416", "name": "Win Sports+ HD (Transmisión Conmebol)"})
+        elif "mexico" in title_lower or "liga mx" in title_lower or "américa" in title_lower or "chivas" in title_lower:
+            matched_channels.append({"id": "1930896", "name": "TUDN MX"})
+            matched_channels.append({"id": "1143996", "name": "(ViX) TUDN"})
 
     return matched_channels
 
