@@ -857,7 +857,7 @@ def handle_message(msg):
             ok, response_msg = start_single_stream(ch_input, s_key, chat_id)
             send_msg(chat_id, response_msg)
 
-        elif text.startswith("/status"):
+        elif text.startswith("/status") or text.startswith("/logs"):
             with stream_lock:
                 if not active_streams:
                     send_msg(chat_id, "ℹ️ No hay ninguna transmisión activa actualmente.")
@@ -868,13 +868,29 @@ def handle_message(msg):
                     elapsed = int(time.time() - info["start_time"])
                     mins = elapsed // 60
                     secs = elapsed % 60
+                    proc_state = "🟢 EN EJECUCIÓN (EMITIENDO)" if info["process"].poll() is None else "🔴 DETENIDO"
+                    
+                    last_log = ""
+                    try:
+                        log_file = info.get("log_file")
+                        if log_file and os.path.exists(log_file):
+                            with open(log_file, "r", encoding="utf-8", errors="ignore") as lf:
+                                last_log = lf.read()[-300:]
+                    except Exception:
+                        pass
+
                     msg_status += (
                         f"🔹 <b>Stream #{sid}:</b> {html.escape(info['channel_name'])}\n"
-                        f"• 🌐 <b>Slug:</b> <code>{html.escape(info['resolved_slug'])}</code>\n"
+                        f"• 🌐 <b>Estado:</b> {proc_state}\n"
                         f"• ⏱️ <b>Tiempo activo:</b> {mins}m {secs}s\n"
                         f"• 🔑 <b>Key:</b> <code>{info['key'][:12]}...</code>\n"
-                        f"• 🛑 <b>Detener:</b> <code>/stop {sid}</code>\n\n"
+                        f"• 🛑 <b>Detener:</b> <code>/stop {sid}</code>\n"
                     )
+                    if last_log:
+                        msg_status += f"• 📋 <b>Último log FFmpeg:</b>\n<code>{html.escape(last_log)}</code>\n\n"
+                    else:
+                        msg_status += "\n"
+
                 msg_status += "🛑 <i>Para detener todas las transmisiones:</i> <code>/stopall</code>"
                 send_msg(chat_id, msg_status)
 
