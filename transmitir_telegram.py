@@ -49,13 +49,15 @@ def run_ffmpeg_stream(source_url, rtmp_destination, headers):
         "-http_persistent", "1",
         "-thread_queue_size", "8192",
         "-reconnect", "1",
-        "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
+        "-reconnect_on_network_error", "1",
+        "-reconnect_on_http_error", "4xx,5xx",
         "-reconnect_delay_max", "2",
         "-rw_timeout", "10000000",
         "-fflags", "+genpts+igndts+discardcorrupt",
         "-analyzeduration", "1000000",
         "-probesize", "1000000",
+        "-live_start_index", "-3"
     ]
     if headers:
         cmd.extend(["-headers", headers])
