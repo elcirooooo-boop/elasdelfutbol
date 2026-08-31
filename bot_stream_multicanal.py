@@ -606,12 +606,9 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd = [
         "ffmpeg",
         "-user_agent", "IPTVSmartersPro",
-        "-http_persistent", "1",
         "-thread_queue_size", "8192",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_on_network_error", "1",
-        "-reconnect_on_http_error", "4xx,5xx",
         "-reconnect_delay_max", "2",
         "-rw_timeout", "10000000",
         "-fflags", "+genpts+igndts+discardcorrupt",
