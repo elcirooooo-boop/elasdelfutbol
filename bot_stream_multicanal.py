@@ -726,7 +726,7 @@ def get_live_matches_agenda(curr_key):
 
 def get_sports_menu_messages(curr_key):
     msg1 = (
-        "🏆 <b>DIRECTORIO OFICIAL DE CANALES DEPORTIVOS (GIGABIT DIRECTO)</b>\n\n"
+        "🏆 <b>DIRECTORIO OFICIAL DE CANALES DEPORTIVOS EN IPTV</b>\n\n"
         "🇪🇸 <b>ESPAÑA (LALIGA, DAZN & MOTOR):</b>\n"
         f"• ⚽ <b>Movistar LaLiga FHD:</b> <code>/stream 30905 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN LaLiga 1 FHD:</b> <code>/stream 224832 {curr_key}</code>\n"
@@ -737,16 +737,16 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>DAZN 2 España:</b> <code>/stream 91782 {curr_key}</code>\n"
         f"• 🏎️ <b>DAZN F1 España:</b> <code>/stream 30907 {curr_key}</code>\n"
         f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 1349240 {curr_key}</code>\n\n"
-        "🇦🇷 <b>ARGENTINA & CONMEBOL (LIGA PROFESIONAL & LIBERTADORES):</b>\n"
+        "🇦🇷 <b>ARGENTINA (LIGA PROFESIONAL & CONMEBOL):</b>\n"
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
         f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 4884 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 5980 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 34041 {curr_key}</code>\n"
         f"• ⚽ <b>Fox Sports 2 HD:</b> <code>/stream 4881 {curr_key}</code>\n"
         f"• ⚽ <b>Fox Sports 3 HD:</b> <code>/stream 4882 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 30326 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 30327 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 4 SUR HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
     )
     msg2 = (
@@ -756,12 +756,23 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>DIRECTV Sports 1 HD (DSports):</b> <code>/stream 33933 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports 2 HD:</b> <code>/stream 33932 {curr_key}</code>\n"
         f"• ⚽ <b>DIRECTV Sports Plus HD:</b> <code>/stream 33931 {curr_key}</code>\n\n"
-        "🇲🇽 <b>MÉXICO (LIGA MX & TUDN):</b>\n"
+        "🌎 <b>CENTROAMÉRICA, PERÚ, ECUADOR & URUGUAY:</b>\n"
+        f"• 🇨🇷 <b>FUTV HD (Costa Rica):</b> <code>/stream 173315 {curr_key}</code>\n"
+        f"• 🇨🇷 <b>Teletica 7 (Costa Rica):</b> <code>/stream 173323 {curr_key}</code>\n"
+        f"• 🇸🇻 <b>Canal 4 HD (El Salvador):</b> <code>/stream 28931 {curr_key}</code>\n"
+        f"• 🇵🇪 <b>Liga 1 MAX (Perú):</b> <code>/stream 1067841 {curr_key}</code>\n"
+        f"• 🇵🇪 <b>Gol Perú HD:</b> <code>/stream 29848 {curr_key}</code>\n"
+        f"• 🇪🇨 <b>Zapping Sports (Ecuador):</b> <code>/stream 1169162 {curr_key}</code>\n"
+        f"• 🇪🇨 <b>Ecuavisa (Ecuador):</b> <code>/stream 192215 {curr_key}</code>\n"
+        f"• 🇺🇾 <b>VTV Plus HD (Uruguay):</b> <code>/stream 97818 {curr_key}</code>\n"
+        f"• 🇺🇾 <b>VTV HD (Uruguay):</b> <code>/stream 29714 {curr_key}</code>\n\n"
+        "🇲🇽 <b>MÉXICO & USA (LIGA MX & TUDN):</b>\n"
         f"• ⚽ <b>TUDN MX:</b> <code>/stream 1288338 {curr_key}</code>\n"
         f"• ⚽ <b>(ViX) TUDN:</b> <code>/stream 985726 {curr_key}</code>\n"
         f"• ⚽ <b>Canal 5 México FHD:</b> <code>/stream 3987 {curr_key}</code>\n"
         f"• ⚽ <b>Fox Sports 1 México:</b> <code>/stream 34041 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports Premium MX:</b> <code>/stream 1453276 {curr_key}</code>\n\n"
+        f"• ⚽ <b>Fox Sports Premium MX:</b> <code>/stream 1453276 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 32038 {curr_key}</code>\n\n"
         "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA):</b>\n"
         f"• ⚽ <b>Sky Sports Premier League:</b> <code>/stream 29016 {curr_key}</code>\n"
         f"• ⚽ <b>Sky Sports Main Events:</b> <code>/stream 1256711 {curr_key}</code>\n"
@@ -769,14 +780,33 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>TNT Sports 1 UK:</b> <code>/stream 29019 {curr_key}</code>\n\n"
         "🇮🇹 <b>SERIE A (ITALIA):</b>\n"
         f"• ⚽ <b>DAZN Zona Serie A:</b> <code>/stream 8806 {curr_key}</code>\n"
-        f"• ⚽ <b>Sky Sport Uno (Serie A):</b> <code>/stream 164069 {curr_key}</code>\n"
         f"• ⚽ <b>Sky Sport Calcio (Serie A):</b> <code>/stream 171524 {curr_key}</code>\n"
         f"• ⚽ <b>DAZN Juventus:</b> <code>/stream 8805 {curr_key}</code>\n"
         f"• ⚽ <b>Inter TV HD:</b> <code>/stream 34583 {curr_key}</code>\n"
         f"• ⚽ <b>Milan Channel HD:</b> <code>/stream 34582 {curr_key}</code>\n\n"
-        "🔍 <i>¿Buscas otro canal específico?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
+        "🔍 <i>¿Buscas cualquier otro canal del IPTV?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
+
+IPTV_STREAMS_CACHE = {"timestamp": 0, "data": []}
+
+def get_all_iptv_streams():
+    global IPTV_STREAMS_CACHE
+    now = time.time()
+    if now - IPTV_STREAMS_CACHE["timestamp"] < 3600 and IPTV_STREAMS_CACHE["data"]:
+        return IPTV_STREAMS_CACHE["data"]
+    try:
+        url = f"{IPTV_HOSTS[0]}/player_api.php?username={IPTV_USER}&password={IPTV_PASS}&action=get_live_streams"
+        r = requests.get(url, headers=IPTV_HEADERS, timeout=12)
+        if r.status_code == 200:
+            data = r.json()
+            if isinstance(data, list):
+                IPTV_STREAMS_CACHE["data"] = [(str(s.get("stream_id")), s.get("name", "")) for s in data]
+                IPTV_STREAMS_CACHE["timestamp"] = now
+                return IPTV_STREAMS_CACHE["data"]
+    except Exception as e:
+        print("Error fetching all iptv streams:", e)
+    return list(OFFICIAL_CHANNELS.items())
 
 def handle_message(msg):
     global CONFIG
@@ -848,18 +878,30 @@ def handle_message(msg):
     elif text.startswith("/buscar"):
         parts = text.split(maxsplit=1)
         if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_de_canal&gt;</code>\nEjemplo: <code>/buscar laliga</code> o <code>/buscar espn</code>")
+            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_de_canal&gt;</code>\nEjemplo: <code>/buscar espn</code>, <code>/buscar ufc</code> o <code>/buscar fox</code>")
             return
         
         query = parts[1].strip().lower()
-        matches = [(k, v) for k, v in OFFICIAL_CHANNELS.items() if query in v.lower()]
+        words = query.split()
+        all_channels = get_all_iptv_streams()
+        
+        matches = []
+        seen = set()
+        for cid, cname in all_channels:
+            c_low = cname.lower()
+            if all(w in c_low for w in words):
+                if cid not in seen:
+                    seen.add(cid)
+                    matches.append((cid, cname))
+                    if len(matches) >= 15:
+                        break
         
         if not matches:
             send_msg(chat_id, f"❌ No se encontró ningún canal con: <b>{html.escape(query)}</b>")
             return
 
-        res = f"🔍 <b>CANALES ENCONTRADOS PARA '{html.escape(query)}':</b>\n\n"
-        for cid, cname in matches[:10]:
+        res = f"🔍 <b>CANALES ENCONTRADOS PARA '{html.escape(query)}' ({len(matches)}):</b>\n\n"
+        for cid, cname in matches:
             res += f"• 📺 <b>{html.escape(cname)}:</b>\n  <code>/stream {cid} {curr_key}</code>\n\n"
         send_msg(chat_id, res)
 
