@@ -37,17 +37,17 @@ OFFICIAL_CHANNELS = {
     "91782": "DAZN 2 España",
     "30907": "DAZN F1 España",
     "1349240": "DAZN MotoGP",
-    # Argentina & Sudamérica
-    "4883": "ESPN Premium HD (Argentina)",
+    # Argentina & Sudamérica (ESPN 1 al 7 & Fox Sports)
+    "4883": "ESPN Premium HD",
     "4884": "TyC Sports HD",
-    "5980": "Fox Sports 1 HD",
-    "4881": "Fox Sports 2 Argentina",
-    "4882": "Fox Sports 3 Argentina",
-    "30326": "ESPN 1 HD",
-    "30327": "ESPN 2 HD",
+    "34041": "Fox Sports 1 México",
+    "4881": "Fox Sports 2 / ESPN 5 HD",
+    "4882": "Fox Sports 3 / ESPN 6 HD",
+    "34050": "ESPN 1 HD",
+    "3412": "ESPN 2 HD",
     "3411": "ESPN 3 HD",
-    "1453275": "ESPN 4 HD",
-    "34051": "ESPN Extra HD",
+    "1453275": "ESPN 4 SUR HD",
+    "34051": "ESPN 7 / ESPN Extra HD",
     # Colombia
     "33945": "Win Sports+ HD (Colombia)",
     "33943": "Win Sports Colombia",
@@ -177,8 +177,8 @@ def resolve_channel_input(raw_input):
         if "3" in clean:
             return "3411", "ESPN 3 HD"
         if "2" in clean:
-            return "30327", "ESPN 2 HD"
-        return "30326", "ESPN 1 HD"
+            return "3412", "ESPN 2 HD"
+        return "34050", "ESPN 1 HD"
         
     if "laliga" in clean or "la liga" in clean or "movistar" in clean:
         if "hyper" in clean or "2" in clean or "segunda" in clean:
@@ -824,13 +824,13 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
         f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 4884 {curr_key}</code>\n"
         f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 34041 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 HD:</b> <code>/stream 4881 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 3 HD:</b> <code>/stream 4882 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 30326 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 30327 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 / ESPN 5 HD:</b> <code>/stream 4881 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 / ESPN 6 HD:</b> <code>/stream 4882 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 34050 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 3412 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 4 SUR HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 7 / ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
     )
     msg2 = (
         "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (DSPORTS & WIN SPORTS):</b>\n"
@@ -927,20 +927,15 @@ def handle_message(msg):
         espn_msg = (
             "📺 <b>DIRECTORIO COMPLETO DE SEÑALES ESPN (100% ONLINE HD):</b>\n\n"
             "🇦🇷 <b>ESPN SUDAMÉRICA / SUR (ARGENTINA, URUGUAY, CHILE):</b>\n"
-            f"• ⚽ <b>ESPN 1 HD (Sur):</b> <code>/stream 30326 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 2 HD (Sur):</b> <code>/stream 30327 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 3 HD (Latino):</b> <code>/stream 3411 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 34050 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 3412 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
             f"• ⚽ <b>ESPN 4 SUR HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 5 (Fox Sports 2):</b> <code>/stream 4881 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 6 (Fox Sports 3):</b> <code>/stream 4882 {curr_key}</code>\n"
+            f"• ⚽ <b>ESPN 7 / ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
             f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n\n"
-            "🇲🇽 <b>ESPN MÉXICO & USA LATINO:</b>\n"
-            f"• ⚽ <b>ESPN HD México:</b> <code>/stream 34050 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 2 HD (Norte):</b> <code>/stream 1453276 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 3 HD (Norte):</b> <code>/stream 1453273 {curr_key}</code>\n"
             f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 32038 {curr_key}</code>\n\n"
-            "🇨🇴 <b>ESPN COLOMBIA:</b>\n"
-            f"• ⚽ <b>ESPN Colombia HD:</b> <code>/stream 33892 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 3 Colombia HD:</b> <code>/stream 33894 {curr_key}</code>\n\n"
             "🇺🇸 <b>ESPN COLLEGE EXTRA (EVENTOS USA EN VIVO):</b>\n"
             f"• 🏀 <b>ESPN College 1:</b> <code>/stream 32147 {curr_key}</code>\n"
             f"• 🏀 <b>ESPN College 2:</b> <code>/stream 32148 {curr_key}</code>\n"
