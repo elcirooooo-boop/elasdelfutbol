@@ -4,6 +4,7 @@ import time
 import json
 import re
 import html
+import base64
 import subprocess
 import threading
 import requests
@@ -21,15 +22,15 @@ HEADERS_WEB = {
     "Referer": "https://rojadirecta.ceo/"
 }
 
+STREAMXHD_SERVERS = [
+    "https://streamxhd.com/live2.php?stream=",
+    "https://streamxhd.com/live1.php?stream="
+]
+
 STREAMTP_SERVERS = [
     "https://streamtp-golden1.click/global1.php?stream=",
     "https://streamtp2.com/global1.php?stream=",
     "https://tpplayer.xyz/global1.php?stream="
-]
-
-STREAMXHD_SERVERS = [
-    "https://streamxhd.com/live1.php?stream=",
-    "https://streamxhd.com/live2.php?stream="
 ]
 
 # Canales principales pre-mapeados con servidores CDN de alta velocidad
@@ -96,69 +97,136 @@ active_streams = {}
 stream_lock = threading.Lock()
 
 # ==============================================================================
-# EXTRACTOR UNIVERSAL DE M3U8 (ROJADIRECTA.CEO / STREAMTP / STREAMXHD)
+# EXTRACTOR UNIVERSAL DE M3U8 (STREAMXHD / ROJADIRECTA.CEO / STREAMTP)
 # ==============================================================================
+def decode_streamxhd_html(html_text):
+    try:
+        arr_match = re.search(r'([a-zA-Z0-9_]+)\s*=\s*(\[\[\d+,\s*"[^"]+"\](?:,\s*\[\d+,\s*"[^"]+"\])*\])', html_text)
+        if not arr_match:
+            arr_match = re.search(r'(\[\[\d+,\s*"[^"]+"\](?:,\s*\[\d+,\s*"[^"]+"\])*\])', html_text)
+            if not arr_match:
+                return None
+            arr_raw = arr_match.group(1)
+        else:
+            arr_raw = arr_match.group(2)
+
+        items = json.loads(arr_raw)
+        fn_nums = re.findall(r'function\s+[a-zA-Z0-9_]+\s*\(\)\s*\{\s*return\s+(\d+);\s*\}', html_text)
+        if not fn_nums:
+            k_match = re.search(r'var\s+k\s*=\s*(\d+)\s*\+\s*(\d+)', html_text)
+            if k_match:
+                k = int(k_match.group(1)) + int(k_match.group(2))
+            else:
+                return None
+        else:
+            k = sum(int(n) for n in fn_nums)
+
+        items.sort(key=lambda x: x[0])
+        playback_url = ""
+        for idx, b64_val in items:
+            try:
+                decoded = base64.b64decode(b64_val).decode('utf-8', errors='ignore')
+                digits = re.sub(r'\D', '', decoded)
+                if digits:
+                    val = int(digits) - k
+                    playback_url += chr(val)
+            except Exception:
+                pass
+        return playback_url if playback_url.startswith("http") else None
+    except Exception:
+        return None
+
+def verify_m3u8(m3u8_url, referer_url):
+    try:
+        r = requests.get(m3u8_url, headers={'User-Agent': HEADERS_WEB['User-Agent'], 'Referer': referer_url}, timeout=2.5, stream=True)
+        if r.status_code == 200:
+            return True
+    except Exception:
+        pass
+    return False
+
 def get_slug_variations(slug):
     slug_str = str(slug).strip().lower()
-    vars_list = [slug_str]
-    if '-' in slug_str:
-        vars_list.append(slug_str.replace('-', ''))
-    else:
-        m = re.match(r'^([a-zA-Z]+)(\d+)$', slug_str)
-        if m:
-            vars_list.append(f"{m.group(1)}-{m.group(2)}")
+    vars_list = []
     if "disney" in slug_str:
         nums = re.findall(r'\d+', slug_str)
         if nums:
             vars_list.extend([f"disney{nums[0]}", f"disney-{nums[0]}"])
+    elif "fox" in slug_str:
+        vars_list.append(slug_str)
+        if slug_str == "foxone":
+            vars_list.append("foxsports")
+        elif slug_str == "foxsports":
+            vars_list.append("foxone")
+    else:
+        vars_list.append(slug_str)
+        if '-' in slug_str:
+            vars_list.append(slug_str.replace('-', ''))
+        else:
+            m = re.match(r'^([a-zA-Z]+)(\d+)$', slug_str)
+            if m:
+                vars_list.append(f"{m.group(1)}-{m.group(2)}")
     return list(dict.fromkeys(vars_list))
 
 def extract_web_m3u8(channel_slug):
     candidates = get_slug_variations(channel_slug)
     
     for slug in candidates:
-        # 1. Intentar extracción directa desde rojadirecta.ceo
+        # 1. Servidores dedicados de StreamXHD (Prioridad #1: Mayor estabilidad y 0% 404)
+        for base in STREAMXHD_SERVERS:
+            xhd_url = f"{base}{slug}"
+            try:
+                r = requests.get(xhd_url, headers={'User-Agent': HEADERS_WEB['User-Agent'], 'Referer': 'https://rojadirecta.ceo/'}, timeout=2.5)
+                if r.status_code == 200:
+                    dec_url = decode_streamxhd_html(r.text)
+                    if dec_url and verify_m3u8(dec_url, base):
+                        headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                        return dec_url, headers_str, True
+                    
+                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
+                    if m and m.group(1):
+                        m3u8_url = m.group(1).replace(r'\/', '/')
+                        if verify_m3u8(m3u8_url, base):
+                            headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                            return m3u8_url, headers_str, True
+            except Exception:
+                pass
+
+        # 2. Extracción directa desde rojadirecta.ceo
         try:
             ceo_url = f"https://rojadirecta.ceo/stream/{slug}"
-            r = requests.get(ceo_url, headers=HEADERS_WEB, timeout=3.0)
+            r = requests.get(ceo_url, headers=HEADERS_WEB, timeout=2.5)
             if r.status_code == 200:
                 iframes = re.findall(r'<iframe[^>]*src="([^"]+)"', r.text)
                 for ifr in iframes:
                     ifr_url = ifr if ifr.startswith("http") else f"https://rojadirecta.ceo{ifr}"
-                    ifr_r = requests.get(ifr_url, headers=HEADERS_WEB, timeout=3.0)
-                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
-                    if m:
-                        m3u8_url = m.group(1).replace(r'\/', '/')
-                        headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                        return m3u8_url, headers_str, True
+                    ifr_r = requests.get(ifr_url, headers=HEADERS_WEB, timeout=2.5)
+                    if ifr_r.status_code == 200:
+                        dec_url = decode_streamxhd_html(ifr_r.text)
+                        if dec_url and verify_m3u8(dec_url, ifr_url):
+                            headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                            return dec_url, headers_str, True
+                        m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
+                        if m and m.group(1):
+                            m3u8_url = m.group(1).replace(r'\/', '/')
+                            if verify_m3u8(m3u8_url, ifr_url):
+                                headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                                return m3u8_url, headers_str, True
         except Exception:
             pass
 
-        # 2. Intentar servidores dedicados de StreamTP
+        # 3. Servidores de StreamTP (con verificación activa anti-404)
         for base in STREAMTP_SERVERS:
             player_url = f"{base}{slug}"
             try:
-                r = requests.get(player_url, headers=HEADERS_WEB, timeout=3.0)
+                r = requests.get(player_url, headers=HEADERS_WEB, timeout=2.5)
                 if r.status_code == 200:
                     m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
-                    if m:
+                    if m and m.group(1):
                         m3u8_url = m.group(1).replace(r'\/', '/')
-                        headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                        return m3u8_url, headers_str, True
-            except Exception:
-                pass
-
-        # 3. Intentar servidores de StreamXHD
-        for base in STREAMXHD_SERVERS:
-            xhd_url = f"{base}{slug}"
-            try:
-                r = requests.get(xhd_url, headers=HEADERS_WEB, timeout=3.0)
-                if r.status_code == 200:
-                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
-                    if m:
-                        m3u8_url = m.group(1).replace(r'\/', '/')
-                        headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                        return m3u8_url, headers_str, True
+                        if verify_m3u8(m3u8_url, base):
+                            headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
+                            return m3u8_url, headers_str, True
             except Exception:
                 pass
 
