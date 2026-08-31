@@ -152,6 +152,26 @@ def resolve_channel_input(raw_input):
             return "34051", "ESPN Extra HD"
         if "deportes" in clean or "usa" in clean:
             return "32038", "ESPN Deportes USA"
+        if "college" in clean or "plus" in clean:
+            if "7" in clean:
+                return "32153", "ESPN College Extra 7"
+            if "6" in clean:
+                return "32152", "ESPN College Extra 6"
+            if "5" in clean:
+                return "32151", "ESPN College Extra 5"
+            if "4" in clean:
+                return "32150", "ESPN College Extra 4"
+            if "3" in clean:
+                return "32149", "ESPN College Extra 3"
+            if "2" in clean:
+                return "32148", "ESPN College Extra 2"
+            return "32147", "ESPN College Extra 1"
+        if "7" in clean:
+            return "34051", "ESPN 7 / ESPN Extra HD"
+        if "6" in clean:
+            return "4882", "ESPN 6 / Fox Sports 3 HD"
+        if "5" in clean:
+            return "4881", "ESPN 5 / Fox Sports 2 HD"
         if "4" in clean:
             return "1453275", "ESPN 4 SUR HD"
         if "3" in clean:
