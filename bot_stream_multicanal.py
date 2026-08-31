@@ -412,7 +412,7 @@ def start_single_stream(channel_input, stream_key, chat_id):
     clean_key = clean_arg(stream_key)
 
     resolved_slug, channel_name = resolve_channel_input(clean_channel_input)
-    destination = f"rtmp://live.telegram.org/app/{clean_key}"
+    destination = f"rtmps://live.telegram.org:443/app/{clean_key}"
 
     with stream_lock:
         for sid, info in active_streams.items():
@@ -576,7 +576,7 @@ def supervisor_thread():
 
                     info["restarts"] = info.get("restarts", 0) + 1
                     slug = info["resolved_slug"]
-                    dest = f"rtmp://live.telegram.org/app/{info['key']}"
+                    dest = f"rtmps://live.telegram.org:443/app/{info['key']}"
 
                     m3u8_url, headers_str, ok = extract_web_m3u8(slug)
                     if ok and m3u8_url:
