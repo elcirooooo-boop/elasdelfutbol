@@ -351,20 +351,6 @@ def smart_match_channel_resolver(title, channels_raw):
 
     return matched_channels
 
-def resolve_to_iptv(slug, cname):
-    txt = f"{slug} {cname}".lower()
-    if "hyper" in txt or "2" in txt:
-        return "6560", "LaLiga Hypermotion"
-    if "movistar" in txt:
-        return "30905", "Movistar LaLiga FHD"
-    if "dazn" in txt:
-        return "224832", "DAZN LaLiga 1 FHD"
-    if "win" in txt:
-        return "33945", "Win Sports+ HD"
-    if "tyc" in txt or "tnt" in txt:
-        return "30365", "TyC Sports HD"
-    return "30326", "ESPN 1 HD"
-
 # ==============================================================================
 # MOTOR DE TRANSMISIÓN EN DIRECTO (0% LAG / ULTRA BAJA LATENCIA)
 # ==============================================================================
@@ -378,10 +364,9 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "ffmpeg",
         "-reconnect", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "2",
-        "-rw_timeout", "10000000",
-        "-flags", "low_delay",
-        "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
+        "-reconnect_delay_max", "4",
+        "-rw_timeout", "15000000",
+        "-fflags", "+genpts+igndts+discardcorrupt",
         "-analyzeduration", "1000000",
         "-probesize", "1000000"
     ]
@@ -391,14 +376,14 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
 
     cmd.extend([
         "-i", source_url,
-        "-vf", "bwdif=mode=send_field:parity=auto:deint=all,fps=50,scale=1280:720",
+        "-vf", "fps=30,scale=1280:720",
         "-c:v", "libx264",
-        "-preset", "ultrafast",
+        "-preset", "veryfast",
         "-tune", "zerolatency",
-        "-b:v", "3000k",
-        "-maxrate", "3500k",
+        "-b:v", "2500k",
+        "-maxrate", "3000k",
         "-bufsize", "6000k",
-        "-g", "50",
+        "-g", "60",
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "128k",
@@ -689,15 +674,15 @@ def get_sports_menu_messages(curr_key):
         f"• 🏍️ <b>DAZN MotoGP:</b> <code>/stream 2137697 {curr_key}</code>\n\n"
         "🇦🇷 <b>ARGENTINA & SUDAMÉRICA (LIGA PROFESIONAL & CONMEBOL):</b>\n"
         f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 1358601 {curr_key}</code>\n"
+        f"• ⚽ <b>TNT Sports HD (Argentina):</b> <code>/stream 25595 {curr_key}</code>\n"
         f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 79284 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 1931078 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 2 / ESPN 5 HD:</b> <code>/stream 45570 {curr_key}</code>\n"
-        f"• ⚽ <b>Fox Sports 3 / ESPN 6 HD:</b> <code>/stream 1972968 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 45579 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 1 HD:</b> <code>/stream 25510 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 2 / ESPN 5 HD:</b> <code>/stream 25509 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports 3 / ESPN 6 HD:</b> <code>/stream 25508 {curr_key}</code>\n"
+        f"• ⚽ <b>Fox Sports Premium / Extra:</b> <code>/stream 75276 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 25511 {curr_key}</code>\n"
         f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 1358604 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 1358603 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream 1870845 {curr_key}</code>\n"
-        f"• ⚽ <b>ESPN Extra / ESPN 7 HD:</b> <code>/stream 1358602 {curr_key}</code>\n"
+        f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 25512 {curr_key}</code>\n"
     )
     msg2 = (
         "🇨🇴 <b>COLOMBIA & SUDAMÉRICA (DSPORTS & WIN SPORTS):</b>\n"
@@ -716,7 +701,7 @@ def get_sports_menu_messages(curr_key):
         f"• 🇲🇽 <b>TUDN MX:</b> <code>/stream 1930896 {curr_key}</code>\n"
         f"• 🇲🇽 <b>(ViX) TUDN:</b> <code>/stream 1143996 {curr_key}</code>\n"
         f"• 🇲🇽 <b>Canal 5 México FHD:</b> <code>/stream 1052092 {curr_key}</code>\n"
-        f"• 🇺🇸 <b>ESPN Deportes 60fps USA:</b> <code>/stream 1921358 {curr_key}</code>\n\n"
+        f"• 🇺🇸 <b>ESPN Deportes USA:</b> <code>/stream 75284 {curr_key}</code>\n\n"
         "🔍 <i>¿Buscas cualquier otro de los 53,766 canales?</i> Usa <code>/buscar &lt;nombre&gt;</code>"
     )
     return [msg1, msg2]
