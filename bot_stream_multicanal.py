@@ -87,7 +87,7 @@ active_streams = {}
 stream_lock = threading.Lock()
 
 def get_free_iptv_account():
-    accounts = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])
+    accounts = CONFIG.get("iptv_accounts", [{"user": "4645904a05", "pass": "5ebc71b005"}])
     used_users = set()
     for sid, info in active_streams.items():
         if "account_user" in info:
@@ -101,7 +101,7 @@ def get_free_iptv_account():
 def get_iptv_stream_url(stream_id, account=None):
     clean_id = str(stream_id).strip()
     headers_str = "User-Agent: IPTVSmartersPro\r\n"
-    acc = account or CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])[0]
+    acc = account or CONFIG.get("iptv_accounts", [{"user": "4645904a05", "pass": "5ebc71b005"}])[0]
     user = acc["user"]
     passwd = acc["pass"]
     for host in IPTV_HOSTS:
@@ -120,11 +120,11 @@ def resolve_channel_input(raw_input):
     # Reglas específicas por nombre de canal
     if "espn" in clean:
         if "prem" in clean:
-            return "4883", "ESPN Premium HD"
+            return "1358601", "ESPN Premium HD"
         if "extra" in clean:
-            return "34051", "ESPN Extra HD"
+            return "75276", "Fox Sports Premium / ESPN Extra"
         if "deportes" in clean or "usa" in clean:
-            return "32038", "ESPN Deportes USA"
+            return "75284", "ESPN Deportes USA"
         if "college" in clean or "plus" in clean:
             if "7" in clean:
                 return "32153", "ESPN College Extra 7"
