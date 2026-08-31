@@ -432,14 +432,10 @@ def start_single_stream(raw_channel, stream_key):
 
     with stream_lock:
         chosen_acc = get_free_iptv_account()
-        # Si la cuenta IPTV ya está ocupada por otra transmisión, detenerla para liberar la conexión
-        if not chosen_acc and active_streams:
-            for sid in list(active_streams.keys()):
-                stop_single_stream(sid)
-            time.sleep(1.0)
-            chosen_acc = get_free_iptv_account()
+        if not chosen_acc:
+            chosen_acc = CONFIG.get("iptv_accounts", [{"user": "4645904a05", "pass": "5ebc71b005"}])[0]
 
-        # Si ya hay una transmisión activa usando la MISMA stream_key, la reemplazamos
+        # Si ya hay una transmisión activa usando la MISMA stream_key, solo reemplazamos esa
         for sid, info in list(active_streams.items()):
             if info.get("key") == stream_key:
                 stop_single_stream(sid)
@@ -454,8 +450,6 @@ def start_single_stream(raw_channel, stream_key):
             is_ok = True
             chosen_acc = None
         else:
-            if not chosen_acc:
-                chosen_acc = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])[0]
             channel_id, channel_display = resolve_channel_input(raw_channel)
             source_url, headers, is_ok = get_iptv_stream_url(channel_id, chosen_acc)
 
@@ -464,7 +458,7 @@ def start_single_stream(raw_channel, stream_key):
 
         proc, out_f, log_file = launch_ffmpeg_process(source_url, headers, destination, stream_id)
         
-        time.sleep(3.0)
+        time.sleep(2.5)
         if proc.poll() is not None:
             out_f.close()
             err_snippet = "Telegram rechazó la Stream Key. Asegúrate de tener abierta la ventana del directo en Telegram y copiar la Stream Key actual."
@@ -496,18 +490,24 @@ def start_single_stream(raw_channel, stream_key):
         }
         return True, stream_id, channel_display
 
-def stop_single_stream(identifier):
-    ident = str(identifier).strip().lower()
-    
+def stop_single_stream(identifier=None):
     with stream_lock:
+        if not active_streams:
+            return False, None, None
+
         target_sid = None
-        if ident in active_streams:
-            target_sid = ident
+        if identifier is None or str(identifier).strip() == "":
+            # Si no se especifica, detener el stream más reciente
+            target_sid = sorted(active_streams.keys(), key=lambda k: active_streams[k].get("start_time", 0))[-1]
         else:
-            for sid, info in active_streams.items():
-                if info["raw_name"].lower() == ident or info["key"].lower() == ident or ident in info["key"].lower():
-                    target_sid = sid
-                    break
+            ident = str(identifier).strip().lower()
+            if ident in active_streams:
+                target_sid = ident
+            else:
+                for sid, info in active_streams.items():
+                    if info["raw_name"].lower() == ident or info["key"].lower() == ident or ident in info["key"].lower() or info.get("channel_id", "") == ident:
+                        target_sid = sid
+                        break
 
         if target_sid and target_sid in active_streams:
             info = active_streams[target_sid]
@@ -747,193 +747,226 @@ def handle_message(msg):
     user_id = msg.get("from", {}).get("id")
     text = msg.get("text", "").strip()
 
+    if not chat_id or not text:
+        return
+
     if ADMIN_USER_ID and user_id != ADMIN_USER_ID:
         send_msg(chat_id, "⛔ No tienes permisos para usar este bot.")
         return
 
-    curr_key = CONFIG.get("stream_key", "3936015063:nG8N_no46UfNuA6jXewiag")
+    try:
+        curr_key = CONFIG.get("stream_key", "3936015063:nG8N_no46UfNuA6jXewiag")
 
-    if text.startswith("/start") or text.startswith("/ayuda"):
-        help_text = (
-            "⚽ <b>BOT DE TRANSMISIÓN DE FÚTBOL Y DEPORTES 100% AUTOMÁTICO</b>\n\n"
-            "📋 <b>COMANDOS DISPONIBLES:</b>\n"
-            "• <code>/canales</code> o <code>/deportes</code> $\\rightarrow$ Ver todos los canales deportivos oficiales\n"
-            "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver los partidos de hoy con canales listos\n"
-            "• <code>/stream &lt;CANAL_O_ID&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión directa\n"
-            "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar canal por nombre\n"
-            "• <code>/stop</code> $\\rightarrow$ Detener transmisión\n"
-            "• <code>/status</code> $\\rightarrow$ Ver estado de transmisión activa\n"
-            "• <code>/cuentas</code> $\\rightarrow$ Ver cuentas IPTV registradas\n"
-            f"• <code>/key &lt;NUEVA_KEY&gt;</code> $\\rightarrow$ Cambiar clave por defecto"
-        )
-        send_msg(chat_id, help_text)
-
-    elif text.startswith("/canales") or text.startswith("/deportes") or text.startswith("/menu"):
-        msgs = get_sports_menu_messages(curr_key)
-        for m in msgs:
-            send_msg(chat_id, m)
-
-    elif text.startswith("/espn"):
-        espn_msg = (
-            "📺 <b>DIRECTORIO COMPLETO DE SEÑALES ESPN (100% ONLINE HD):</b>\n\n"
-            "🇦🇷 <b>ESPN SUDAMÉRICA / SUR (ARGENTINA, URUGUAY, CHILE):</b>\n"
-            f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 34050 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 3412 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 3411 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 4 SUR HD:</b> <code>/stream 1453275 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 5 (Fox Sports 2):</b> <code>/stream 4881 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 6 (Fox Sports 3):</b> <code>/stream 4882 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN 7 / ESPN Extra HD:</b> <code>/stream 34051 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 4883 {curr_key}</code>\n"
-            f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 32038 {curr_key}</code>\n\n"
-            "🇺🇸 <b>ESPN COLLEGE EXTRA (EVENTOS USA EN VIVO):</b>\n"
-            f"• 🏀 <b>ESPN College 1:</b> <code>/stream 32147 {curr_key}</code>\n"
-            f"• 🏀 <b>ESPN College 2:</b> <code>/stream 32148 {curr_key}</code>\n"
-            f"• 🏀 <b>ESPN College 3:</b> <code>/stream 32149 {curr_key}</code>\n"
-            f"• 🏀 <b>ESPN College 4:</b> <code>/stream 32150 {curr_key}</code>\n"
-            f"• 🏀 <b>ESPN College 5:</b> <code>/stream 32151 {curr_key}</code>\n"
-            f"• 🏀 <b>ESPN College 6:</b> <code>/stream 32152 {curr_key}</code>\n"
-            f"• 🏀 <b>ESPN College 7:</b> <code>/stream 32153 {curr_key}</code>"
-        )
-        send_msg(chat_id, espn_msg)
-
-    elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy"):
-        send_msg(chat_id, "⏳ <b>Cargando todos los partidos de hoy con canales listos en 1-click...</b>")
-        msgs = get_live_matches_agenda(curr_key)
-        for m in msgs:
-            send_msg(chat_id, m)
-
-    elif text.startswith("/buscar"):
-        parts = text.split(maxsplit=1)
-        if len(parts) < 2:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_de_canal&gt;</code>\nEjemplo: <code>/buscar espn</code>, <code>/buscar ufc</code> o <code>/buscar fox</code>")
-            return
-        
-        query = parts[1].strip().lower()
-        words = query.split()
-        all_channels = get_all_iptv_streams()
-        
-        matches = []
-        seen = set()
-        for cid, cname in all_channels:
-            c_low = cname.lower()
-            if all(w in c_low for w in words):
-                if cid not in seen:
-                    seen.add(cid)
-                    matches.append((cid, cname))
-                    if len(matches) >= 15:
-                        break
-        
-        if not matches:
-            send_msg(chat_id, f"❌ No se encontró ningún canal con: <b>{html.escape(query)}</b>")
-            return
-
-        res = f"🔍 <b>CANALES ENCONTRADOS PARA '{html.escape(query)}' ({len(matches)}):</b>\n\n"
-        for cid, cname in matches:
-            res += f"• 📺 <b>{html.escape(cname)}:</b>\n  <code>/stream {cid} {curr_key}</code>\n\n"
-        send_msg(chat_id, res)
-
-    elif text.startswith("/key") or text.startswith("/setkey"):
-        parts = text.split()
-        if len(parts) < 2:
-            send_msg(chat_id, f"⚠️ <b>Uso:</b> <code>/key NUEVA_STREAM_KEY</code>\nClave actual: <code>{curr_key}</code>")
-            return
-        new_k = clean_arg(parts[1])
-        CONFIG["stream_key"] = new_k
-        save_config(CONFIG)
-        send_msg(chat_id, f"✅ <b>¡Stream Key por defecto actualizada!</b>\n🔑 Nueva Key: <code>{new_k}</code>")
-
-    elif text.startswith("/stream"):
-        parts = text.split()
-        if len(parts) < 2:
-            send_msg(chat_id, (
-                "⚠️ <b>Uso del comando /stream:</b>\n"
-                "Puedes escribir directamente el nombre del canal o su ID:\n\n"
-                "• <code>/stream espn</code> $\\rightarrow$ ESPN 1 HD\n"
-                "• <code>/stream espn 2</code> $\\rightarrow$ ESPN 2 HD\n"
-                "• <code>/stream espn 4</code> $\\rightarrow$ ESPN 4 SUR HD\n"
-                "• <code>/stream laliga</code> $\\rightarrow$ Movistar LaLiga FHD\n"
-                "• <code>/stream dazn</code> $\\rightarrow$ DAZN LaLiga 1 FHD\n"
-                "• <code>/stream dsports</code> $\\rightarrow$ DIRECTV Sports HD\n"
-                "• <code>/stream win</code> $\\rightarrow$ Win Sports+ HD\n"
-                "• <code>/stream tyc</code> $\\rightarrow$ TyC Sports HD\n"
-                "• <code>/stream televen</code> $\\rightarrow$ Televen\n"
-                "• <code>/stream venevision</code> $\\rightarrow$ Venevisión HD"
-            ))
-            return
-        
-        # Detectar si el último argumento es una stream key
-        if len(parts) >= 3 and (":" in parts[-1] and len(parts[-1]) > 15):
-            stream_key = clean_arg(parts[-1])
-            raw_ch = " ".join(parts[1:-1]).strip()
-        else:
-            stream_key = curr_key
-            raw_ch = " ".join(parts[1:]).strip()
-        
-        send_msg(chat_id, f"⏳ <b>Conectando al canal '{html.escape(raw_ch)}' en servidor Gigabit dedicado...</b>")
-        ok, sid, res = start_single_stream(raw_ch, stream_key)
-        if ok:
-            send_msg(chat_id, (
-                f"✅ <b>¡Transmisión ACTIVA y 100% DIRECTA!</b> 🚀\n\n"
-                f"📺 <b>Canal:</b> <code>{html.escape(res)}</code>\n"
-                f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
-                f"⚡ <b>Formato:</b> 50 FPS Suave Progresivo / Cero Lag\n"
-                f"🔊 <b>Audio:</b> AAC Estéreo 100% Sincronizado\n\n"
-                f"🛑 <b>Detener:</b> <code>/stop</code>"
-            ))
-        else:
-            send_msg(chat_id, f"❌ <b>Error al iniciar:</b>\n{res}")
-
-    elif text.startswith("/stopall") or text == "/stop all" or text.startswith("/stop"):
-        count = stop_all_streams()
-        if count > 0:
-            send_msg(chat_id, f"🛑 <b>Transmisión detenida correctamente.</b>")
-        else:
-            send_msg(chat_id, "ℹ️ No había ninguna transmisión activa.")
-
-    elif text.startswith("/cuentas") or text.startswith("/accounts"):
-        accs = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])
-        res = "📋 <b>CUENTAS IPTV REGISTRADAS:</b>\n\n"
-        for i, a in enumerate(accs, 1):
-            res += f"• <b>Cuenta #{i}:</b> <code>{a['user']}</code>\n"
-        res += f"\n💡 <i>Puedes transmitir tantos canales simultáneos como cuentas IPTV tengas registradas.</i>\nPara agregar otra cuenta: <code>/addcuenta &lt;USER&gt; &lt;PASS&gt;</code>"
-        send_msg(chat_id, res)
-
-    elif text.startswith("/addcuenta"):
-        parts = text.split()
-        if len(parts) < 3:
-            send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/addcuenta &lt;USUARIO&gt; &lt;PASSWORD&gt;</code>\nEjemplo: <code>/addcuenta MI_USER MI_PASS</code>")
-            return
-        u = clean_arg(parts[1])
-        p = clean_arg(parts[2])
-        accs = CONFIG.get("iptv_accounts", [{"user": "BE15ERDV", "pass": "PXELERB9"}])
-        # Verificar si ya existe
-        if any(a["user"] == u for a in accs):
-            send_msg(chat_id, f"ℹ️ La cuenta <code>{u}</code> ya está registrada.")
-            return
-        accs.append({"user": u, "pass": p})
-        CONFIG["iptv_accounts"] = accs
-        save_config(CONFIG)
-        send_msg(chat_id, f"✅ <b>¡Nueva cuenta IPTV agregada con éxito!</b>\n👤 Usuario: <code>{u}</code>\nTotal cuentas disponibles: <b>{len(accs)}</b>")
-
-    elif text.startswith("/status"):
-        if not active_streams:
-            send_msg(chat_id, "🔴 <b>No hay ninguna transmisión activa actualmente.</b>")
-            return
-
-        status_text = f"🟢 <b>TRANSMISIONES EN DIRECTO ACTIVAS ({len(active_streams)}):</b>\n\n"
-        for sid, info in sorted(active_streams.items()):
-            elapsed = int(time.time() - info["start_time"])
-            mins = elapsed // 60
-            secs = elapsed % 60
-            status_text += (
-                f"📺 <b>Canal #{sid}:</b> <code>{html.escape(info['raw_name'])}</code>\n"
-                f"• ⏱️ Tiempo: <code>{mins}m {secs}s</code>\n"
-                f"• 📡 Key: <code>{info['key'][:8]}...</code>\n"
-                f"• 🛑 <b>Detener esta:</b> <code>/stop {sid}</code>\n\n"
+        if text.startswith("/start") or text.startswith("/ayuda"):
+            help_text = (
+                "⚽ <b>BOT DE TRANSMISIÓN DE FÚTBOL Y DEPORTES 100% AUTOMÁTICO</b>\n\n"
+                "📋 <b>COMANDOS DISPONIBLES:</b>\n"
+                "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver los partidos de hoy con canales listos\n"
+                "• <code>/canales</code> o <code>/deportes</code> $\\rightarrow$ Ver todos los canales deportivos oficiales\n"
+                "• <code>/espn</code> $\\rightarrow$ Ver señales de ESPN (1, 2, 3, Extra, Premium)\n"
+                "• <code>/stream &lt;CANAL&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión directa\n"
+                "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar canal en vivo\n"
+                "• <code>/status</code> $\\rightarrow$ Ver transmisiones activas simultáneas\n"
+                "• <code>/stop [ID]</code> $\\rightarrow$ Detener transmisión actual o por ID\n"
+                "• <code>/stopall</code> $\\rightarrow$ Detener todas las transmisiones activas\n"
+                "• <code>/cuentas</code> $\\rightarrow$ Ver cuentas IPTV registradas\n"
+                f"• <code>/key &lt;NUEVA_KEY&gt;</code> $\\rightarrow$ Cambiar Stream Key por defecto"
             )
-        status_text += "🛑 <b>Detener todas:</b> <code>/stopall</code>"
-        send_msg(chat_id, status_text)
+            send_msg(chat_id, help_text)
+
+        elif text.startswith("/canales") or text.startswith("/deportes") or text.startswith("/menu"):
+            msgs = get_sports_menu_messages(curr_key)
+            for m in msgs:
+                send_msg(chat_id, m)
+
+        elif text.startswith("/espn"):
+            espn_msg = (
+                "📺 <b>DIRECTORIO COMPLETO DE SEÑALES ESPN (100% TREX IPTV HD):</b>\n\n"
+                "🇦🇷 <b>ESPN & SUDAMÉRICA:</b>\n"
+                f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream 25511 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream 1358604 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream 25512 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 4 / ESPN 1:</b> <code>/stream 25511 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 5 (Fox Sports 2):</b> <code>/stream 25509 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN 6 (Fox Sports 3):</b> <code>/stream 25508 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN Extra / Fox Premium:</b> <code>/stream 75276 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream 1358601 {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN Deportes USA:</b> <code>/stream 75284 {curr_key}</code>\n"
+                f"• ⚽ <b>TyC Sports HD:</b> <code>/stream 79284 {curr_key}</code>\n"
+                f"• ⚽ <b>TNT Sports HD:</b> <code>/stream 25595 {curr_key}</code>"
+            )
+            send_msg(chat_id, espn_msg)
+
+        elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy"):
+            send_msg(chat_id, "⏳ <b>Cargando todos los partidos de hoy con canales listos en 1-click...</b>")
+            msgs = get_live_matches_agenda(curr_key)
+            for m in msgs:
+                send_msg(chat_id, m)
+
+        elif text.startswith("/buscar"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2:
+                send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre_de_canal&gt;</code>\nEjemplo: <code>/buscar espn</code>, <code>/buscar ufc</code> o <code>/buscar fox</code>")
+                return
+            
+            query = parts[1].strip().lower()
+            words = query.split()
+            all_channels = get_all_iptv_streams()
+            
+            matches = []
+            seen = set()
+            for cid, cname in all_channels:
+                c_low = cname.lower()
+                if all(w in c_low for w in words):
+                    if cid not in seen:
+                        seen.add(cid)
+                        matches.append((cid, cname))
+                        if len(matches) >= 15:
+                            break
+            
+            if not matches:
+                send_msg(chat_id, f"❌ No se encontró ningún canal con: <b>{html.escape(query)}</b>")
+                return
+
+            res = f"🔍 <b>CANALES ENCONTRADOS PARA '{html.escape(query)}' ({len(matches)}):</b>\n\n"
+            for cid, cname in matches:
+                res += f"• 📺 <b>{html.escape(cname)}:</b>\n  <code>/stream {cid} {curr_key}</code>\n\n"
+            send_msg(chat_id, res)
+
+        elif text.startswith("/key") or text.startswith("/setkey"):
+            parts = text.split()
+            if len(parts) < 2:
+                send_msg(chat_id, f"⚠️ <b>Uso:</b> <code>/key NUEVA_STREAM_KEY</code>\nClave actual: <code>{curr_key}</code>")
+                return
+            new_k = clean_arg(parts[1])
+            CONFIG["stream_key"] = new_k
+            save_config(CONFIG)
+            send_msg(chat_id, f"✅ <b>¡Stream Key por defecto actualizada!</b>\n🔑 Nueva Key: <code>{new_k}</code>")
+
+        elif text.startswith("/stream"):
+            parts = text.split()
+            if len(parts) < 2:
+                send_msg(chat_id, (
+                    "⚠️ <b>Uso del comando /stream:</b>\n"
+                    "Puedes escribir directamente el nombre del canal o su ID:\n\n"
+                    "• <code>/stream espn</code> $\\rightarrow$ ESPN 1 HD\n"
+                    "• <code>/stream espn 2</code> $\\rightarrow$ ESPN 2 HD\n"
+                    "• <code>/stream laliga</code> $\\rightarrow$ Movistar LaLiga FHD\n"
+                    "• <code>/stream dazn</code> $\\rightarrow$ DAZN LaLiga 1 FHD\n"
+                    "• <code>/stream dsports</code> $\\rightarrow$ DIRECTV Sports HD\n"
+                    "• <code>/stream win</code> $\\rightarrow$ Win Sports+ HD\n"
+                    "• <code>/stream tyc</code> $\\rightarrow$ TyC Sports HD\n"
+                    "• <code>/stream tnt</code> $\\rightarrow$ TNT Sports HD\n"
+                    "• <code>/stream televen</code> $\\rightarrow$ Televen\n"
+                    "• <code>/stream venevision</code> $\\rightarrow$ Venevisión HD\n\n"
+                    "💡 <b>Para transmitir varios partidos a la vez en diferentes canales de Telegram:</b>\n"
+                    "<code>/stream &lt;canal&gt; &lt;STREAM_KEY_DEL_CANAL&gt;</code>"
+                ))
+                return
+            
+            # Detectar si el último argumento es una stream key
+            if len(parts) >= 3 and (":" in parts[-1] and len(parts[-1]) > 15):
+                stream_key = clean_arg(parts[-1])
+                raw_ch = " ".join(parts[1:-1]).strip()
+            else:
+                stream_key = curr_key
+                raw_ch = " ".join(parts[1:]).strip()
+            
+            send_msg(chat_id, f"⏳ <b>Conectando al canal '{html.escape(raw_ch)}' en servidor Gigabit dedicado...</b>")
+            ok, sid, res = start_single_stream(raw_ch, stream_key)
+            if ok:
+                send_msg(chat_id, (
+                    f"✅ <b>¡Transmisión #{sid} ACTIVA y DIRECTA!</b> 🚀\n\n"
+                    f"📺 <b>Canal:</b> <code>{html.escape(res)}</code>\n"
+                    f"🔑 <b>Key:</b> <code>{stream_key[:8]}...</code>\n"
+                    f"⚡ <b>Formato:</b> 50 FPS Suave Progresivo / Cero Lag\n"
+                    f"🔊 <b>Audio:</b> AAC Estéreo 100% Sincronizado\n\n"
+                    f"🛑 <b>Detener esta:</b> <code>/stop {sid}</code>\n"
+                    f"🛑 <b>Detener todas:</b> <code>/stopall</code>"
+                ))
+            else:
+                send_msg(chat_id, f"❌ <b>Error al iniciar:</b>\n{res}")
+
+        elif text.startswith("/stopall") or text == "/stop all":
+            count = stop_all_streams()
+            if count > 0:
+                send_msg(chat_id, f"🛑 <b>Se detuvieron todas las transmisiones activas ({count}).</b>")
+            else:
+                send_msg(chat_id, "ℹ️ No había ninguna transmisión activa.")
+
+        elif text.startswith("/stop"):
+            parts = text.split(maxsplit=1)
+            target = parts[1].strip() if len(parts) > 1 else None
+            ok, sid, name = stop_single_stream(target)
+            if ok:
+                send_msg(chat_id, f"🛑 <b>Transmisión #{sid} ({html.escape(name)}) detenida correctamente.</b>")
+            else:
+                send_msg(chat_id, "ℹ️ No había ninguna transmisión activa para detener.")
+
+        elif text.startswith("/cuentas") or text.startswith("/accounts"):
+            accs = CONFIG.get("iptv_accounts", [{"user": "4645904a05", "pass": "5ebc71b005"}])
+            res = "📋 <b>CUENTAS IPTV REGISTRADAS:</b>\n\n"
+            for i, a in enumerate(accs, 1):
+                res += f"• <b>Cuenta #{i}:</b> <code>{a['user']}</code>\n"
+            res += f"\n💡 <i>Puedes transmitir tantos canales simultáneos como desees.</i>\nPara agregar otra cuenta: <code>/addcuenta &lt;USER&gt; &lt;PASS&gt;</code>"
+            send_msg(chat_id, res)
+
+        elif text.startswith("/addcuenta"):
+            parts = text.split()
+            if len(parts) < 3:
+                send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/addcuenta &lt;USUARIO&gt; &lt;PASSWORD&gt;</code>\nEjemplo: <code>/addcuenta MI_USER MI_PASS</code>")
+                return
+            u = clean_arg(parts[1])
+            p = clean_arg(parts[2])
+            accs = CONFIG.get("iptv_accounts", [{"user": "4645904a05", "pass": "5ebc71b005"}])
+            if any(a["user"] == u for a in accs):
+                send_msg(chat_id, f"ℹ️ La cuenta <code>{u}</code> ya está registrada.")
+                return
+            accs.append({"user": u, "pass": p})
+            CONFIG["iptv_accounts"] = accs
+            save_config(CONFIG)
+            send_msg(chat_id, f"✅ <b>¡Nueva cuenta IPTV agregada con éxito!</b>\n👤 Usuario: <code>{u}</code>\nTotal cuentas disponibles: <b>{len(accs)}</b>")
+
+        elif text.startswith("/status"):
+            if not active_streams:
+                send_msg(chat_id, "🔴 <b>No hay ninguna transmisión activa actualmente.</b>")
+                return
+
+            status_text = f"🟢 <b>TRANSMISIONES EN DIRECTO ACTIVAS ({len(active_streams)}):</b>\n\n"
+            for sid, info in sorted(active_streams.items()):
+                elapsed = int(time.time() - info["start_time"])
+                mins = elapsed // 60
+                secs = elapsed % 60
+                status_text += (
+                    f"📺 <b>Transmisión #{sid}:</b> <code>{html.escape(info['raw_name'])}</code>\n"
+                    f"• ⏱️ Tiempo activo: <code>{mins}m {secs}s</code>\n"
+                    f"• 📡 Stream Key: <code>{info['key'][:8]}...</code>\n"
+                    f"• 🛑 <b>Detener solo esta:</b> <code>/stop {sid}</code>\n\n"
+                )
+            status_text += "🛑 <b>Detener todas a la vez:</b> <code>/stopall</code>"
+            send_msg(chat_id, status_text)
+
+        elif text.startswith("/"):
+            send_msg(chat_id, (
+                f"❓ <b>Comando no reconocido:</b> <code>{html.escape(text)}</code>\n\n"
+                "📋 <b>Comandos principales disponibles:</b>\n"
+                "• <code>/partidos</code> $\\rightarrow$ Ver partidos de hoy en vivo\n"
+                "• <code>/canales</code> $\\rightarrow$ Directorio de canales deportivos\n"
+                "• <code>/espn</code> $\\rightarrow$ Directorio de señales ESPN\n"
+                "• <code>/stream &lt;canal&gt; [KEY]</code> $\\rightarrow$ Iniciar transmisión\n"
+                "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar canal\n"
+                "• <code>/status</code> $\\rightarrow$ Ver transmisiones activas\n"
+                "• <code>/stop [ID]</code> $\\rightarrow$ Detener transmisión\n"
+                "• <code>/stopall</code> $\\rightarrow$ Detener todas las transmisiones\n"
+                "• <code>/ayuda</code> $\\rightarrow$ Menú de ayuda"
+            ))
+
+    except Exception as e:
+        print(f"Error procesando mensaje: {e}")
+        try:
+            send_msg(chat_id, f"⚠️ <b>Ocurrió un error inesperado al procesar:</b>\n<code>{html.escape(str(e))}</code>\n\nIntenta nuevamente con <code>/partidos</code> o <code>/canales</code>.")
+        except Exception:
+            pass
 
 def set_telegram_commands():
     try:
