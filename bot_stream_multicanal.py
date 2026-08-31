@@ -348,14 +348,15 @@ def clean_arg(val):
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd = [
         "ffmpeg",
-        "-thread_queue_size", "2048",
+        "-thread_queue_size", "4096",
         "-reconnect", "1",
+        "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
         "-reconnect_delay_max", "2",
         "-rw_timeout", "10000000",
         "-fflags", "+genpts+igndts+discardcorrupt",
-        "-analyzeduration", "800000",
-        "-probesize", "800000"
+        "-analyzeduration", "1000000",
+        "-probesize", "1000000"
     ]
 
     if headers:
@@ -365,16 +366,18 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-i", source_url,
         "-vf", "fps=30,scale=1280:720,setpts=PTS-STARTPTS",
         "-c:v", "libx264",
-        "-preset", "superfast",
+        "-preset", "ultrafast",
         "-tune", "zerolatency",
         "-profile:v", "main",
         "-level", "3.1",
-        "-b:v", "2000k",
-        "-maxrate", "2200k",
-        "-bufsize", "4000k",
+        "-threads", "0",
+        "-b:v", "1500k",
+        "-maxrate", "1800k",
+        "-bufsize", "3000k",
         "-g", "60",
-        "-keyint_min", "30",
+        "-keyint_min", "60",
         "-sc_threshold", "0",
+        "-bf", "0",
         "-pix_fmt", "yuv420p",
         "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
         "-c:a", "aac",

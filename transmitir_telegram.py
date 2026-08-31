@@ -37,39 +37,54 @@ def extract_referer(url):
 
 def run_ffmpeg_stream(source_url, rtmp_destination, headers):
     """
-    Perfil OPTIMIZADO ANTI-FREEZE para Telegram:
-    - 720p / 30fps: Bitrate ligero y estable (1800k) para que nunca sature el internet de subida.
-    - Keyframe cada 2 segundos (-g 60): Estándar exigido por Telegram para que no se congele.
-    - Reconnects automáticos: Si el servidor parpadea, reconecta al instante.
+    Perfil BLINDADO ANTI-CONGELAMIENTO para Telegram:
+    - SIN '-re' en la entrada: Permite absorber micro-fluctuaciones de internet sin cortar el buffer.
+    - Buffer elástico sin '+nobuffer': Evita caídas ante jitter de red.
+    - Keyframe forzado cada 2.0s exactos (-g 60 -keyint_min 60 -sc_threshold 0 -bf 0): Telegram nunca se congela esperando IDR.
+    - Bitrate ultra-estable (1500k, max 1800k, bufsize 3000k): Cero saturación de ancho de banda de subida.
+    - Sincronización continua de audio (aresample async): Evita congelamientos por desincronización A/V.
     """
     cmd = [
         "ffmpeg",
-        "-re",
         "-reconnect", "1",
+        "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
-        "-reconnect_delay_max", "5",
-        "-fflags", "+nobuffer+genpts+igndts+discardcorrupt",
-        "-headers", headers,
+        "-reconnect_delay_max", "2",
+        "-rw_timeout", "10000000",
+        "-fflags", "+genpts+igndts+discardcorrupt",
+        "-analyzeduration", "1000000",
+        "-probesize", "1000000",
+    ]
+    if headers:
+        cmd.extend(["-headers", headers])
+
+    cmd.extend([
         "-i", source_url,
-        "-vf", "scale=1280:720",
-        "-r", "30",
+        "-vf", "fps=30,scale=1280:720",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-tune", "zerolatency",
-        "-b:v", "1800k",
-        "-maxrate", "2000k",
-        "-bufsize", "3600k",
+        "-threads", "0",
+        "-b:v", "1500k",
+        "-maxrate", "1800k",
+        "-bufsize", "3000k",
         "-pix_fmt", "yuv420p",
         "-g", "60",
+        "-keyint_min", "60",
+        "-sc_threshold", "0",
+        "-bf", "0",
+        "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
         "-c:a", "aac",
         "-b:a", "128k",
         "-ar", "44100",
+        "-ac", "2",
         "-bsf:a", "aac_adtstoasc",
+        "-max_muxing_queue_size", "4096",
         "-max_interleave_delta", "0",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         rtmp_destination
-    ]
+    ])
     return subprocess.run(cmd)
 
 def main():
