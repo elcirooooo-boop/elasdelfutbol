@@ -35,12 +35,15 @@ OFFICIAL_CHANNELS = {
     # Argentina & Sudamérica
     "1358601": "ESPN Premium HD",
     "79284": "TyC Sports HD",
-    "45579": "ESPN 1 HD",
+    "25595": "TNT Sports HD (Argentina)",
+    "25511": "ESPN 1 HD",
     "1358604": "ESPN 2 HD",
-    "1358603": "ESPN 3 HD",
-    "1870845": "ESPN 4 HD",
-    "1358602": "ESPN Extra HD",
-    "1921358": "ESPN Deportes 60fps",
+    "25512": "ESPN 3 HD",
+    "25509": "Fox Sports 2 / ESPN 5 HD",
+    "25508": "Fox Sports 3 / ESPN 6 HD",
+    "75276": "Fox Sports Premium HD",
+    "25510": "Fox Sports 1 HD",
+    "75284": "ESPN Deportes USA",
     # Colombia & Sudamérica
     "145416": "Win Sports+ HD (Colombia)",
     "25338": "Win Sports Colombia",
@@ -51,6 +54,10 @@ OFFICIAL_CHANNELS = {
     "1912051": "IVC Network HD",
     "529670": "Venevisión HD",
     "1838655": "Globovisión",
+    # México & USA
+    "1930896": "TUDN MX",
+    "1143996": "(ViX) TUDN",
+    "1052092": "Canal 5 México FHD",
     # Centroamérica
     "558638": "FUTV HD (Costa Rica)",
     "1166517": "Teletica / TD+ (Costa Rica)"
@@ -133,18 +140,18 @@ def resolve_channel_input(raw_input):
                 return "32148", "ESPN College Extra 2"
             return "32147", "ESPN College Extra 1"
         if "7" in clean:
-            return "1358602", "ESPN Extra HD"
+            return "75276", "Fox Sports Premium / ESPN Extra"
         if "6" in clean:
-            return "1972968", "Fox Sports 3 / ESPN 6 HD"
+            return "25508", "Fox Sports 3 / ESPN 6 HD"
         if "5" in clean:
-            return "45570", "Fox Sports 2 / ESPN 5 HD"
+            return "25509", "Fox Sports 2 / ESPN 5 HD"
         if "4" in clean:
-            return "1870845", "ESPN 4 HD"
+            return "25511", "ESPN 1 HD"
         if "3" in clean:
-            return "1358603", "ESPN 3 HD"
+            return "25512", "ESPN 3 HD"
         if "2" in clean:
             return "1358604", "ESPN 2 HD"
-        return "45579", "ESPN 1 HD"
+        return "25511", "ESPN 1 HD"
         
     if "laliga" in clean or "la liga" in clean or "movistar" in clean:
         if "campeones" in clean or "champions" in clean:
@@ -168,7 +175,7 @@ def resolve_channel_input(raw_input):
     if "tyc" in clean:
         return "79284", "TyC Sports HD"
     if "tnt" in clean:
-        return "1261564", "TNT Sports 1 UK"
+        return "25595", "TNT Sports HD (Argentina)"
         
     if "dsport" in clean or "directv" in clean:
         if "2" in clean:
@@ -176,11 +183,13 @@ def resolve_channel_input(raw_input):
         return "656326", "DIRECTV Sports 1 HD"
         
     if "fox" in clean:
+        if "prem" in clean:
+            return "75276", "Fox Sports Premium HD"
         if "3" in clean:
-            return "1972968", "Fox Sports 3 HD"
+            return "25508", "Fox Sports 3 HD"
         if "2" in clean:
-            return "45570", "Fox Sports 2 HD"
-        return "1931078", "Fox Sports 1 HD"
+            return "25509", "Fox Sports 2 HD"
+        return "25510", "Fox Sports 1 HD"
         
     if "tudn" in clean:
         return "1930896", "TUDN MX"
@@ -206,14 +215,14 @@ def resolve_channel_input(raw_input):
         if clean in v.lower():
             return k, v
 
-    return "30326", "ESPN 1 HD"
+    return "25511", "ESPN 1 HD"
 
 def resolve_channel_from_raw(slug, cname):
     txt = f"{slug} {cname}".lower()
     
     # MLB / Béisbol
     if "mlb" in txt or "béisbol" in txt or "beisbol" in txt:
-        return "1870845", "ESPN 4 HD (MLB Béisbol)"
+        return "25511", "ESPN 1 HD (MLB Béisbol)"
         
     # US Open / Tenis
     if "us open" in txt or "tenis" in txt:
@@ -256,16 +265,16 @@ def resolve_channel_from_raw(slug, cname):
         if "prem" in txt:
             return "1358601", "ESPN Premium HD"
         if "deportes" in txt:
-            return "1921358", "ESPN Deportes 60fps"
+            return "75284", "ESPN Deportes USA"
         if "extra" in txt or "7" in txt:
-            return "1358602", "ESPN Extra / 7 HD"
+            return "75276", "Fox Sports Premium / ESPN Extra"
         if "4" in txt or "sur" in txt:
-            return "1870845", "ESPN 4 HD"
+            return "25511", "ESPN 1 HD"
         if "3" in txt:
-            return "1358603", "ESPN 3 HD"
+            return "25512", "ESPN 3 HD"
         if "2" in txt:
             return "1358604", "ESPN 2 HD"
-        return "45579", "ESPN 1 HD"
+        return "25511", "ESPN 1 HD"
         
     # DIRECTV / DSports
     if "dsport" in txt or "directv" in txt:
@@ -283,7 +292,7 @@ def resolve_channel_from_raw(slug, cname):
     if "tyc" in txt:
         return "79284", "TyC Sports HD"
     if "tnt" in txt:
-        return "1261564", "TNT Sports 1 UK"
+        return "25595", "TNT Sports HD (Argentina)"
         
     # Mexico
     if "tudn" in txt:
@@ -295,11 +304,13 @@ def resolve_channel_from_raw(slug, cname):
         
     # Fox Sports
     if "fox" in txt:
+        if "prem" in txt:
+            return "75276", "Fox Sports Premium HD"
         if "3" in txt:
-            return "1972968", "Fox Sports 3 HD"
+            return "25508", "Fox Sports 3 HD"
         if "2" in txt:
-            return "45570", "Fox Sports 2 HD"
-        return "1931078", "Fox Sports 1 HD"
+            return "25509", "Fox Sports 2 HD"
+        return "25510", "Fox Sports 1 HD"
         
     return None, None
 
@@ -320,13 +331,14 @@ def smart_match_channel_resolver(title, channels_raw):
         if "saprissa" in title_lower or "alajuelense" in title_lower or "herediano" in title_lower or "costa rica" in title_lower or "puntarenas" in title_lower or "san carlos" in title_lower:
             matched_channels.append({"id": "558638", "name": "FUTV HD (Costa Rica)"})
         elif "mlb" in title_lower or "béisbol" in title_lower or "beisbol" in title_lower or "cubs" in title_lower or "twins" in title_lower:
-            matched_channels.append({"id": "1870845", "name": "ESPN 4 HD (MLB Béisbol)"})
+            matched_channels.append({"id": "25511", "name": "ESPN 1 HD (MLB Béisbol)"})
         elif "djokovic" in title_lower or "navone" in title_lower or "us open" in title_lower:
             matched_channels.append({"id": "1358604", "name": "ESPN 2 HD (US Open)"})
         elif "laliga" in title_lower or "la liga" in title_lower:
             matched_channels.append({"id": "1972995", "name": "Movistar LaLiga FHD"})
             matched_channels.append({"id": "2068331", "name": "DAZN LaLiga 1 FHD"})
-        elif "argentina" in title_lower or "independiente" in title_lower or "boca" in title_lower or "river" in title_lower or "gimnasia" in title_lower:
+        elif "argentina" in title_lower or "independiente" in title_lower or "boca" in title_lower or "river" in title_lower or "gimnasia" in title_lower or "racing" in title_lower:
+            matched_channels.append({"id": "25595", "name": "TNT Sports HD (Argentina)"})
             matched_channels.append({"id": "1358601", "name": "ESPN Premium HD"})
             matched_channels.append({"id": "79284", "name": "TyC Sports HD"})
         elif "colombia" in title_lower or "nacional" in title_lower or "millonarios" in title_lower or "junior" in title_lower:
