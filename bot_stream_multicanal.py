@@ -477,7 +477,8 @@ def clean_arg(val):
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     cmd = [
         "ffmpeg",
-        "-thread_queue_size", "4096",
+        "-http_persistent", "1",
+        "-thread_queue_size", "8192",
         "-reconnect", "1",
         "-reconnect_at_eof", "1",
         "-reconnect_streamed", "1",
@@ -500,9 +501,10 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-profile:v", "main",
         "-level", "3.1",
         "-threads", "0",
-        "-b:v", "1500k",
-        "-maxrate", "1800k",
-        "-bufsize", "3000k",
+        "-b:v", "1100k",
+        "-minrate", "900k",
+        "-maxrate", "1300k",
+        "-bufsize", "2400k",
         "-g", "60",
         "-keyint_min", "60",
         "-sc_threshold", "0",
@@ -510,12 +512,13 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
         "-pix_fmt", "yuv420p",
         "-af", "aresample=async=1000:min_hard_comp=0.100000:first_pts=0",
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", "96k",
         "-ar", "44100",
         "-ac", "2",
         "-avoid_negative_ts", "make_zero",
         "-flush_packets", "1",
-        "-max_muxing_queue_size", "4096",
+        "-max_interleave_delta", "0",
+        "-max_muxing_queue_size", "8192",
         "-flvflags", "no_duration_filesize",
         "-f", "flv",
         destination
@@ -700,7 +703,7 @@ def supervisor_thread():
 
                     info["restarts"] = info.get("restarts", 0) + 1
                     slug = info["resolved_slug"]
-                    dest = f"rtmps://dc4-1.rtmp.t.me/s/{info['key']}"
+                    dest = info['key'] if info['key'].startswith(('rtmp://', 'rtmps://')) else f"rtmps://dc4-1.rtmp.t.me/s/{info['key']}"
 
                     m3u8_url, headers_str, ok = extract_web_m3u8(slug)
                     if ok and m3u8_url:
