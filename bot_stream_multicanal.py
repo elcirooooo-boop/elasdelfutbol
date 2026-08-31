@@ -230,89 +230,74 @@ def resolve_channel_input(raw_input):
 
     return clean, f"Canal Web [{clean}]"
 
-def resolve_channel_from_raw(slug, cname):
-    txt = f"{slug} {cname}".lower()
+def resolve_channel_from_raw(slug, cname=""):
+    slug_clean = str(slug).strip().lower()
     
-    # Costa Rica
-    if "fut" in txt or "futv" in txt:
-        return "fut", "FUTV HD (Costa Rica)"
-        
-    # Movistar LaLiga & Champions
-    if "movistar" in txt or "la liga tv" in txt or "laliga tv" in txt or "laliga" in txt:
-        if "hyper" in txt or "2" in txt:
-            return "hypermotion1", "LaLiga Hypermotion"
-        return "movistarlaliga", "Movistar LaLiga FHD"
-        
-    # DAZN
-    if "dazn" in txt:
-        if "f1" in txt or "formula" in txt:
-            return "daznf1", "DAZN F1 España"
-        if "moto" in txt:
-            return "daznmotogp", "DAZN MotoGP"
-        if "2" in txt:
-            return "daznlaliga2", "DAZN LaLiga 2 FHD"
-        return "daznlaliga", "DAZN LaLiga 1 FHD"
-        
-    # ESPN & Disney
-    if "espn" in txt or "disney" in txt:
-        if "prem" in txt:
-            return "espnpremium", "ESPN Premium HD"
-        if "deportes" in txt or "usa" in txt:
-            return "espn-deportes", "ESPN Deportes USA"
-        if "6" in txt:
-            return "espn6", "ESPN 6 HD"
-        if "5" in txt:
-            return "espn5", "ESPN 5 HD"
-        if "4" in txt:
-            return "espn4", "ESPN 4 HD"
-        if "3" in txt or "disney23" in txt or "disney-1" in txt or "disney-5" in txt:
-            return "espn3", "ESPN 3 HD"
-        if "2" in txt or "disney22" in txt:
-            return "espn2", "ESPN 2 HD"
-        return "espn", "ESPN 1 HD"
-        
-    # DIRECTV / DSports
-    if "dsport" in txt or "directv" in txt:
-        if "2" in txt:
-            return "dsports2", "DIRECTV Sports 2 HD"
-        return "dsports", "DIRECTV Sports 1 HD"
-        
-    # Win Sports
-    if "win" in txt:
-        if "+" in txt or "plus" in txt or "online" in txt:
-            return "winplus", "Win Sports+ HD (Colombia)"
-        return "winsports", "Win Sports Colombia"
-        
-    # Argentina & Conmebol
-    if "tyc" in txt:
-        return "tycsports", "TyC Sports HD"
-    if "tnt" in txt:
-        if "chile" in txt:
-            return "tntsportschile", "TNT Sports Chile"
-        return "tntsports", "TNT Sports HD (Argentina)"
-    if "fanatiz" in txt:
-        return "espnpremium", "ESPN Premium HD"
-        
-    # Mexico
-    if "tudn" in txt:
-        return "tudn_usa", "TUDN USA"
-    if "vix" in txt:
-        if "2" in txt:
-            return "vix2", "(ViX) TUDN Deportes 2"
-        return "vix1", "(ViX) TUDN Deportes 1"
-        
-    # Fox Sports
-    if "fox" in txt:
-        if "3" in txt:
-            return "foxsports3", "Fox Sports 3 HD"
-        if "2" in txt:
-            return "foxsports2", "Fox Sports 2 HD"
-        return "foxsports", "Fox Sports 1 HD"
-        
-    if "liga1" in txt or "liga 1" in txt:
-        return "liga1max", "Liga 1 MAX (Perú)"
-        
-    return slug, cname
+    # 1. Mapeo explícito de canales conocidos
+    EXACT_MAP = {
+        "espn": ("espn", "ESPN 1 HD"),
+        "espn2": ("espn2", "ESPN 2 HD"),
+        "espn3": ("espn3", "ESPN 3 HD"),
+        "espn4": ("espn4", "ESPN 4 HD"),
+        "espn5": ("espn5", "ESPN 5 HD"),
+        "espn6": ("espn6", "ESPN 6 HD"),
+        "espn7": ("espn7", "ESPN 7 HD"),
+        "espnpremium": ("espnpremium", "ESPN Premium HD"),
+        "espn-deportes": ("espn-deportes", "ESPN Deportes USA"),
+        "espnplus1": ("espnplus1", "ESPN+ USA 1"),
+        "espnplus2": ("espnplus2", "ESPN+ USA 2"),
+        "foxsports": ("foxsports", "Fox Sports 1 HD"),
+        "foxsports2": ("foxsports2", "Fox Sports 2 HD"),
+        "foxsports3": ("foxsports3", "Fox Sports 3 HD"),
+        "foxone": ("foxone", "Fox One HD"),
+        "winplus": ("winplus", "Win Sports+ HD (Colombia)"),
+        "winsports": ("winsports", "Win Sports Colombia"),
+        "tntsports": ("tntsports", "TNT Sports HD (Argentina)"),
+        "tntsportschile": ("tntsportschile", "TNT Sports Chile"),
+        "tycsports": ("tycsports", "TyC Sports HD"),
+        "dsports": ("dsports", "DIRECTV Sports 1 HD (DSports)"),
+        "dsports2": ("dsports2", "DIRECTV Sports 2 HD (DSports 2)"),
+        "dsportsplus": ("dsportsplus", "DIRECTV Sports+ HD"),
+        "liga1max": ("liga1max", "Liga 1 MAX (Perú)"),
+        "movistarper": ("movistarper", "Movistar Deportes (Perú)"),
+        "fut": ("fut", "FUTV HD (Costa Rica)"),
+        "futv": ("fut", "FUTV HD (Costa Rica)"),
+        "vix1": ("vix1", "(ViX) TUDN Deportes 1"),
+        "vix2": ("vix2", "(ViX) TUDN Deportes 2"),
+        "tudn_usa": ("tudn_usa", "TUDN USA"),
+        "universo_usa": ("universo_usa", "Universo USA"),
+        "tvc-deportes": ("tvc-deportes", "TVC Deportes"),
+        "max1": ("max1", "TNT Sports / MAX 1"),
+        "max2": ("max2", "TNT Sports / MAX 2"),
+        "hypermotion1": ("hypermotion1", "LaLiga Hypermotion"),
+        "movistarlaliga": ("movistarlaliga", "Movistar LaLiga FHD"),
+        "daznlaliga": ("daznlaliga", "DAZN LaLiga 1 FHD"),
+        "daznlaliga2": ("daznlaliga2", "DAZN LaLiga 2 FHD"),
+        "daznf1": ("daznf1", "DAZN F1 España"),
+        "daznmotogp": ("daznmotogp", "DAZN MotoGP"),
+        "premiersports1uk": ("premiersports1uk", "Premier Sports 1 UK"),
+        "premiere1": ("premiere1", "Premiere Clubes 1 (Brasil)"),
+        "peacocktv": ("peacocktv", "Peacock TV USA")
+    }
+
+    if slug_clean in EXACT_MAP:
+        return EXACT_MAP[slug_clean]
+
+    # 2. Señales Disney / Star / Fanatiz / Eventos
+    if slug_clean.startswith("disney"):
+        num = slug_clean.replace("disney", "").replace("-", "").strip()
+        return slug_clean, f"Disney+ / Star+ (Señal {num})" if num else "Disney+ / Star+"
+    if slug_clean.startswith("fanatiz"):
+        num = slug_clean.replace("fanatiz", "").replace("-", "").strip()
+        return slug_clean, f"Fanatiz HD (Opción {num})" if num else "Fanatiz HD"
+    if slug_clean.startswith("evento"):
+        num = slug_clean.replace("evento", "").replace("-", "").strip()
+        return slug_clean, f"Señal Evento {num}" if num else "Señal Evento HD"
+    if slug_clean.startswith("canal-"):
+        num = slug_clean.replace("canal-", "").strip()
+        return slug_clean, f"Canal Alternativo {num}"
+
+    return slug_clean, f"Canal [{slug_clean}]"
 
 def smart_match_channel_resolver(title, channels_raw):
     matched_channels = []
