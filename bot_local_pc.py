@@ -7,7 +7,7 @@ import sys
 import re
 from urllib.parse import urlparse
 
-BOT_TOKEN = "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs"
+BOT_TOKEN = "8988332685:AAF-6ulB_iNjIl5QeGxGQx8ehiZjMNeNQfE"
 RTMP_SERVER = "rtmps://dc4-1.rtmp.t.me/s/"
 CHANNELS_FILE = os.path.join(os.path.dirname(__file__), "channels_local.json")
 

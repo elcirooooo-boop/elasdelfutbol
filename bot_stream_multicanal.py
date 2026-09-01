@@ -12,7 +12,7 @@ import datetime
 # ==============================================================================
 # CONFIGURACIÓN GENERAL DEL BOT Y SERVIDOR IPTV DEDICADO (XTREAM CODES)
 # ==============================================================================
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8988332685:AAF-6ulB_iNjIl5QeGxGQx8ehiZjMNeNQfE")
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 CONFIG_FILE = "stream_config.json"
 
