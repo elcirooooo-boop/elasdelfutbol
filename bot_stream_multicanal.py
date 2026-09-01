@@ -4,14 +4,13 @@ import time
 import json
 import re
 import html
-import base64
 import subprocess
 import threading
 import requests
 import datetime
 
 # ==============================================================================
-# CONFIGURACIÓN GENERAL DEL BOT Y SERVIDORES (XTREAM IPTV / ROJADIRECTA)
+# CONFIGURACIÓN GENERAL DEL BOT Y SERVIDOR IPTV DEDICADO (XTREAM CODES)
 # ==============================================================================
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8720125234:AAGB4vCTAehurwPhxCvAsWsNaqM_mvyZ_xs")
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
@@ -23,7 +22,7 @@ IPTV_USER = os.environ.get("IPTV_USER", "BE15ERDV")
 IPTV_PASS = os.environ.get("IPTV_PASS", "PXELERB9")
 HEADERS_IPTV = {"User-Agent": "IPTVSmartersPro"}
 
-# Canales deportivos con enlace IPTV directo (.ts) de ultra alta velocidad y 100% verificados
+# Directorio verificado de Canales IPTV (Enlace directo .ts de alta velocidad)
 IPTV_DIRECT_CHANNELS = {
     # Suite ESPN
     "espn": {"id": "30326", "name": "ESPN 1 HD (Sur/Argentina)"},
@@ -77,62 +76,6 @@ IPTV_DIRECT_CHANNELS = {
     "vix2": {"id": "985722", "name": "ViX+ Zona TUDN"}
 }
 
-HEADERS_WEB = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Referer": "https://rojadirecta.ceo/"
-}
-
-STREAMXHD_SERVERS = [
-    "https://streamxhd.com/live2.php?stream=",
-    "https://streamxhd.com/live1.php?stream="
-]
-
-STREAMTP_SERVERS = [
-    "https://streamtp-golden1.click/global1.php?stream=",
-    "https://streamtp2.com/global1.php?stream=",
-    "https://tpplayer.xyz/global1.php?stream="
-]
-
-# Canales principales pre-mapeados con servidores CDN de alta velocidad
-OFFICIAL_CHANNELS = {
-    # España & Motor
-    "movistarlaliga": "Movistar LaLiga FHD",
-    "daznlaliga": "DAZN LaLiga 1 FHD",
-    "daznlaliga2": "DAZN LaLiga 2 FHD",
-    "hypermotion1": "LaLiga Hypermotion",
-    "daznf1": "DAZN F1 España",
-    "daznmotogp": "DAZN MotoGP",
-    # Argentina & Conmebol
-    "espnpremium": "ESPN Premium HD (Argentina)",
-    "tntsports": "TNT Sports HD (Argentina)",
-    "tycsports": "TyC Sports HD",
-    "tntsportschile": "TNT Sports Chile",
-    # Suite ESPN & Fox Sports
-    "espn": "ESPN 1 HD",
-    "espn2": "ESPN 2 HD",
-    "espn3": "ESPN 3 HD",
-    "espn4": "ESPN 4 HD",
-    "espn5": "ESPN 5 HD",
-    "espn6": "ESPN 6 HD",
-    "espn7": "ESPN 7 HD",
-    "espn-deportes": "ESPN Deportes USA",
-    "foxsports": "Fox Sports 1 HD",
-    "foxsports2": "Fox Sports 2 HD",
-    "foxsports3": "Fox Sports 3 HD",
-    # Colombia & DIRECTV
-    "winplus": "Win Sports+ HD (Colombia)",
-    "winsports": "Win Sports Colombia",
-    "dsports": "DIRECTV Sports 1 HD (DSports)",
-    "dsports2": "DIRECTV Sports 2 HD (DSports 2)",
-    "dsportsplus": "DIRECTV Sports+ HD",
-    "liga1max": "Liga 1 MAX (Perú)",
-    # México & Centroamérica
-    "tudn_usa": "TUDN USA",
-    "vix1": "(ViX) TUDN Deportes 1",
-    "vix2": "(ViX) TUDN Deportes 2",
-    "fut": "FUTV HD (Costa Rica)"
-}
-
 def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
@@ -157,341 +100,102 @@ active_streams = {}
 stream_lock = threading.Lock()
 
 # ==============================================================================
-# EXTRACTOR UNIVERSAL DE M3U8 (STREAMXHD / ROJADIRECTA.CEO / STREAMTP)
+# RESOLVEDOR DE CANALES Y EVENTOS (100% IPTV DEDICADO)
 # ==============================================================================
-def decode_streamxhd_html(html_text):
-    try:
-        arr_match = re.search(r'([a-zA-Z0-9_]+)\s*=\s*(\[\[\d+,\s*"[^"]+"\](?:,\s*\[\d+,\s*"[^"]+"\])*\])', html_text)
-        if not arr_match:
-            arr_match = re.search(r'(\[\[\d+,\s*"[^"]+"\](?:,\s*\[\d+,\s*"[^"]+"\])*\])', html_text)
-            if not arr_match:
-                return None
-            arr_raw = arr_match.group(1)
-        else:
-            arr_raw = arr_match.group(2)
-
-        items = json.loads(arr_raw)
-        fn_nums = re.findall(r'function\s+[a-zA-Z0-9_]+\s*\(\)\s*\{\s*return\s+(\d+);\s*\}', html_text)
-        if not fn_nums:
-            k_match = re.search(r'var\s+k\s*=\s*(\d+)\s*\+\s*(\d+)', html_text)
-            if k_match:
-                k = int(k_match.group(1)) + int(k_match.group(2))
-            else:
-                return None
-        else:
-            k = sum(int(n) for n in fn_nums)
-
-        items.sort(key=lambda x: x[0])
-        playback_url = ""
-        for idx, b64_val in items:
-            try:
-                decoded = base64.b64decode(b64_val).decode('utf-8', errors='ignore')
-                digits = re.sub(r'\D', '', decoded)
-                if digits:
-                    val = int(digits) - k
-                    playback_url += chr(val)
-            except Exception:
-                pass
-        return playback_url if playback_url.startswith("http") else None
-    except Exception:
-        return None
-
-def verify_m3u8(m3u8_url, referer_url):
-    try:
-        r = requests.get(m3u8_url, headers={'User-Agent': HEADERS_WEB['User-Agent'], 'Referer': referer_url}, timeout=2.5, stream=True)
-        if r.status_code == 200:
-            return True
-    except Exception:
-        pass
-    return False
-
-def get_slug_variations(slug):
-    slug_str = str(slug).strip().lower()
-    vars_list = []
-    if "disney" in slug_str:
-        nums = re.findall(r'\d+', slug_str)
-        if nums:
-            vars_list.extend([f"disney{nums[0]}", f"disney-{nums[0]}"])
-    elif "fox" in slug_str:
-        vars_list.append(slug_str)
-        if slug_str == "foxone":
-            vars_list.append("foxsports")
-        elif slug_str == "foxsports":
-            vars_list.append("foxone")
-    else:
-        vars_list.append(slug_str)
-        if '-' in slug_str:
-            vars_list.append(slug_str.replace('-', ''))
-        else:
-            m = re.match(r'^([a-zA-Z]+)(\d+)$', slug_str)
-            if m:
-                vars_list.append(f"{m.group(1)}-{m.group(2)}")
-    return list(dict.fromkeys(vars_list))
-
-def extract_web_m3u8(channel_slug):
-    candidates = get_slug_variations(channel_slug)
-    
-    for slug in candidates:
-        # 1. Servidores dedicados de StreamXHD (Prioridad #1: Mayor estabilidad y 0% 404)
-        for base in STREAMXHD_SERVERS:
-            xhd_url = f"{base}{slug}"
-            try:
-                r = requests.get(xhd_url, headers={'User-Agent': HEADERS_WEB['User-Agent'], 'Referer': 'https://rojadirecta.ceo/'}, timeout=2.5)
-                if r.status_code == 200:
-                    dec_url = decode_streamxhd_html(r.text)
-                    if dec_url and verify_m3u8(dec_url, base):
-                        headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                        return dec_url, headers_str, True
-                    
-                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
-                    if m and m.group(1):
-                        m3u8_url = m.group(1).replace(r'\/', '/')
-                        if verify_m3u8(m3u8_url, base):
-                            headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                            return m3u8_url, headers_str, True
-            except Exception:
-                pass
-
-        # 2. Extracción directa desde rojadirecta.ceo
-        try:
-            ceo_url = f"https://rojadirecta.ceo/stream/{slug}"
-            r = requests.get(ceo_url, headers=HEADERS_WEB, timeout=2.5)
-            if r.status_code == 200:
-                iframes = re.findall(r'<iframe[^>]*src="([^"]+)"', r.text)
-                for ifr in iframes:
-                    ifr_url = ifr if ifr.startswith("http") else f"https://rojadirecta.ceo{ifr}"
-                    ifr_r = requests.get(ifr_url, headers=HEADERS_WEB, timeout=2.5)
-                    if ifr_r.status_code == 200:
-                        dec_url = decode_streamxhd_html(ifr_r.text)
-                        if dec_url and verify_m3u8(dec_url, ifr_url):
-                            headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                            return dec_url, headers_str, True
-                        m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', ifr_r.text)
-                        if m and m.group(1):
-                            m3u8_url = m.group(1).replace(r'\/', '/')
-                            if verify_m3u8(m3u8_url, ifr_url):
-                                headers_str = f"Referer: {ifr_url}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                                return m3u8_url, headers_str, True
-        except Exception:
-            pass
-
-        # 3. Servidores de StreamTP (con verificación activa anti-404)
-        for base in STREAMTP_SERVERS:
-            player_url = f"{base}{slug}"
-            try:
-                r = requests.get(player_url, headers=HEADERS_WEB, timeout=2.5)
-                if r.status_code == 200:
-                    m = re.search(r'var playbackURL\s*=\s*"([^"]+)"', r.text)
-                    if m and m.group(1):
-                        m3u8_url = m.group(1).replace(r'\/', '/')
-                        if verify_m3u8(m3u8_url, base):
-                            headers_str = f"Referer: {base}\r\nUser-Agent: {HEADERS_WEB['User-Agent']}\r\n"
-                            return m3u8_url, headers_str, True
-            except Exception:
-                pass
-
-    return None, None, False
+def clean_arg(val):
+    if not val:
+        return ""
+    return val.strip().strip("<>").strip('"').strip("'").strip()
 
 def resolve_channel_input(raw_input):
     clean = str(raw_input).strip().lower()
     
-    if clean in OFFICIAL_CHANNELS:
-        return clean, OFFICIAL_CHANNELS[clean]
+    if clean in IPTV_DIRECT_CHANNELS:
+        return clean, IPTV_DIRECT_CHANNELS[clean]["name"]
 
-    # 1. Señales directas Disney / Star / Fanatiz / Eventos (¡SEPARADAS DE ESPN!)
-    if "disney" in clean:
-        nums = re.findall(r'\d+', clean)
-        if nums:
-            num = nums[0]
-            slug = f"disney-{num}" if "-" in clean else f"disney{num}"
-            return slug, f"Disney+ / Star+ (Señal {num})"
-        return "disney1", "Disney+ / Star+ (Señal 1)"
-
-    if "star" in clean and ("+" in clean or "plus" in clean or re.search(r'star\s*[\-_]?\d+', clean)):
-        nums = re.findall(r'\d+', clean)
-        if nums:
-            num = nums[0]
-            slug = f"star-{num}" if "-" in clean else f"star{num}"
-            return slug, f"Star+ (Señal {num})"
-        return "star1", "Star+ (Señal 1)"
-
-    if "fanatiz" in clean:
-        nums = re.findall(r'\d+', clean)
-        if nums:
-            num = nums[0]
-            slug = f"fanatiz-{num}" if "-" in clean else f"fanatiz{num}"
-            return slug, f"Fanatiz HD (Opción {num})"
-        return "fanatiz1", "Fanatiz HD (Opción 1)"
-
-    if "evento" in clean:
-        nums = re.findall(r'\d+', clean)
-        if nums:
-            num = nums[0]
-            slug = f"evento-{num}" if "-" in clean else f"evento{num}"
-            return slug, f"Señal Evento {num}"
-        return "evento1", "Señal Evento 1"
-
-    if "canal-" in clean or ("canal" in clean and re.search(r'canal\s*[\-_]?\d+', clean)):
-        nums = re.findall(r'\d+', clean)
-        if nums:
-            num = nums[0]
-            return f"canal-{num}", f"Canal Alternativo {num}"
-
-    # 2. Reglas específicas para ESPN (solo cuando NO es Disney)
+    # ESPN
     if "espn" in clean:
         if "prem" in clean:
             return "espnpremium", "ESPN Premium HD (Argentina)"
         if "deportes" in clean or "usa" in clean:
             return "espn-deportes", "ESPN Deportes USA"
-        if "plus" in clean or "+" in clean:
-            if "2" in clean:
-                return "espnplus2", "ESPN+ USA 2"
-            return "espnplus1", "ESPN+ USA 1"
         if "extra" in clean:
             return "espnextra", "ESPN Extra HD"
-        if "7" in clean:
-            return "espn7", "ESPN 7 HD"
-        if "6" in clean:
-            return "espn6", "ESPN 6 HD"
-        if "5" in clean:
-            return "espn5", "ESPN 5 HD"
         if "4" in clean:
             return "espn4", "ESPN 4 HD"
         if "3" in clean:
             return "espn3", "ESPN 3 HD"
         if "2" in clean:
             return "espn2", "ESPN 2 HD"
-        return "espn", "ESPN 1 HD"
+        return "espn", "ESPN 1 HD (Sur/Argentina)"
 
-    if "fox" in clean:
-        if "3" in clean:
-            return "foxsports3", "Fox Sports 3 HD"
-        if "2" in clean:
-            return "foxsports2", "Fox Sports 2 HD"
-        return "foxsports", "Fox Sports 1 HD"
-        
-    if "laliga" in clean or "la liga" in clean or "movistar" in clean:
-        if "2" in clean or "hyper" in clean:
-            return "hypermotion1", "LaLiga Hypermotion"
-        return "movistarlaliga", "Movistar LaLiga FHD"
-        
-    if "dazn" in clean:
-        if "f1" in clean or "formula" in clean:
-            return "daznf1", "DAZN F1 España"
-        if "moto" in clean:
-            return "daznmotogp", "DAZN MotoGP"
-        if "2" in clean:
-            return "daznlaliga2", "DAZN LaLiga 2 FHD"
-        return "daznlaliga", "DAZN LaLiga 1 FHD"
-        
-    if "win" in clean:
-        if "+" in clean or "plus" in clean:
-            return "winplus", "Win Sports+ HD (Colombia)"
-        return "winsports", "Win Sports Colombia"
-        
-    if "tyc" in clean:
-        return "tycsports", "TyC Sports HD"
-    if "tnt" in clean:
-        if "chile" in clean:
-            return "tntsportschile", "TNT Sports Chile"
-        return "tntsports", "TNT Sports HD (Argentina)"
-        
-    if "dsport" in clean or "directv" in clean:
+    # DIRECTV Sports / DSports
+    if "dsport" in clean or "directv" in clean or "dtv" in clean:
         if "plus" in clean or "+" in clean:
             return "dsportsplus", "DIRECTV Sports+ HD"
         if "2" in clean:
             return "dsports2", "DIRECTV Sports 2 HD"
-        return "dsports", "DIRECTV Sports 1 HD"
-        
-    if "vix" in clean:
+        return "dsports", "DIRECTV Sports 1 HD (DSports)"
+
+    # Fox Sports
+    if "fox" in clean:
+        if "prem" in clean:
+            return "foxpremium", "Fox Sports Premium HD"
+        if "3" in clean:
+            return "foxsports3", "Fox Sports 3 (Argentina)"
         if "2" in clean:
-            return "vix2", "(ViX) TUDN Deportes 2"
-        return "vix1", "(ViX) TUDN Deportes 1"
+            return "foxsports2", "Fox Sports 2 (Argentina)"
+        return "foxsports", "Fox Sports 1 (Argentina)"
+
+    # Argentina
+    if "tyc" in clean:
+        return "tycsports", "TyC Sports HD (Argentina)"
+    if "tnt" in clean:
+        if "chile" in clean:
+            return "tntsportschile", "TNT Sports Chile HD"
+        return "tntsports", "TNT Sports HD (Argentina)"
+
+    # Colombia
+    if "win" in clean:
+        if "+" in clean or "plus" in clean:
+            return "winplus", "Win Sports+ HD (Colombia)"
+        return "winsports", "Win Sports Colombia HD"
+
+    # España
+    if "movistar" in clean or "laliga" in clean or "la liga" in clean:
+        if "hyper" in clean or "segunda" in clean:
+            return "hypermotion1", "LaLiga TV Hypermotion FHD"
+        if "champ" in clean or "campeon" in clean:
+            return "campeones", "Movistar Liga de Campeones 1 FHD"
+        return "movistarlaliga", "Movistar LaLiga HD"
         
-    if "tudn" in clean:
-        return "tudn_usa", "TUDN USA"
-        
-    if "fut" in clean or "futv" in clean:
-        return "fut", "FUTV HD (Costa Rica)"
+    if "dazn" in clean:
+        if "2" in clean:
+            return "daznlaliga2", "DAZN LaLiga 2 FHD"
+        return "daznlaliga", "DAZN LaLiga 1 FHD"
+
+    if "sky" in clean or "premier" in clean:
+        return "skysportspremier", "Sky Sports Premier League FHD"
 
     if "liga 1" in clean or "liga1" in clean:
         return "liga1max", "Liga 1 MAX (Perú)"
 
-    return clean, f"Canal Web [{clean}]"
+    if "gol" in clean and "peru" in clean:
+        return "golperu", "Gol Perú HD"
 
-def resolve_channel_from_raw(slug, cname=""):
-    slug_clean = str(slug).strip().lower()
-    
-    # 1. Mapeo explícito de canales conocidos
-    EXACT_MAP = {
-        "espn": ("espn", "ESPN 1 HD"),
-        "espn2": ("espn2", "ESPN 2 HD"),
-        "espn3": ("espn3", "ESPN 3 HD"),
-        "espn4": ("espn4", "ESPN 4 HD"),
-        "espn5": ("espn5", "ESPN 5 HD"),
-        "espn6": ("espn6", "ESPN 6 HD"),
-        "espn7": ("espn7", "ESPN 7 HD"),
-        "espnpremium": ("espnpremium", "ESPN Premium HD"),
-        "espn-deportes": ("espn-deportes", "ESPN Deportes USA"),
-        "espnplus1": ("espnplus1", "ESPN+ USA 1"),
-        "espnplus2": ("espnplus2", "ESPN+ USA 2"),
-        "foxsports": ("foxsports", "Fox Sports 1 HD"),
-        "foxsports2": ("foxsports2", "Fox Sports 2 HD"),
-        "foxsports3": ("foxsports3", "Fox Sports 3 HD"),
-        "foxone": ("foxone", "Fox One HD"),
-        "winplus": ("winplus", "Win Sports+ HD (Colombia)"),
-        "winsports": ("winsports", "Win Sports Colombia"),
-        "tntsports": ("tntsports", "TNT Sports HD (Argentina)"),
-        "tntsportschile": ("tntsportschile", "TNT Sports Chile"),
-        "tycsports": ("tycsports", "TyC Sports HD"),
-        "dsports": ("dsports", "DIRECTV Sports 1 HD (DSports)"),
-        "dsports2": ("dsports2", "DIRECTV Sports 2 HD (DSports 2)"),
-        "dsportsplus": ("dsportsplus", "DIRECTV Sports+ HD"),
-        "liga1max": ("liga1max", "Liga 1 MAX (Perú)"),
-        "movistarper": ("movistarper", "Movistar Deportes (Perú)"),
-        "fut": ("fut", "FUTV HD (Costa Rica)"),
-        "futv": ("fut", "FUTV HD (Costa Rica)"),
-        "vix1": ("vix1", "(ViX) TUDN Deportes 1"),
-        "vix2": ("vix2", "(ViX) TUDN Deportes 2"),
-        "tudn_usa": ("tudn_usa", "TUDN USA"),
-        "universo_usa": ("universo_usa", "Universo USA"),
-        "tvc-deportes": ("tvc-deportes", "TVC Deportes"),
-        "max1": ("max1", "TNT Sports / MAX 1"),
-        "max2": ("max2", "TNT Sports / MAX 2"),
-        "hypermotion1": ("hypermotion1", "LaLiga Hypermotion"),
-        "movistarlaliga": ("movistarlaliga", "Movistar LaLiga FHD"),
-        "daznlaliga": ("daznlaliga", "DAZN LaLiga 1 FHD"),
-        "daznlaliga2": ("daznlaliga2", "DAZN LaLiga 2 FHD"),
-        "daznf1": ("daznf1", "DAZN F1 España"),
-        "daznmotogp": ("daznmotogp", "DAZN MotoGP"),
-        "premiersports1uk": ("premiersports1uk", "Premier Sports 1 UK"),
-        "premiere1": ("premiere1", "Premiere Clubes 1 (Brasil)"),
-        "peacocktv": ("peacocktv", "Peacock TV USA")
-    }
+    if "tudn" in clean:
+        return "tudn_usa", "TUDN USA HD"
 
-    if slug_clean in EXACT_MAP:
-        return EXACT_MAP[slug_clean]
+    if "vix" in clean:
+        if "2" in clean:
+            return "vix2", "ViX+ Zona TUDN"
+        return "vix1", "ViX+ TUDN Deportes 1"
 
-    # 2. Señales Disney / Star / Fanatiz / Eventos
-    if slug_clean.startswith("disney"):
-        num = slug_clean.replace("disney", "").replace("-", "").strip()
-        return slug_clean, f"Disney+ / Star+ (Señal {num})" if num else "Disney+ / Star+"
-    if slug_clean.startswith("fanatiz"):
-        num = slug_clean.replace("fanatiz", "").replace("-", "").strip()
-        return slug_clean, f"Fanatiz HD (Opción {num})" if num else "Fanatiz HD"
-    if slug_clean.startswith("evento"):
-        num = slug_clean.replace("evento", "").replace("-", "").strip()
-        return slug_clean, f"Señal Evento {num}" if num else "Señal Evento HD"
-    if slug_clean.startswith("canal-"):
-        num = slug_clean.replace("canal-", "").strip()
-        return slug_clean, f"Canal Alternativo {num}"
-
-    return slug_clean, f"Canal [{slug_clean}]"
+    return clean, f"Canal [{clean}]"
 
 def smart_match_channel_resolver(title, channels_raw=None):
     """
     Asigna ÚNICAMENTE canales oficiales de IPTV verificados para cada partido / evento.
-    Nunca entrega enlaces web secundarios como disney-6, canal-7 o foxone.
     """
     title_lower = title.lower()
     channels = []
@@ -593,14 +297,37 @@ def smart_match_channel_resolver(title, channels_raw=None):
     channels.append({"id": "dsports", "name": "DIRECTV Sports 1 HD (DSports)"})
     return channels
 
-# ==============================================================================
-# MOTOR DE TRANSMISIÓN EN DIRECTO (0% LAG / ULTRA BAJA LATENCIA Y AV SYNC)
-# ==============================================================================
-def clean_arg(val):
-    if not val:
-        return ""
-    return val.strip().strip("<>").strip('"').strip("'").strip()
+def resolve_stream_source(channel_input):
+    """
+    Resuelve la fuente de transmisión 100% con el servidor IPTV dedicado (Xtream Codes).
+    """
+    clean_in = clean_arg(channel_input).lower()
+    
+    # 1. Enlace directo http / https
+    if clean_in.startswith("http://") or clean_in.startswith("https://"):
+        return clean_in, "User-Agent: IPTVSmartersPro\r\n", "Canal Personalizado", clean_in, True
 
+    # 2. ID numérico directo de IPTV (ej. 33933)
+    if clean_in.isdigit():
+        iptv_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{clean_in}.ts"
+        headers_str = "User-Agent: IPTVSmartersPro\r\n"
+        return iptv_url, headers_str, f"Canal IPTV #{clean_in}", clean_in, True
+
+    # 3. Canales pre-mapeados de IPTV
+    resolved_slug, channel_name = resolve_channel_input(clean_in)
+    
+    if resolved_slug in IPTV_DIRECT_CHANNELS:
+        ch_info = IPTV_DIRECT_CHANNELS[resolved_slug]
+        sid = ch_info["id"]
+        iptv_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{sid}.ts"
+        headers_str = "User-Agent: IPTVSmartersPro\r\n"
+        return iptv_url, headers_str, ch_info["name"], resolved_slug, True
+        
+    return None, None, channel_name, resolved_slug, False
+
+# ==============================================================================
+# MOTOR DE TRANSMISIÓN FFmpeg (ULTRA BAJA LATENCIA / 0% LAG / AV SYNC)
+# ==============================================================================
 def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     is_hls = ".m3u8" in source_url
     cmd = [
@@ -661,43 +388,6 @@ def launch_ffmpeg_process(source_url, headers, destination, stream_id):
     proc = subprocess.Popen(cmd, stdout=out_f, stderr=out_f)
     return proc, out_f, log_file
 
-def resolve_stream_source(channel_input):
-    """
-    Resuelve la fuente de transmisión con prioridad absoluta al servidor IPTV dedicado (Xtream Codes):
-    1. Si es un canal directo del servidor IPTV dedicado -> Devuelve la URL IPTV directa .ts (0% Lag, máxima calidad)
-    2. Si es un número/ID directo de IPTV (ej. 33933) -> Devuelve la URL IPTV directa .ts
-    3. Si es un enlace http:// o https:// -> Devuelve el enlace directo
-    4. Si es un canal web / evento (ej. disney6, etc.) -> Extrae la señal HLS (.m3u8) desde StreamXHD / RojaDirecta
-    """
-    clean_in = clean_arg(channel_input).lower()
-    
-    # 1. Enlace directo
-    if clean_in.startswith("http://") or clean_in.startswith("https://"):
-        return clean_in, "Referer: http://evestv.leptis.live/\r\nUser-Agent: IPTVSmartersPro\r\n", "Canal Personalizado", clean_in, True
-
-    # 2. Número / ID directo de IPTV
-    if clean_in.isdigit():
-        iptv_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{clean_in}.ts"
-        headers_str = "User-Agent: IPTVSmartersPro\r\n"
-        return iptv_url, headers_str, f"Canal IPTV #{clean_in}", clean_in, True
-
-    # 3. Canales pre-configurados del servidor IPTV dedicado
-    resolved_slug, channel_name = resolve_channel_input(clean_in)
-    
-    if resolved_slug in IPTV_DIRECT_CHANNELS:
-        ch_info = IPTV_DIRECT_CHANNELS[resolved_slug]
-        sid = ch_info["id"]
-        iptv_url = f"{IPTV_SERVER}/live/{IPTV_USER}/{IPTV_PASS}/{sid}.ts"
-        headers_str = "User-Agent: IPTVSmartersPro\r\n"
-        return iptv_url, headers_str, ch_info["name"], resolved_slug, True
-        
-    # 4. Extracción web para señales de eventos (StreamXHD / RojaDirecta / StreamTP)
-    m3u8_url, headers_str, ok = extract_web_m3u8(resolved_slug)
-    if ok and m3u8_url:
-        return m3u8_url, headers_str, channel_name, resolved_slug, True
-        
-    return None, None, channel_name, resolved_slug, False
-
 def search_iptv_channels(query, curr_key):
     try:
         url_streams = f"{IPTV_SERVER}/player_api.php?username={IPTV_USER}&password={IPTV_PASS}&action=get_live_streams"
@@ -728,13 +418,14 @@ def start_single_stream(channel_input, stream_key, chat_id):
 
     source_url, headers_str, channel_name, resolved_slug, ok = resolve_stream_source(clean_channel_input)
     if not ok or not source_url:
-        return False, f"❌ No se pudo conectar al stream en vivo de <b>{html.escape(clean_channel_input)}</b>. Intenta con <code>/canales</code> o <code>/buscar &lt;nombre&gt;</code>."
+        return False, f"❌ No se encontró el canal <b>{html.escape(clean_channel_input)}</b> en el IPTV. Usa <code>/canales</code> o <code>/buscar &lt;nombre&gt;</code>."
     
     if clean_key.startswith("rtmp://") or clean_key.startswith("rtmps://"):
         destination = clean_key
     else:
         destination = f"rtmps://dc4-1.rtmp.t.me/s/{clean_key}"
 
+    # Detener transmisiones previas si la cuenta IPTV tiene límite de conexiones
     with stream_lock:
         for sid, info in list(active_streams.items()):
             try:
@@ -772,10 +463,10 @@ def start_single_stream(channel_input, stream_key, chat_id):
         if "Input/output error" in logs or "Error opening output" in logs or "Error number -138" in logs or "Connection to tcp://" in logs:
             return False, (
                 "⚠️ <b>Telegram rechazó la conexión de transmisión.</b>\n\n"
-                "👉 <b>Motivo:</b> La transmisión en vivo no ha sido iniciada en tu canal o la clave es incorrecta.\n\n"
+                "👉 <b>Motivo:</b> La sala en vivo no está abierta en tu canal o la clave es incorrecta.\n\n"
                 "<b>Pasos obligatorios para transmitir en Telegram:</b>\n"
                 "1. Abre tu canal o grupo de Telegram.\n"
-                "2. Toca en el menú de arriba (los 3 puntos <code>...</code>) $\rightarrow$ <b>\"Iniciar transmisión en vivo\"</b> o <b>\"Transmitir con...\"</b>.\n"
+                "2. Toca en el menú de arriba (<code>...</code>) $\\rightarrow$ <b>\"Transmitir con...\"</b>.\n"
                 "3. Mantén abierta la ventana que dice <i>\"Listo para transmitir\"</i> o <i>\"Esperando señal...\"</i>.\n"
                 "4. Vuelve a enviar el comando: <code>/stream " + resolved_slug + " " + clean_key + "</code>"
             )
@@ -800,7 +491,7 @@ def start_single_stream(channel_input, stream_key, chat_id):
     return True, (
         f"✅ <b>TRANSMISIÓN EN VIVO INICIADA (#{stream_id})</b>\n\n"
         f"📺 <b>Canal:</b> {html.escape(channel_name)} [<code>{html.escape(resolved_slug)}</code>]\n"
-        f"🌐 <b>Servidor CDN:</b> StreamTP / RojaDirecta HLS (0% Lag)\n"
+        f"🌐 <b>Servidor:</b> IPTV Dedicado Xtream (0% Lag / HD)\n"
         f"🔑 <b>Stream Key:</b> <code>{clean_key[:12]}...</code>\n"
         f"⚙️ <b>Audio/Video:</b> 720p @ 30fps (Sincronización AV Bloqueada)\n\n"
         f"🛑 <i>Para detener usa:</i> <code>/stop {stream_id}</code> o <code>/stopall</code>"
@@ -825,7 +516,7 @@ def stop_single_stream(stream_id_or_key=None):
             target_sid = list(active_streams.keys())[0]
 
         if not target_sid or target_sid not in active_streams:
-            return False, f"⚠️ No se encontró ninguna transmisión con el ID o Key especificado."
+            return False, f"⚠️ No se encontró ninguna transmisión activa con ese ID o Key."
 
         info = active_streams[target_sid]
         info["auto_restart"] = False
@@ -911,7 +602,7 @@ t_super = threading.Thread(target=supervisor_thread, daemon=True)
 t_super.start()
 
 # ==============================================================================
-# AGENDA DINÁMICA DE PARTIDOS (ROJADIRECTA.CEO)
+# AGENDA DINÁMICA DE PARTIDOS (MAPEO 100% A CANALES IPTV)
 # ==============================================================================
 MATCHES_AGENDA_CACHE = {"timestamp": 0, "messages": []}
 
@@ -923,10 +614,13 @@ def get_live_matches_agenda(curr_key):
 
     try:
         now_utc = datetime.datetime.now(datetime.timezone.utc)
-        now_art = now_utc - datetime.timedelta(hours=3) # Referencia horaria
+        now_art = now_utc - datetime.timedelta(hours=3) # Referencia horaria UTC-3
         current_minutes = now_art.hour * 60 + now_art.minute
 
-        r = requests.get("https://rojadirecta.ceo/", headers=HEADERS_WEB, timeout=6)
+        headers_scrap = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        }
+        r = requests.get("https://rojadirecta.ceo/", headers=headers_scrap, timeout=6)
         if r.status_code == 200:
             page_html = r.text
             rows = re.findall(r'<tr>(.*?)</tr>', page_html, re.DOTALL)
@@ -936,7 +630,6 @@ def get_live_matches_agenda(curr_key):
                 m = re.search(r'<td>(.*?):<a\s+href="[^"]*stream/([^"]+)"[^>]*><b>(.*?)</b></a></td>.*?<span\s+class="t">([^<]+)</span>', row, re.DOTALL)
                 if m:
                     league = html.unescape(m.group(1).strip())
-                    slug = m.group(2).strip()
                     match_title = html.unescape(m.group(3).strip())
                     time_str = m.group(4).strip()
                     
@@ -946,18 +639,16 @@ def get_live_matches_agenda(curr_key):
                             "time": time_str,
                             "league": league,
                             "title": match_title,
-                            "full_title": full_title,
-                            "channels_raw": []
+                            "full_title": full_title
                         }
-                    events_dict[full_title]["channels_raw"].append((slug, slug))
 
             live_events = []
             upcoming_events = []
             
             for full_title, ev_info in events_dict.items():
                 time_str = ev_info["time"]
-                web_options = smart_match_channel_resolver(full_title, ev_info["channels_raw"])
-                if not web_options:
+                iptv_options = smart_match_channel_resolver(full_title)
+                if not iptv_options:
                     continue
 
                 status_tag = ""
@@ -984,7 +675,7 @@ def get_live_matches_agenda(curr_key):
                     "time": time_str,
                     "title": full_title,
                     "status_tag": status_tag,
-                    "channels": web_options
+                    "channels": iptv_options
                 }
                 
                 if is_live:
@@ -1050,6 +741,11 @@ def get_sports_menu_messages(curr_key):
         f"• ⚽ <b>DAZN LaLiga 2 FHD:</b> <code>/stream daznlaliga2 {curr_key}</code>\n"
         f"• ⚽ <b>LaLiga TV Hypermotion FHD:</b> <code>/stream hypermotion1 {curr_key}</code>\n"
         f"• ⚽ <b>Movistar Liga de Campeones FHD:</b> <code>/stream campeones {curr_key}</code>\n\n"
+        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 <b>PREMIER LEAGUE (INGLATERRA):</b>\n"
+        f"• ⚽ <b>Sky Sports Premier League FHD:</b> <code>/stream skysportspremier {curr_key}</code>\n"
+        f"• ⚽ <b>Sky Sports Main Events FHD:</b> <code>/stream skysportsmain {curr_key}</code>\n"
+        f"• ⚽ <b>Sky Sports Football FHD:</b> <code>/stream skysportsfootball {curr_key}</code>\n"
+        f"• ⚽ <b>NBC Sports FHD:</b> <code>/stream nbcsports {curr_key}</code>\n\n"
         "🇦🇷 <b>ARGENTINA & CONMEBOL (FÚTBOL PROFESIONAL):</b>\n"
         f"• ⚽ <b>ESPN Premium HD (Argentina):</b> <code>/stream espnpremium {curr_key}</code>\n"
         f"• ⚽ <b>TNT Sports HD (Argentina):</b> <code>/stream tntsports {curr_key}</code>\n"
@@ -1096,7 +792,7 @@ def send_msg(chat_id, text, parse_mode="HTML"):
         }
         requests.post(url, json=payload, timeout=8)
     except Exception as e:
-        print("Error sending msg to telegram:", e)
+        print("Error enviando mensaje a Telegram:", e)
 
 def handle_message(msg):
     global CONFIG
@@ -1116,25 +812,25 @@ def handle_message(msg):
 
         if text.startswith("/start") or text.startswith("/ayuda"):
             help_text = (
-                "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (IPTV DEDICADO + WEB HLS)</b>\n\n"
+                "⚽ <b>BOT DE TRANSMISIÓN DEPORTIVA (IPTV DEDICADO - 0% LAG)</b>\n\n"
                 "📋 <b>COMANDOS PRINCIPALES:</b>\n"
                 "• <code>/partidos</code> o <code>/agenda</code> $\\rightarrow$ Ver partidos de hoy con enlaces listos en 1-click\n"
-                "• <code>/canales</code> o <code>/deportes</code> $\\rightarrow$ Directorio de canales deportivos principales\n"
+                "• <code>/canales</code> o <code>/deportes</code> $\\rightarrow$ Directorio de canales deportivos IPTV\n"
                 "• <code>/buscar &lt;nombre&gt;</code> $\\rightarrow$ Buscar entre +27,000 canales IPTV en vivo\n"
-                "• <code>/espn</code> $\\rightarrow$ Ver señales de ESPN (1 al 7 y Premium)\n"
+                "• <code>/espn</code> $\\rightarrow$ Ver señales de ESPN (1, 2, 3, 4, Extra, Premium)\n"
                 "• <code>/stream &lt;CANAL o ID&gt; [STREAM_KEY]</code> $\\rightarrow$ Iniciar transmisión en directo\n"
-                "• <code>/status</code> $\\rightarrow$ Ver transmisiones activas simultáneas\n"
-                "• <code>/stop [ID]</code> $\\rightarrow$ Detener transmisión por ID o primera activa\n"
-                "• <code>/stopall</code> $\\rightarrow$ Detener todas las transmisiones activas\n"
+                "• <code>/status</code> $\\rightarrow$ Ver transmisiones activas\n"
+                "• <code>/stop [ID]</code> $\\rightarrow$ Detener transmisión activa\n"
+                "• <code>/stopall</code> $\\rightarrow$ Detener todas las transmisiones\n"
                 f"• <code>/key &lt;NUEVA_KEY&gt;</code> $\\rightarrow$ Cambiar Stream Key por defecto\n\n"
-                "🌐 <b>Servidor Principal:</b> IPTV Dedicado (0% Lag / 100% AV Sync)"
+                "🌐 <b>Servidor:</b> IPTV Dedicado Xtream Codes (0% Lag / HD / AV Sync)"
             )
             send_msg(chat_id, help_text)
 
         elif text.startswith("/buscar") or text.startswith("/search"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2:
-                send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre del canal o evento&gt;</code>\nEjemplo: <code>/buscar dazn</code> o <code>/buscar espn</code> o <code>/buscar bein</code>")
+                send_msg(chat_id, "⚠️ <b>Uso:</b> <code>/buscar &lt;nombre del canal o evento&gt;</code>\nEjemplo: <code>/buscar dazn</code> o <code>/buscar espn</code> o <code>/buscar sky sports</code>")
                 return
             q = parts[1].strip()
             send_msg(chat_id, f"🔍 <b>Buscando canales IPTV para '{q}'...</b>")
@@ -1149,21 +845,19 @@ def handle_message(msg):
         elif text.startswith("/espn"):
             espn_msg = (
                 "📺 <b>DIRECTORIO DE SEÑALES ESPN (IPTV DEDICADO):</b>\n\n"
-                "🇦🇷 <b>SEÑALES ESPN (1 AL 7 & PREMIUM):</b>\n"
-                f"• ⚽ <b>ESPN 1 HD:</b> <code>/stream espn {curr_key}</code>\n"
+                "🇦🇷 <b>SEÑALES ESPN (HD & PREMIUM):</b>\n"
+                f"• ⚽ <b>ESPN 1 HD (Sur/Argentina):</b> <code>/stream espn {curr_key}</code>\n"
                 f"• ⚽ <b>ESPN 2 HD:</b> <code>/stream espn2 {curr_key}</code>\n"
                 f"• ⚽ <b>ESPN 3 HD:</b> <code>/stream espn3 {curr_key}</code>\n"
                 f"• ⚽ <b>ESPN 4 HD:</b> <code>/stream espn4 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN 5 HD:</b> <code>/stream espn5 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN 6 HD:</b> <code>/stream espn6 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN 7 HD:</b> <code>/stream espn7 {curr_key}</code>\n"
-                f"• ⚽ <b>ESPN Premium HD:</b> <code>/stream espnpremium {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN Extra HD:</b> <code>/stream espnextra {curr_key}</code>\n"
+                f"• ⚽ <b>ESPN Premium HD (Argentina):</b> <code>/stream espnpremium {curr_key}</code>\n"
                 f"• 🇺🇸 <b>ESPN Deportes USA:</b> <code>/stream espn-deportes {curr_key}</code>\n"
             )
             send_msg(chat_id, espn_msg)
 
         elif text.startswith("/partidos") or text.startswith("/agenda") or text.startswith("/hoy"):
-            send_msg(chat_id, "⏳ <b>Cargando partidos de hoy desde RojaDirecta / Pelota Libre...</b>")
+            send_msg(chat_id, "⏳ <b>Cargando partidos de hoy (IPTV Dedicado)...</b>")
             msgs = get_live_matches_agenda(curr_key)
             for m in msgs:
                 send_msg(chat_id, m)
@@ -1177,7 +871,7 @@ def handle_message(msg):
             ch_input = parts[1].strip()
             s_key = parts[2].strip() if len(parts) >= 3 else curr_key
 
-            send_msg(chat_id, f"🔄 <b>Conectando señal para {ch_input}...</b>")
+            send_msg(chat_id, f"🔄 <b>Conectando señal IPTV para {ch_input}...</b>")
             ok, response_msg = start_single_stream(ch_input, s_key, chat_id)
             send_msg(chat_id, response_msg)
 
@@ -1240,7 +934,7 @@ def handle_message(msg):
             send_msg(chat_id, f"✅ <b>Stream Key actualizada correctamente:</b>\n<code>{new_key}</code>")
 
         elif text.startswith("/"):
-            send_msg(chat_id, "❓ <b>Comando no reconocido.</b>\nUsa <code>/partidos</code>, <code>/canales</code> o <code>/ayuda</code> para ver los comandos.")
+            send_msg(chat_id, "❓ <b>Comando no reconocido.</b>\nUsa <code>/partidos</code>, <code>/canales</code> o <code>/ayuda</code> para ver los comandos disponibles.")
 
     except Exception as e:
         print("Error procesando mensaje:", e)
@@ -1248,7 +942,7 @@ def handle_message(msg):
 
 def main():
     print("=" * 65)
-    print("🤖 BOT DE TRANSMISIÓN DE FÚTBOL (STREAMTP / ROJADIRECTA HLS ENGINE)")
+    print("🤖 BOT DE TRANSMISIÓN DE FÚTBOL (100% IPTV DEDICADO - 0% LAG)")
     print("=" * 65)
     print("Iniciando polling de Telegram...")
     offset = 0
